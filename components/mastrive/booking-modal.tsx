@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { X, Lock, MapPin, Video, ArrowRight, ArrowLeft } from 'lucide-react'
+import { X, Lock, MapPin, Video, ArrowRight, ArrowLeft, Calendar, Repeat } from 'lucide-react'
 
 export interface BookingInstructor {
   name: string
@@ -50,6 +50,7 @@ const loadRazorpayScript = () => {
 
 export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
+  const [bookingType, setBookingType] = useState<'single' | 'monthly'>('single')
   const [mode, setMode] = useState<'in-person' | 'online'>('in-person')
   const [selectedDate, setSelectedDate] = useState('20')
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
@@ -62,7 +63,14 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
 
   if (!instructor) return null
 
-  const totalPrice = instructor.price * personCount
+  // Price Calculation: Monthly Pass offers 4 sessions at a 20% discount
+  const basePricePerSession = instructor.price
+  const pricePerParticipant =
+    bookingType === 'single'
+      ? basePricePerSession
+      : Math.round(basePricePerSession * 4 * 0.8)
+
+  const totalPrice = pricePerParticipant * personCount
 
   const handleModalClose = () => {
     setStep(1) // Reset step on close
@@ -79,11 +87,11 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     }
 
     const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder', // Falls back safely, replace with your env variable
-      amount: totalPrice * 100, // Amount in paise (₹1 = 100 paise)
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+      amount: totalPrice * 100, // Amount in paise
       currency: 'INR',
       name: 'MASTRIVE',
-      description: `Booking with ${instructor.name} (${personCount} participant)`,
+      description: `${bookingType === 'monthly' ? 'Monthly Pass' : 'Single Session'} with ${instructor.name} (${personCount} participant)`,
       handler: function (response: any) {
         alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`)
         handleModalClose()
@@ -94,13 +102,14 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
         contact: '9999999999',
       },
       notes: {
+        booking_type: bookingType,
         mode: mode,
         date: `${selectedDate} Aug 2026`,
         time: selectedTime,
         participants: personCount,
       },
       theme: {
-        color: '#e52e42', // Matches your brand red theme
+        color: '#e52e42',
       },
     }
 
@@ -112,7 +121,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop with backdrop blur */}
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -150,10 +159,46 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
 
             {/* Grid Layout */}
             <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-12">
-              {/* Left Column: Dynamic Step Form Controls */}
+              {/* Left Column: Form Controls */}
               <div className="space-y-6 md:col-span-7">
                 {step === 1 ? (
                   <>
+                    {/* Booking Type Toggle: Single vs Monthly */}
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
+                        Booking Type
+                      </span>
+                      <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-[#0d1117] p-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setBookingType('single')}
+                          className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
+                            bookingType === 'single'
+                              ? 'bg-[#e52e42] text-white shadow-md'
+                              : 'text-[#8b949e] hover:text-white'
+                          }`}
+                        >
+                          <Calendar className="size-3.5" />
+                          Single Session
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBookingType('monthly')}
+                          className={`relative flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
+                            bookingType === 'monthly'
+                              ? 'bg-[#e52e42] text-white shadow-md'
+                              : 'text-[#8b949e] hover:text-white'
+                          }`}
+                        >
+                          <Repeat className="size-3.5" />
+                          Monthly Pass
+                          <span className="absolute -top-1.5 -right-1 flex h-4 items-center rounded-full bg-emerald-500 px-1.5 text-[9px] font-extrabold uppercase text-black">
+                            20% OFF
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Session Mode */}
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
@@ -197,7 +242,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                     {/* Select Date */}
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
-                        Select Date
+                        {bookingType === 'monthly' ? 'Start Date' : 'Select Date'}
                       </span>
                       <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
                         {DATES.map((item) => (
@@ -317,11 +362,17 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                     <span className="font-semibold text-white">{instructor.name}</span>
                   </div>
                   <div className="flex justify-between text-xs">
+                    <span className="text-[#8b949e]">Plan</span>
+                    <span className="font-semibold text-emerald-400">
+                      {bookingType === 'single' ? 'Single Session' : 'Monthly Pass (4x)'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
                     <span className="text-[#8b949e]">Mode</span>
                     <span className="font-semibold text-white capitalize">{mode}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-[#8b949e]">Date</span>
+                    <span className="text-[#8b949e]">{bookingType === 'monthly' ? 'Start Date' : 'Date'}</span>
                     <span className="font-semibold text-white">Thu, {selectedDate} Aug</span>
                   </div>
                   <div className="flex justify-between text-xs">

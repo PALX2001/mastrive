@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, ChevronDown } from 'lucide-react'
 import { motion } from 'motion/react'
 import { categories, type CategoryId } from '@/lib/data'
 
@@ -19,7 +19,9 @@ export function Hero({
   onCategoryChange: (id: CategoryId) => void
 }) {
   const [placeholderText, setPlaceholderText] = useState('')
+  const [locationName, setLocationName] = useState<string>('Detecting location...')
 
+  // Typewriter effect
   useEffect(() => {
     let isMounted = true
     let skillIdx = 0
@@ -65,8 +67,41 @@ export function Hero({
     }
   }, [])
 
+  // Geolocation & Reverse Geocoding
+  useEffect(() => {
+    if (!('geolocation' in navigator)) {
+      setLocationName('Delhi')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          )
+          const data = await res.json()
+          const state =
+            data.address?.state ||
+            data.address?.region ||
+            data.address?.city ||
+            'Delhi'
+
+          setLocationName(state)
+        } catch {
+          setLocationName('Delhi')
+        }
+      },
+      () => {
+        // Fallback when access is denied or unavailable
+        setLocationName('Delhi')
+      }
+    )
+  }, [])
+
   return (
-    <section className="relative z-10 w-full overflow-visible">
+    <section className="relative z-10 flex min-h-[70vh] w-full flex-col items-center justify-center overflow-visible px-4 pb-6 pt-12 sm:pt-16">
       {/* SVG Blur Filter Definition */}
       <svg className="absolute size-0" aria-hidden>
         <defs>
@@ -76,24 +111,29 @@ export function Hero({
         </defs>
       </svg>
 
-      <div className="relative mx-auto max-w-3xl px-4 pb-10 pt-16 text-center sm:px-6 sm:pt-24">
-        {/* Delhi Early Access Badge */}
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
+      <div className="relative mx-auto max-w-3xl text-center">
+        {/* Minimal Location Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22] px-3 py-1 text-xs font-semibold uppercase tracking-widest text-[#8b949e]"
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22]/80 px-3.5 py-1 text-xs font-semibold text-[#8b949e] backdrop-blur-md"
         >
-          <span className="size-1.5 rounded-full bg-[#e01e37]" />
-          Delhi • Early Access
-        </motion.p>
+          {/* Continuous Blinking Green Light */}
+          <span className="relative flex size-2.5 items-center justify-center">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75 duration-1000" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+          </span>
+
+          <span>{locationName}</span>
+        </motion.div>
 
         {/* Heading Container with Centered Glow */}
         <div className="relative inline-block w-full">
           {/* Centered Ambient Glow Element */}
           <div
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[280px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70"
+            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70"
             style={{
               background:
                 'radial-gradient(ellipse at center, rgba(224, 30, 55, 0.45) 0%, rgba(224, 30, 55, 0.18) 40%, rgba(0, 0, 0, 0) 75%)',
@@ -102,9 +142,9 @@ export function Hero({
           />
 
           <motion.h1
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.05 }}
+            transition={{ duration: 0.6, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
             className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-[#f0f6fc] sm:text-6xl"
           >
             Find your{' '}
@@ -116,22 +156,21 @@ export function Hero({
 
         {/* Subtitle */}
         <motion.p
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.12 }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="mx-auto mt-5 max-w-xl text-pretty text-base leading-relaxed text-[#8b949e]"
         >
-          Book in-person sessions nearby or jump into a live 1-on-1 stream — pay
-          per session, no subscriptions.
+          Book in-person sessions nearby or jump into a live 1-on-1 stream — pay per session, no subscriptions.
         </motion.p>
 
         {/* Search Bar */}
         <motion.form
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.18 }}
+          transition={{ duration: 0.6, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
           onSubmit={(e) => e.preventDefault()}
-          className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/10 bg-[#161b22] p-2 pl-5 shadow-2xl shadow-black/40 focus-within:border-[#e01e37]/50"
+          className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/10 bg-[#161b22] p-2 pl-5 shadow-2xl shadow-black/50 focus-within:border-[#e01e37]/50"
         >
           <Search className="size-5 shrink-0 text-[#8b949e]" aria-hidden />
           <input
@@ -151,7 +190,12 @@ export function Hero({
         </motion.form>
 
         {/* Category Pills */}
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-6 flex flex-wrap items-center justify-center gap-2"
+        >
           {categories.map((cat) => {
             const active = activeCategory === cat.id
             const IconComponent = cat.icon
@@ -174,8 +218,21 @@ export function Hero({
               </button>
             )
           })}
-        </div>
+        </motion.div>
       </div>
+
+      {/* Subtle Animated Scroll Indicator */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.4, y: [0, 6, 0] }}
+        transition={{
+          opacity: { delay: 0.8, duration: 0.5 },
+          y: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
+        }}
+        className="mt-10 text-[#8b949e]"
+      >
+        <ChevronDown className="size-5" />
+      </motion.div>
     </section>
   )
 }

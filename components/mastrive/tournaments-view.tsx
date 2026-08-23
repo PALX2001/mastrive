@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Flame, Lock, TrendingUp } from 'lucide-react'
+import { Flame, Lock, MapPin, TrendingUp } from 'lucide-react'
 import { motion } from 'motion/react'
 import { leaderboard, tournaments } from '@/lib/data'
 
 export function TournamentsView() {
   const [registered, setRegistered] = useState<Set<string>>(new Set())
+  const [activeScope, setActiveScope] = useState<'state' | 'global'>('state')
+  const [selectedState, setSelectedState] = useState<string>('Delhi')
 
   const toggleRegister = (id: string) =>
     setRegistered((prev) => {
@@ -14,6 +16,14 @@ export function TournamentsView() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+
+  // Filter leaderboard items based on active tab and state
+  const displayedLeaderboard = leaderboard.filter((item) => {
+    if (activeScope === 'global') return true
+    // Matches explicitly set state property, fallback to 'Delhi' defaults, or current user row
+    const itemState = (item as any).state || 'Delhi'
+    return itemState === selectedState || item.isUser
+  })
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
@@ -85,11 +95,49 @@ export function TournamentsView() {
         })}
       </div>
 
-      {/* Leaderboard */}
+      {/* Leaderboard Section */}
       <div className="mt-12">
-        <h3 className="text-xl font-bold tracking-tight text-[#f0f6fc]">
-          Global Category Leaderboard
-        </h3>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-xl font-bold tracking-tight text-[#f0f6fc]">
+              {activeScope === 'state' ? `${selectedState} State` : 'Global'} Category Leaderboard
+            </h3>
+            <p className="mt-1 text-xs text-[#8b949e]">
+              {activeScope === 'state'
+                ? `Showing regional talent and top ranks within ${selectedState}.`
+                : 'Showing global top performers across all categories.'}
+            </p>
+          </div>
+
+          {/* State / Global Scope Filter Toggle */}
+          <div className="inline-flex items-center rounded-full border border-white/10 bg-[#161b22] p-1">
+            <button
+              onClick={() => setActiveScope('state')}
+              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                activeScope === 'state'
+                  ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
+                  : 'text-[#8b949e] hover:text-[#f0f6fc]'
+              }`}
+            >
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              {selectedState} State
+            </button>
+
+            <button
+              onClick={() => setActiveScope('global')}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                activeScope === 'global'
+                  ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
+                  : 'text-[#8b949e] hover:text-[#f0f6fc]'
+              }`}
+            >
+              Global
+            </button>
+          </div>
+        </div>
 
         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161b22]">
           <div className="overflow-x-auto">
@@ -107,7 +155,7 @@ export function TournamentsView() {
                 </tr>
               </thead>
               <tbody>
-                {leaderboard.map((row) => (
+                {displayedLeaderboard.map((row) => (
                   <tr
                     key={row.rank}
                     className={`border-b border-white/10 last:border-0 transition-colors ${
