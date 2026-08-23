@@ -2,10 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { Search, ChevronDown } from 'lucide-react'
-import { motion } from 'motion/react'
+import { motion, AnimatePresence } from 'motion/react'
 import { categories, type CategoryId } from '@/lib/data'
 
 const SKILLS = ['Boxing', 'Chess', 'Guitar', 'Pottery', 'Salsa', 'Web Dev']
+
+const HERO_PHRASES = [
+  { id: 'find', line1: 'Find your', line2: 'perfect skill,    ' },
+  { id: 'master', line1: 'and', line2: 'master it.   ' },
+]
 
 export function Hero({
   query,
@@ -18,8 +23,17 @@ export function Hero({
   activeCategory: CategoryId
   onCategoryChange: (id: CategoryId) => void
 }) {
+  const [phraseIndex, setPhraseIndex] = useState(0)
   const [placeholderText, setPlaceholderText] = useState('')
   const [locationName, setLocationName] = useState<string>('Detecting location...')
+
+  // Loop Hero Phrases ("Find your perfect skill." <-> "and master it.")
+  useEffect(() => {
+    const phraseInterval = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % HERO_PHRASES.length)
+    }, 3200)
+    return () => clearInterval(phraseInterval)
+  }, [])
 
   // Typewriter effect
   useEffect(() => {
@@ -128,7 +142,7 @@ export function Hero({
           <span>{locationName}</span>
         </motion.div>
 
-        {/* Heading Container with Centered Glow */}
+        {/* Heading Container with Centered Glow & Animated Phrase Flip */}
         <div className="relative inline-block w-full">
           {/* Centered Ambient Glow Element */}
           <div
@@ -141,17 +155,26 @@ export function Hero({
             }}
           />
 
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-            className="text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-[#f0f6fc] sm:text-6xl"
-          >
-            Find your{' '}
-            <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
-              perfect skill.
-            </span>
-          </motion.h1>
+          <div className="relative flex h-[60px] sm:h-[80px] w-full items-center justify-center overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.h1
+                key={HERO_PHRASES[phraseIndex].id}
+                initial={{ opacity: 0, y: 28, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -28, filter: 'blur(6px)' }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className="absolute flex items-center justify-center gap-x-2.5 sm:gap-x-3 text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-[#f0f6fc] sm:text-6xl"
+              >
+                <span>{HERO_PHRASES[phraseIndex].line1}</span>
+                <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
+                  {HERO_PHRASES[phraseIndex].line2}
+                </span>
+              </motion.h1>
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Subtitle */}
@@ -161,7 +184,7 @@ export function Hero({
           transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="mx-auto mt-5 max-w-xl text-pretty text-base leading-relaxed text-[#8b949e]"
         >
-          Book in-person sessions nearby or jump into a live 1-on-1 stream — pay per session, no subscriptions.
+          Book in-person sessions nearby or jump into a live 1-on-1 stream. Pay per session or subscribe.
         </motion.p>
 
         {/* Search Bar */}

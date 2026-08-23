@@ -1,14 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Flame, Lock, MapPin, TrendingUp } from 'lucide-react'
+import { Flame } from 'lucide-react'
 import { motion } from 'motion/react'
 import { leaderboard, tournaments } from '@/lib/data'
+import { TierBadge, XPMetric } from './leaderboard-tiers'
 
 export function TournamentsView() {
   const [registered, setRegistered] = useState<Set<string>>(new Set())
   const [activeScope, setActiveScope] = useState<'state' | 'global'>('state')
   const [selectedState, setSelectedState] = useState<string>('Delhi')
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
 
   const toggleRegister = (id: string) =>
     setRegistered((prev) => {
@@ -17,12 +19,19 @@ export function TournamentsView() {
       return next
     })
 
-  // Filter leaderboard items based on active tab and state
+  // Extract unique categories from data or define them explicitly
+  const categories = ['All', 'Music & Arts', 'Fitness & Combat', 'Strategy & Tech', 'Lifestyle']
+
   const displayedLeaderboard = leaderboard.filter((item) => {
-    if (activeScope === 'global') return true
-    // Matches explicitly set state property, fallback to 'Delhi' defaults, or current user row
+    // Filter by Category
+    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory
+    
+    // Filter by State / Global Scope
+    if (activeScope === 'global') return matchesCategory
     const itemState = (item as any).state || 'Delhi'
-    return itemState === selectedState || item.isUser
+    const matchesState = itemState === selectedState || item.isUser
+
+    return matchesCategory && matchesState
   })
 
   return (
@@ -109,7 +118,7 @@ export function TournamentsView() {
             </p>
           </div>
 
-          {/* State / Global Scope Filter Toggle */}
+          {/* Scope Filter Toggle */}
           <div className="inline-flex items-center rounded-full border border-white/10 bg-[#161b22] p-1">
             <button
               onClick={() => setActiveScope('state')}
@@ -123,7 +132,7 @@ export function TournamentsView() {
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
               </span>
-              {selectedState} State
+              {selectedState} 
             </button>
 
             <button
@@ -139,69 +148,87 @@ export function TournamentsView() {
           </div>
         </div>
 
+        {/* Category Filter Pills Row */}
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
+                selectedCategory === category
+                  ? 'bg-white text-[#0d0f12] font-semibold shadow-sm'
+                  : 'border border-white/10 bg-[#161b22] text-[#8b949e] hover:text-white hover:border-white/20'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
         <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161b22]">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-[#8b949e]">
-                  <th className="px-5 py-3 font-semibold">Rank</th>
-                  <th className="px-5 py-3 font-semibold">Learner</th>
-                  <th className="px-5 py-3 font-semibold">Category</th>
-                  <th className="px-5 py-3 text-right font-semibold">XP</th>
-                  <th className="px-5 py-3 text-right font-semibold">
-                    Verified Hrs
-                  </th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold w-16">Rank</th>
+                  <th className="px-4 py-3 font-semibold">Learner</th>
+                  <th className="px-4 py-3 font-semibold">Category</th>
+                  <th className="px-4 py-3 text-right font-semibold">XP</th>
+                  <th className="px-4 py-3 text-right font-semibold">Verified Hrs</th>
+                  <th className="pl-4 pr-6 py-3 text-right font-semibold">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {displayedLeaderboard.map((row) => (
-                  <tr
-                    key={row.rank}
-                    className={`border-b border-white/10 last:border-0 transition-colors ${
-                      row.isUser
-                        ? 'bg-[#e01e37]/10'
-                        : 'hover:bg-white/[0.02]'
-                    }`}
-                  >
-                    <td className="px-5 py-3.5">
-                      <span
-                        className={`inline-flex size-7 items-center justify-center rounded-full text-xs font-bold ${
-                          row.rank <= 3
-                            ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
-                            : 'bg-white/10 text-[#8b949e]'
-                        }`}
-                      >
-                        {row.rank}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 font-medium text-[#f0f6fc]">
-                      {row.name}
-                    </td>
-                    <td className="px-5 py-3.5 text-[#8b949e]">
-                      {row.category}
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-semibold tabular-nums text-[#f0f6fc]">
-                      {row.xp.toLocaleString('en-IN')}
-                    </td>
-                    <td className="px-5 py-3.5 text-right tabular-nums text-[#8b949e]">
-                      {row.verifiedHrs}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      {row.status === 'certified' ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e01e37]/15 px-2.5 py-1 text-xs font-semibold text-[#e01e37]">
-                          <Lock className="size-3" aria-hidden />
-                          Certified Instructor
+                {displayedLeaderboard.length > 0 ? (
+                  displayedLeaderboard.map((row) => (
+                    <tr
+                      key={row.rank}
+                      className={`border-b border-white/10 last:border-0 transition-colors ${
+                        row.isUser
+                          ? 'bg-[#e01e37]/10'
+                          : 'hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-flex size-7 items-center justify-center rounded-full text-xs font-bold ${
+                            row.rank <= 3
+                              ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
+                              : 'bg-white/10 text-[#8b949e]'
+                          }`}
+                        >
+                          {row.rank}
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-2.5 py-1 text-xs font-semibold text-[#8b949e]">
-                          <TrendingUp className="size-3" aria-hidden />
-                          Rising
-                        </span>
-                      )}
+                      </td>
+                      <td className="px-4 py-3.5 font-medium text-[#f0f6fc]">
+                        {row.name}
+                      </td>
+                      <td className="px-4 py-3.5 text-[#8b949e]">
+                        {row.category}
+                      </td>
+                      
+                      <td className="px-4 py-3.5">
+                        <XPMetric xp={row.xp} />
+                      </td>
+                      
+                      <td className="px-4 py-3.5 text-right tabular-nums text-[#8b949e]">
+                        {row.verifiedHrs}
+                      </td>
+                      
+                      <td className="pl-4 pr-6 py-3.5 text-right">
+                        <div className="flex justify-end">
+                          <TierBadge xp={row.xp} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-sm text-[#8b949e]">
+                      No rankings found for this category scope.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>

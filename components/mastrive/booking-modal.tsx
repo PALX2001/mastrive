@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { X, Lock, MapPin, Video, ArrowRight, ArrowLeft, Calendar, Repeat } from 'lucide-react'
 
@@ -37,7 +38,6 @@ const TIME_SLOTS = [
   { time: '9:00 PM', available: true },
 ]
 
-// Helper function to dynamically load the Razorpay checkout script
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     const script = document.createElement('script')
@@ -49,21 +49,24 @@ const loadRazorpayScript = () => {
 }
 
 export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps) {
+  const [mounted, setMounted] = useState(false)
   const [step, setStep] = useState<1 | 2>(1)
   const [bookingType, setBookingType] = useState<'single' | 'monthly'>('single')
   const [mode, setMode] = useState<'in-person' | 'online'>('in-person')
   const [selectedDate, setSelectedDate] = useState('20')
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
 
-  // Participant Detail States
   const [personCount, setPersonCount] = useState(1)
   const [title, setTitle] = useState('Mr.')
   const [fullName, setFullName] = useState('')
   const [age, setAge] = useState('')
 
-  if (!instructor) return null
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  // Price Calculation: Monthly Pass offers 4 sessions at a 20% discount
+  if (!mounted || !instructor) return null
+
   const basePricePerSession = instructor.price
   const pricePerParticipant =
     bookingType === 'single'
@@ -73,11 +76,10 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
   const totalPrice = pricePerParticipant * personCount
 
   const handleModalClose = () => {
-    setStep(1) // Reset step on close
+    setStep(1)
     onClose()
   }
 
-  // Razorpay Payment Integration Handler
   const handleRazorpayPayment = async () => {
     const isLoaded = await loadRazorpayScript()
 
@@ -88,7 +90,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
 
     const options = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-      amount: totalPrice * 100, // Amount in paise
+      amount: totalPrice * 100,
       currency: 'INR',
       name: 'MASTRIVE',
       description: `${bookingType === 'monthly' ? 'Monthly Pass' : 'Single Session'} with ${instructor.name} (${personCount} participant)`,
@@ -101,13 +103,6 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
         email: 'user@example.com',
         contact: '9999999999',
       },
-      notes: {
-        booking_type: bookingType,
-        mode: mode,
-        date: `${selectedDate} Aug 2026`,
-        time: selectedTime,
-        participants: personCount,
-      },
       theme: {
         color: '#e52e42',
       },
@@ -117,29 +112,30 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     paymentObject.open()
   }
 
-  return (
+  // Render via React Portal straight onto body to escape local container layout flows
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-md">
+          {/* Backdrop Click Layer */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleModalClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-md"
+            className="absolute inset-0"
           />
 
-          {/* Modal Content */}
+          {/* Modal Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="relative z-10 w-full max-w-2xl rounded-2xl border border-white/10 bg-[#12161f]/95 p-6 shadow-2xl backdrop-blur-xl sm:p-8"
+            className="relative z-10 my-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-[#12161f] p-6 shadow-2xl backdrop-blur-xl sm:p-8"
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-6 border-b border-white/10">
+            <div className="flex items-center justify-between border-b border-white/10 pb-6">
               <div>
                 <h2 className="text-lg font-bold text-white sm:text-xl">
                   Book {instructor.name} — <span className="text-[#8b949e]">{instructor.skill}</span>
@@ -163,7 +159,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
               <div className="space-y-6 md:col-span-7">
                 {step === 1 ? (
                   <>
-                    {/* Booking Type Toggle: Single vs Monthly */}
+                    {/* Booking Type Toggle */}
                     <div>
                       <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
                         Booking Type
@@ -192,7 +188,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                         >
                           <Repeat className="size-3.5" />
                           Monthly Pass
-                          <span className="absolute -top-1.5 -right-1 flex h-4 items-center rounded-full bg-emerald-500 px-1.5 text-[9px] font-extrabold uppercase text-black">
+                          <span className="absolute -right-1 -top-1.5 flex h-4 items-center rounded-full bg-emerald-500 px-1.5 text-[9px] font-extrabold uppercase text-black">
                             20% OFF
                           </span>
                         </button>
@@ -291,10 +287,9 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                   </>
                 ) : (
                   <>
-                    {/* Participant Count, Title, Age Grid */}
                     <div className="grid grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8b949e] mb-1.5">
+                        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
                           Persons
                         </label>
                         <input
@@ -308,7 +303,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8b949e] mb-1.5">
+                        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
                           Title
                         </label>
                         <select
@@ -324,7 +319,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8b949e] mb-1.5">
+                        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
                           Age
                         </label>
                         <input
@@ -337,9 +332,8 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       </div>
                     </div>
 
-                    {/* Full Name */}
                     <div>
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-[#8b949e] mb-1.5">
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
                         Full Name
                       </label>
                       <input
@@ -369,7 +363,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-[#8b949e]">Mode</span>
-                    <span className="font-semibold text-white capitalize">{mode}</span>
+                    <span className="font-semibold capitalize text-white">{mode}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-[#8b949e]">{bookingType === 'monthly' ? 'Start Date' : 'Date'}</span>
@@ -380,7 +374,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                     <span className="font-semibold text-white">{selectedTime || '—'}</span>
                   </div>
                   {step === 2 && (
-                    <div className="flex justify-between text-xs border-t border-white/5 pt-2">
+                    <div className="flex justify-between border-t border-white/5 pt-2 text-xs">
                       <span className="text-[#8b949e]">Participants</span>
                       <span className="font-semibold text-white">
                         {personCount}x ({title} {fullName || 'Guest'})
@@ -440,6 +434,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

@@ -124,13 +124,13 @@ export function Header({
           /* First-Time Visitor: Auth Controls */
           <div className="flex h-[50px] items-center gap-3 rounded-full border border-white/10 bg-[#161b22]/70 px-4 shadow-2xl backdrop-blur-xl">
             <Link
-              href="/login"
+              href="/login?mode=signin"
               className="px-2 text-xs font-semibold text-[#8b949e] transition-colors hover:text-white"
             >
               Sign In
             </Link>
             <Link
-              href="/login"
+              href="/login?mode=signup"
               className="rounded-full bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]"
             >
               Get Started
