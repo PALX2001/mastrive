@@ -8,8 +8,8 @@ import { categories, type CategoryId } from '@/lib/data'
 const SKILLS = ['Boxing', 'Chess', 'Guitar', 'Pottery', 'Salsa', 'Web Dev']
 
 const HERO_PHRASES = [
-  { id: 'find', line1: 'Find your', line2: 'perfect skill,    ' },
-  { id: 'master', line1: 'and', line2: 'master it.   ' },
+  { id: 'find', line1: 'Find your', line2: 'perfect skill.' },
+  { id: 'master', line1: 'and', line2: 'master it.' },
 ]
 
 export function Hero({
@@ -108,7 +108,6 @@ export function Hero({
         }
       },
       () => {
-        // Fallback when access is denied or unavailable
         setLocationName('Delhi')
       }
     )
@@ -155,20 +154,20 @@ export function Hero({
             }}
           />
 
-          <div className="relative flex h-[60px] sm:h-[80px] w-full items-center justify-center overflow-hidden">
+          <div className="relative flex min-h-[70px] sm:h-[80px] w-full items-center justify-center">
             <AnimatePresence mode="wait">
               <motion.h1
                 key={HERO_PHRASES[phraseIndex].id}
-                initial={{ opacity: 0, y: 28, filter: 'blur(6px)' }}
+                initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -28, filter: 'blur(6px)' }}
+                exit={{ opacity: 0, y: -20, filter: 'blur(6px)' }}
                 transition={{
                   duration: 0.5,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className="absolute flex items-center justify-center gap-x-2.5 sm:gap-x-3 text-balance text-4xl font-extrabold leading-[1.05] tracking-tight text-[#f0f6fc] sm:text-6xl"
+                className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 text-center text-3xl font-extrabold leading-tight tracking-tight text-[#f0f6fc] sm:text-6xl"
               >
-                <span>{HERO_PHRASES[phraseIndex].line1}</span>
+                <span className="shrink-0">{HERO_PHRASES[phraseIndex].line1}</span>
                 <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
                   {HERO_PHRASES[phraseIndex].line2}
                 </span>
@@ -182,7 +181,7 @@ export function Hero({
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="mx-auto mt-5 max-w-xl text-pretty text-base leading-relaxed text-[#8b949e]"
+          className="mx-auto mt-5 max-w-xl text-pretty text-sm sm:text-base leading-relaxed text-[#8b949e]"
         >
           Book in-person sessions nearby or jump into a live 1-on-1 stream. Pay per session or subscribe.
         </motion.p>
