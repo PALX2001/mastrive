@@ -51,6 +51,8 @@ export type Instructor = {
   reviews: number
   price: number
   tag: string
+  image?: string
+  description?: string
 }
 
 export const instructors: Instructor[] = [
@@ -67,6 +69,8 @@ export const instructors: Instructor[] = [
     reviews: 128,
     price: 1200,
     tag: 'IN-PERSON: SOUTH DELHI',
+    image: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=800',
+    description: 'Experienced boxing coach specializing in heavy bag work, footwork dynamics, and defensive stance mastery.',
   },
   {
     id: '2',
@@ -81,6 +85,8 @@ export const instructors: Instructor[] = [
     reviews: 94,
     price: 1500,
     tag: 'IN-PERSON: GURGAON',
+    image: 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&q=80&w=800',
+    description: 'Pro combat athlete offering high-intensity striking drills, clinch technique, and core endurance conditioning.',
   },
   {
     id: '3',
@@ -95,6 +101,8 @@ export const instructors: Instructor[] = [
     reviews: 52,
     price: 800,
     tag: 'LIVE ONLINE STREAM',
+    image: 'https://images.unsplash.com/photo-1583473848882-f9a5bc7fd2ee?auto=format&fit=crop&q=80&w=800',
+    description: 'Interactive beginner-friendly kickboxing sessions focusing on form, rhythm, cardio, and basic striking combos.',
   },
   {
     id: '4',
@@ -109,6 +117,8 @@ export const instructors: Instructor[] = [
     reviews: 210,
     price: 1000,
     tag: 'LIVE ONLINE STREAM',
+    image: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&q=80&w=800',
+    description: 'Acoustic fingerstyle guitar teacher covering percussive techniques, solo arrangements, and practical music theory.',
   },
   {
     id: '5',
@@ -123,6 +133,8 @@ export const instructors: Instructor[] = [
     reviews: 76,
     price: 900,
     tag: 'IN-PERSON: HAUZ KHAS',
+    image: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=800',
+    description: 'Traditional watercolour artist teaching color blending, landscape perspective, and wet-on-wet painting techniques.',
   },
   {
     id: '6',
@@ -137,6 +149,8 @@ export const instructors: Instructor[] = [
     reviews: 143,
     price: 1100,
     tag: 'LIVE ONLINE STREAM',
+    image: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?auto=format&fit=crop&q=80&w=800',
+    description: 'FIDE rated tournament player analyzing opening trees, middle-game tactics, and endgame calculations.',
   },
   {
     id: '7',
@@ -151,6 +165,8 @@ export const instructors: Instructor[] = [
     reviews: 38,
     price: 1400,
     tag: 'LIVE ONLINE STREAM',
+    image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=800',
+    description: 'Software engineer guiding students through data structures, algorithms, and LeetCode problem-solving patterns.',
   },
   {
     id: '8',
@@ -165,6 +181,8 @@ export const instructors: Instructor[] = [
     reviews: 165,
     price: 700,
     tag: 'IN-PERSON: SAKET',
+    image: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&q=80&w=800',
+    description: 'Certified yoga practitioner delivering breath-focused Vinyasa flows designed for flexibility and stress relief.',
   },
 ]
 

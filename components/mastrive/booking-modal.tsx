@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { X, Lock, MapPin, Video, ArrowRight, ArrowLeft, Calendar, Repeat } from 'lucide-react'
+import { X, Lock, MapPin, Video, ArrowRight, ArrowLeft, Calendar, Repeat, Tag, Check, AlertCircle } from 'lucide-react'
 
 export interface BookingInstructor {
   name: string
@@ -38,6 +38,13 @@ const TIME_SLOTS = [
   { time: '9:00 PM', available: true },
 ]
 
+// Valid coupon codes mapped to discount percentages
+const COUPONS: Record<string, { discount: number; description: string }> = {
+  GROUP2: { discount: 0.15, description: '15% Off Group Discount' },
+  BATCH4: { discount: 0.25, description: '25% Off Squad Pass' },
+  MASTRIVE10: { discount: 0.10, description: '10% Off Promo Discount' },
+}
+
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
     const script = document.createElement('script')
@@ -61,6 +68,11 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
   const [fullName, setFullName] = useState('')
   const [age, setAge] = useState('')
 
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
+  const [couponError, setCouponError] = useState('')
+
   useEffect(() => {
     setMounted(true)
   }, [])
@@ -73,10 +85,32 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
       ? basePricePerSession
       : Math.round(basePricePerSession * 4 * 0.8)
 
-  const totalPrice = pricePerParticipant * personCount
+  const rawTotalPrice = pricePerParticipant * personCount
+  const discountMultiplier = appliedCoupon ? COUPONS[appliedCoupon].discount : 0
+  const discountAmount = Math.round(rawTotalPrice * discountMultiplier)
+  const totalPrice = rawTotalPrice - discountAmount
+
+  const handleApplyCoupon = () => {
+    const formattedCode = couponInput.trim().toUpperCase()
+    if (!formattedCode) return
+
+    if (COUPONS[formattedCode]) {
+      setAppliedCoupon(formattedCode)
+      setCouponError('')
+    } else {
+      setCouponError('Invalid coupon code')
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponInput('')
+    setCouponError('')
+  }
 
   const handleModalClose = () => {
     setStep(1)
+    handleRemoveCoupon()
     onClose()
   }
 
@@ -112,7 +146,6 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     paymentObject.open()
   }
 
-  // Render via React Portal straight onto body to escape local container layout flows
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -390,9 +423,66 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       </span>
                     </div>
                   </div>
+
+                  {/* Coupon Code Section */}
+                  <div className="border-t border-white/10 pt-3">
+                    <label className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8b949e]">
+                      <Tag className="size-3 text-[#e52e42]" /> Have a Coupon?
+                    </label>
+                    {appliedCoupon ? (
+                      <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
+                        <div className="flex items-center gap-2 text-emerald-400">
+                          <Check className="size-3.5" />
+                          <span className="font-bold">{appliedCoupon}</span>
+                          <span className="text-[10px] text-emerald-400/70">(-₹{discountAmount})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="text-[11px] text-[#8b949e] hover:text-white"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="e.g. GROUP2 or BATCH4"
+                            value={couponInput}
+                            onChange={(e) => {
+                              setCouponInput(e.target.value)
+                              setCouponError('')
+                            }}
+                            className="w-full rounded-lg border border-white/10 bg-[#161b22] px-3 py-1.5 text-xs uppercase text-white outline-none focus:border-[#e52e42]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyCoupon}
+                            className="rounded-lg border border-white/10 bg-[#161b22] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#e52e42] hover:border-[#e52e42]"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                        {couponError && (
+                          <div className="mt-1 flex items-center gap-1 text-[11px] text-red-400">
+                            <AlertCircle className="size-3" />
+                            {couponError}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-6">
+                  {appliedCoupon && (
+                    <div className="mb-1 flex justify-between text-xs text-[#8b949e]">
+                      <span>Original</span>
+                      <span className="line-through">₹{rawTotalPrice.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="mb-4 flex items-baseline justify-between">
                     <span className="text-xs uppercase text-[#8b949e]">Total</span>
                     <span className="text-2xl font-black text-white">

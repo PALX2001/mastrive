@@ -11,7 +11,6 @@ type InstructorWithMedia = Instructor & {
   description?: string
 }
 
-// Make sure this says "export function InstructorCard" (NOT default)
 export function InstructorCard({
   instructor,
   onBook,
@@ -33,7 +32,8 @@ export function InstructorCard({
       className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all hover:border-white/25 hover:shadow-2xl"
     >
       <div>
-        <div className="relative flex h-40 w-full items-center justify-center overflow-hidden bg-[#0d1117]/80 p-3">
+        {/* Media / Image Container with Fixed Proportion & Perfect Ratio Fit */}
+        <div className="relative h-48 w-full overflow-hidden bg-[#0d1117]/80">
           <div className="absolute left-3 top-3 z-10">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e01e37]/30 bg-[#e01e37]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#e01e37] backdrop-blur-md">
               {isOnline ? (
@@ -50,12 +50,14 @@ export function InstructorCard({
               src={instructor.image}
               alt={instructor.name}
               fill
-              className="object-cover transition-transform duration-500 ease-out group-hover:scale-110"
+              className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
             />
           ) : (
-            <span className="select-none text-4xl transition-transform duration-500 ease-out group-hover:scale-110 filter drop-shadow-md">
-              {instructor.icon || '🥊'}
-            </span>
+            <div className="flex h-full w-full items-center justify-center">
+              <span className="select-none text-4xl transition-transform duration-500 ease-out group-hover:scale-110 filter drop-shadow-md">
+                {instructor.icon || '🥊'}
+              </span>
+            </div>
           )}
         </div>
 
