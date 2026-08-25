@@ -64,7 +64,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-[#8b949e]">
               <li><Link href="/support" className="transition-colors hover:text-white">Support</Link></li>
               <li><a href="mailto:help@mastrive.com" className="transition-colors hover:text-white">help@mastrive.com</a></li>
-              <li className="text-[#8b949e]">+91 8130617996</li>
+              <li className="text-[#8b949e]">+91 8448261770</li>
             </ul>
           </div>
         </div>
