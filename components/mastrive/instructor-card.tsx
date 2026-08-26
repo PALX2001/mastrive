@@ -1,5 +1,6 @@
 'use client'
 
+import React, { memo } from 'react'
 import Image from 'next/image'
 import { BadgeCheck, MapPin, Star, Video } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -11,7 +12,7 @@ type InstructorWithMedia = Instructor & {
   description?: string
 }
 
-export function InstructorCard({
+export const InstructorCard = memo(function InstructorCard({
   instructor,
   onBook,
   booked,
@@ -24,12 +25,11 @@ export function InstructorCard({
 
   return (
     <motion.article
-      layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3 }}
-      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all hover:border-white/25 hover:shadow-2xl"
+      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all duration-300 hover:border-white/25 hover:shadow-2xl will-change-transform transform-gpu"
     >
       <div>
         {/* Media / Image Container with Fixed Proportion & Perfect Ratio Fit */}
@@ -50,7 +50,9 @@ export function InstructorCard({
               src={instructor.image}
               alt={instructor.name}
               fill
-              className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
+              loading="lazy"
+              className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -117,4 +119,4 @@ export function InstructorCard({
       </div>
     </motion.article>
   )
-}
+})

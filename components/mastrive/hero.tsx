@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState, memo } from 'react'
 import { Search, ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { categories, type CategoryId } from '@/lib/data'
@@ -12,30 +12,16 @@ const HERO_PHRASES = [
   { id: 'master', line1: 'and', line2: 'master it.' },
 ]
 
-export function Hero({
+// Isolated Typewriter Search Bar: Prevents full Hero re-rendering on every character tick (60ms)
+const HeroSearchBar = memo(function HeroSearchBar({
   query,
   onQueryChange,
-  activeCategory,
-  onCategoryChange,
 }: {
   query: string
   onQueryChange: (v: string) => void
-  activeCategory: CategoryId
-  onCategoryChange: (id: CategoryId) => void
 }) {
-  const [phraseIndex, setPhraseIndex] = useState(0)
-  const [placeholderText, setPlaceholderText] = useState('')
-  const [locationName, setLocationName] = useState<string>('Detecting location...')
+  const [placeholderText, setPlaceholderText] = useState("Try 'Boxing'")
 
-  // Loop Hero Phrases ("Find your perfect skill." <-> "and master it.")
-  useEffect(() => {
-    const phraseInterval = setInterval(() => {
-      setPhraseIndex((prev) => (prev + 1) % HERO_PHRASES.length)
-    }, 3200)
-    return () => clearInterval(phraseInterval)
-  }, [])
-
-  // Typewriter effect
   useEffect(() => {
     let isMounted = true
     let skillIdx = 0
@@ -81,19 +67,79 @@ export function Hero({
     }
   }, [])
 
-  // Geolocation & Reverse Geocoding
+  return (
+    <motion.form
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+      onSubmit={(e) => e.preventDefault()}
+      className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/10 bg-[#161b22] p-2 pl-5 shadow-2xl shadow-black/50 focus-within:border-[#e01e37]/50"
+    >
+      <Search className="size-5 shrink-0 text-[#8b949e]" aria-hidden />
+      <input
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+        type="text"
+        placeholder={placeholderText}
+        aria-label="Search skills"
+        className="min-w-0 flex-1 bg-transparent text-sm text-[#f0f6fc] outline-none placeholder:text-[#8b949e]"
+      />
+      <button
+        type="submit"
+        className="shrink-0 rounded-full bg-[#e01e37] px-6 py-2.5 text-xs font-bold text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f] active:scale-95"
+      >
+        Search
+      </button>
+    </motion.form>
+  )
+})
+
+export function Hero({
+  query,
+  onQueryChange,
+  activeCategory,
+  onCategoryChange,
+}: {
+  query: string
+  onQueryChange: (v: string) => void
+  activeCategory: CategoryId
+  onCategoryChange: (id: CategoryId) => void
+}) {
+  const [phraseIndex, setPhraseIndex] = useState(0)
+  const [locationName, setLocationName] = useState<string>('Delhi')
+
+  // Loop Hero Phrases
   useEffect(() => {
+    const phraseInterval = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % HERO_PHRASES.length)
+    }, 3200)
+    return () => clearInterval(phraseInterval)
+  }, [])
+
+  // Geolocation & Reverse Geocoding with sessionStorage caching & abort controller
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const cachedLoc = sessionStorage.getItem('mastrive_loc')
+    if (cachedLoc) {
+      setLocationName(cachedLoc)
+      return
+    }
+
     if (!('geolocation' in navigator)) {
       setLocationName('Delhi')
       return
     }
+
+    const abortController = new AbortController()
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
           const { latitude, longitude } = position.coords
           const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            { signal: abortController.signal }
           )
           const data = await res.json()
           const state =
@@ -103,27 +149,24 @@ export function Hero({
             'Delhi'
 
           setLocationName(state)
+          sessionStorage.setItem('mastrive_loc', state)
         } catch {
           setLocationName('Delhi')
         }
       },
       () => {
         setLocationName('Delhi')
-      }
+      },
+      { timeout: 5000 }
     )
+
+    return () => {
+      abortController.abort()
+    }
   }, [])
 
   return (
     <section className="relative z-10 flex min-h-[70vh] w-full flex-col items-center justify-center overflow-visible px-4 pb-6 pt-12 sm:pt-16">
-      {/* SVG Blur Filter Definition */}
-      <svg className="absolute size-0" aria-hidden>
-        <defs>
-          <filter id="text-centered-glow" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="70" result="blur" />
-          </filter>
-        </defs>
-      </svg>
-
       <div className="relative mx-auto max-w-3xl text-center">
         {/* Minimal Location Badge */}
         <motion.div
@@ -141,17 +184,12 @@ export function Hero({
           <span>{locationName}</span>
         </motion.div>
 
-        {/* Heading Container with Centered Glow & Animated Phrase Flip */}
+        {/* Heading Container with Centered GPU Glow & Animated Phrase Flip */}
         <div className="relative inline-block w-full">
-          {/* Centered Ambient Glow Element */}
+          {/* Centered Ambient Glow Element - GPU Accelerated */}
           <div
             aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[300px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-70"
-            style={{
-              background:
-                'radial-gradient(ellipse at center, rgba(224, 30, 55, 0.45) 0%, rgba(224, 30, 55, 0.18) 40%, rgba(0, 0, 0, 0) 75%)',
-              filter: 'url(#text-centered-glow)',
-            }}
+            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[280px] w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#e01e37]/40 via-[#e01e37]/20 to-transparent blur-[70px] transform-gpu opacity-75"
           />
 
           <div className="relative flex min-h-[70px] sm:h-[80px] w-full items-center justify-center">
@@ -186,30 +224,8 @@ export function Hero({
           Book in-person sessions nearby or jump into a live 1-on-1 stream. Pay per session or subscribe.
         </motion.p>
 
-        {/* Search Bar */}
-        <motion.form
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
-          onSubmit={(e) => e.preventDefault()}
-          className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/10 bg-[#161b22] p-2 pl-5 shadow-2xl shadow-black/50 focus-within:border-[#e01e37]/50"
-        >
-          <Search className="size-5 shrink-0 text-[#8b949e]" aria-hidden />
-          <input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            type="text"
-            placeholder={placeholderText}
-            aria-label="Search skills"
-            className="min-w-0 flex-1 bg-transparent text-sm text-[#f0f6fc] outline-none placeholder:text-[#8b949e]"
-          />
-          <button
-            type="submit"
-            className="shrink-0 rounded-full bg-[#e01e37] px-6 py-2.5 text-xs font-bold text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f] active:scale-95"
-          >
-            Search
-          </button>
-        </motion.form>
+        {/* Search Bar (Isolated Memoized Typewriter) */}
+        <HeroSearchBar query={query} onQueryChange={onQueryChange} />
 
         {/* Category Pills */}
         <motion.div

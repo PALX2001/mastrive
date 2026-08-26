@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import { Flame, X, ShieldCheck, Trophy } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { leaderboard, tournaments } from '@/lib/data'
@@ -15,8 +15,39 @@ interface Tournament {
   date: string
 }
 
+const CATEGORIES = ['All', 'Music & Arts', 'Fitness & Combat', 'Strategy & Tech', 'Lifestyle']
+
+// Singleton Razorpay script loader
+let razorpayPromise: Promise<boolean> | null = null
+
+const loadRazorpayScript = (): Promise<boolean> => {
+  if (typeof window === 'undefined') return Promise.resolve(false)
+  if ((window as any).Razorpay) return Promise.resolve(true)
+  if (razorpayPromise) return razorpayPromise
+
+  razorpayPromise = new Promise((resolve) => {
+    const existingScript = document.querySelector('script[src*="checkout.razorpay.com"]')
+    if (existingScript) {
+      resolve(true)
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.onload = () => resolve(true)
+    script.onerror = () => {
+      razorpayPromise = null
+      resolve(false)
+    }
+    document.body.appendChild(script)
+  })
+
+  return razorpayPromise
+}
+
 export function TournamentsView() {
-  const [registered, setRegistered] = useState<Set<string>>(new Set())
+  const [registered, setRegistered] = useState<Set<string>>(() => new Set())
   const [activeScope, setActiveScope] = useState<'state' | 'global'>('state')
   const [selectedState, setSelectedState] = useState<string>('Delhi')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
@@ -31,40 +62,25 @@ export function TournamentsView() {
   })
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const categories = ['All', 'Music & Arts', 'Fitness & Combat', 'Strategy & Tech', 'Lifestyle']
+  const displayedLeaderboard = useMemo(() => {
+    return leaderboard.filter((item) => {
+      const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory
+      if (activeScope === 'global') return matchesCategory
+      const itemState = (item as any).state || 'Delhi'
+      const matchesState = itemState === selectedState || item.isUser
 
-  const displayedLeaderboard = leaderboard.filter((item) => {
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory
-    if (activeScope === 'global') return matchesCategory
-    const itemState = (item as any).state || 'Delhi'
-    const matchesState = itemState === selectedState || item.isUser
-
-    return matchesCategory && matchesState
-  })
-
-  // Dynamic Razorpay SDK script loader
-  const loadRazorpayScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
-        resolve(true)
-        return
-      }
-      const script = document.createElement('script')
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-      script.onload = () => resolve(true)
-      script.onerror = () => resolve(false)
-      document.body.appendChild(script)
+      return matchesCategory && matchesState
     })
-  }
+  }, [selectedCategory, activeScope, selectedState])
 
   // Open Registration Modal
-  const handleOpenRegistration = (t: Tournament) => {
+  const handleOpenRegistration = useCallback((t: Tournament) => {
     if (registered.has(t.id)) return
     setSelectedTournament(t)
-  }
+  }, [registered])
 
   // Handle Form Submission -> Razorpay Checkout Trigger
-  const handleProceedToPayment = async (e: React.FormEvent) => {
+  const handleProceedToPayment = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedTournament) return
 
@@ -113,7 +129,7 @@ export function TournamentsView() {
 
     const razorpayWindow = new (window as any).Razorpay(options)
     razorpayWindow.open()
-  }
+  }, [selectedTournament, participant])
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
@@ -142,7 +158,7 @@ export function TournamentsView() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: idx * 0.05 }}
-              className="flex flex-col rounded-2xl border border-white/10 bg-[#161b22] p-5"
+              className="flex flex-col rounded-2xl border border-white/10 bg-[#161b22] p-5 will-change-transform transform-gpu"
             >
               <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
                 {t.category}
@@ -204,7 +220,7 @@ export function TournamentsView() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl"
+              className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl transform-gpu"
             >
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div>
@@ -303,7 +319,7 @@ export function TournamentsView() {
       </AnimatePresence>
 
       {/* Leaderboard Section */}
-      <div className="mt-12">
+      <div className="content-auto mt-12">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-xl font-bold tracking-tight text-[#f0f6fc]">
@@ -348,7 +364,7 @@ export function TournamentsView() {
 
         {/* Category Filter Pills Row */}
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          {categories.map((category) => (
+          {CATEGORIES.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}

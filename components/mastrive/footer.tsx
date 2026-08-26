@@ -1,11 +1,9 @@
-'use client'
-
 import Link from 'next/link'
 import Image from 'next/image'
 
 export function Footer() {
   return (
-    <footer className="relative mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
+    <footer className="content-auto relative mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
       {/* Main Rounded Footer Card */}
       <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0d1117] p-8 sm:p-12">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-8">
@@ -14,12 +12,11 @@ export function Footer() {
           <div className="md:col-span-5 lg:col-span-6">
             <Link href="/" className="inline-block">
               <Image
-                src="/logo.svg" // Replace with your logo path in public/ folder (e.g., /logo.svg or /logo.png)
+                src="/logo.svg"
                 alt="MASTRIVE Logo"
                 width={160}
                 height={40}
                 className="h-8 w-auto object-contain"
-                priority
               />
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-[#8b949e]">

@@ -24,24 +24,35 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'settings'>('overview')
   const router = useRouter()
-  const supabase = createClient()
-
   useEffect(() => {
+    const supabase = createClient()
+    let isMounted = true
+
     const checkUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser()
-      if (error || !user) {
-        // Redirect to login if unauthenticated
-        router.push('/login')
-      } else {
-        setUser(user)
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (!isMounted) return
+        if (error || !user) {
+          router.push('/login')
+        } else {
+          setUser(user)
+        }
+      } catch {
+        if (isMounted) router.push('/login')
+      } finally {
+        if (isMounted) setLoading(false)
       }
-      setLoading(false)
     }
 
     checkUser()
-  }, [supabase, router])
+
+    return () => {
+      isMounted = false
+    }
+  }, [router])
 
   const handleSignOut = async () => {
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/')
   }

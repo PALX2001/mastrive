@@ -6,23 +6,37 @@ import { createClient } from '@/lib/supabase/client'
 export default function AdminApplicationsPage() {
   const [apps, setApps] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
+    let isMounted = true
+    const supabase = createClient()
+
+    const fetchApplications = async () => {
+      try {
+        const { data } = await supabase
+          .from('instructor_applications')
+          .select('*')
+          .order('created_at', { ascending: false })
+        
+        if (isMounted && data) setApps(data)
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Error loading applications:', err)
+        }
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
     fetchApplications()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
-  const fetchApplications = async () => {
-    const { data } = await supabase
-      .from('instructor_applications')
-      .select('*')
-      .order('created_at', { ascending: false })
-    
-    if (data) setApps(data)
-    setLoading(false)
-  }
-
   const handleApprove = async (id: string, userId: string | null) => {
+    const supabase = createClient()
     // 1. Mark application as approved
     await supabase.from('instructor_applications').update({ status: 'approved' }).eq('id', id)
     
@@ -31,7 +45,11 @@ export default function AdminApplicationsPage() {
       await supabase.from('profiles').update({ role: 'instructor' }).eq('id', userId)
     }
 
-    fetchApplications()
+    const { data } = await supabase
+      .from('instructor_applications')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (data) setApps(data)
   }
 
   return (

@@ -3,14 +3,14 @@
 import { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { ArrowLeft, ArrowRight, User, Phone, Calendar, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { createClient } from '@/lib/supabase/client'
 
-// Extract the main logic into a child component so we can wrap it in Suspense
 function AuthContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'details'>(initialMode)
@@ -18,15 +18,14 @@ function AuthContent() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Additional Profile Details (Pre-filled with your profile context)
-  const [fullName, setFullName] = useState('Palash')
-  const [age, setAge] = useState('24')
-  const [sex, setSex] = useState('male')
-  const [phone, setPhone] = useState('+91 98765 43210')
+  // Profile Details
+  const [fullName, setFullName] = useState('')
+  const [age, setAge] = useState('')
+  const [sex, setSex] = useState('')
+  const [phone, setPhone] = useState('')
 
   const supabase = createClient()
 
-  // Sync mode if the URL parameters change
   useEffect(() => {
     if (searchParams.get('mode') === 'signup') setMode('signup')
     else if (searchParams.get('mode') === 'signin') setMode('signin')
@@ -35,48 +34,51 @@ function AuthContent() {
   const handleGoogleLogin = async () => {
     setLoading(true)
     setMessage(null)
+    
+    // Pass the destination path to the callback route via query param
+    const targetUrl = `${window.location.origin}/auth/callback?next=/dashboard/instructor`
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: targetUrl,
       },
     })
+    
     if (error) {
       setMessage({ type: 'error', text: error.message })
       setLoading(false)
     }
   }
 
-  // Handle the first step (Email collection)
   const handleInitialSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
 
     if (mode === 'signup') {
-      // Move to details step before sending the magic link
       setMode('details')
       setMessage(null)
     } else {
-      // If sign in, send the magic link/OTP immediately
       finalizeAuth()
     }
   }
 
-  // Handle the final step (Sending OTP to Supabase)
   const finalizeAuth = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     setLoading(true)
     setMessage(null)
 
+    // Pass target destination to email callback handler
+    const redirectUrl = `${window.location.origin}/auth/callback?next=/dashboard/instructor`
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: redirectUrl,
         shouldCreateUser: mode !== 'signin',
-        // Pass the collected details into Supabase user metadata on signup
         data: mode === 'details' ? {
           full_name: fullName,
-          age: parseInt(age),
+          age: age ? parseInt(age) : null,
           sex: sex,
           phone: phone,
         } : undefined
@@ -265,7 +267,6 @@ function AuthContent() {
                 </span>
               </div>
 
-              {/* Interactive Mode Switcher */}
               <div className="mt-4 text-center">
                 <button
                   type="button"
@@ -286,7 +287,7 @@ function AuthContent() {
             </motion.div>
           )}
 
-          {/* STEP 2: PROFILE DETAILS FORM (Only for Signup) */}
+          {/* STEP 2: PROFILE DETAILS FORM */}
           {mode === 'details' && (
             <motion.div
               key="auth-details"
@@ -316,13 +317,12 @@ function AuthContent() {
               </div>
 
               {message && (
-                <div className={`mt-4 rounded-xl p-3 text-xs font-medium border border-red-500/20 bg-red-500/10 text-red-400`}>
+                <div className="mt-4 rounded-xl p-3 text-xs font-medium border border-red-500/20 bg-red-500/10 text-red-400">
                   {message.text}
                 </div>
               )}
 
               <form onSubmit={finalizeAuth} className="mt-6 space-y-4">
-                {/* Full Name */}
                 <div>
                   <label className="block text-xs font-semibold text-[#8b949e]">Full Name</label>
                   <div className="relative mt-1.5">
@@ -339,7 +339,6 @@ function AuthContent() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Age */}
                   <div>
                     <label className="block text-xs font-semibold text-[#8b949e]">Age</label>
                     <div className="relative mt-1.5">
@@ -357,7 +356,6 @@ function AuthContent() {
                     </div>
                   </div>
 
-                  {/* Sex */}
                   <div>
                     <label className="block text-xs font-semibold text-[#8b949e]">Sex</label>
                     <select
@@ -374,7 +372,6 @@ function AuthContent() {
                   </div>
                 </div>
 
-                {/* Phone */}
                 <div>
                   <label className="block text-xs font-semibold text-[#8b949e]">Phone Number</label>
                   <div className="relative mt-1.5">
@@ -408,7 +405,6 @@ function AuthContent() {
   )
 }
 
-// Next.js requires useSearchParams to be wrapped in a Suspense boundary
 export default function AuthPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#0d0f12] flex items-center justify-center">Loading...</div>}>

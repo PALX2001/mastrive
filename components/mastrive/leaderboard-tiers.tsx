@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { Diamond, Crown, Star, Shield } from 'lucide-react'
 
 // Sleeker, darker pills with high-contrast glowing dots
@@ -35,7 +35,7 @@ export const getTierDetails = (xp: number) => {
   }
 }
 
-export function TierBadge({ xp }: { xp: number }) {
+export const TierBadge = memo(function TierBadge({ xp }: { xp: number }) {
   const tier = getTierDetails(xp)
   const Icon = tier.icon
 
@@ -45,9 +45,9 @@ export function TierBadge({ xp }: { xp: number }) {
       <span className="uppercase">{tier.name}</span>
     </div>
   )
-}
+})
 
-export function XPMetric({ xp }: { xp: number }) {
+export const XPMetric = memo(function XPMetric({ xp }: { xp: number }) {
   const tier = getTierDetails(xp)
   
   return (
@@ -59,4 +59,4 @@ export function XPMetric({ xp }: { xp: number }) {
       <div className={`w-1.5 h-1.5 rounded-full ${tier.dot}`} />
     </div>
   )
-}
+})

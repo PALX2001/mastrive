@@ -17,22 +17,10 @@ export default function TermsPage() {
         </Link>
       </div>
 
-      {/* Background Ambient Glow */}
-      <svg className="absolute size-0" aria-hidden>
-        <defs>
-          <filter id="terms-glow" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="90" result="blur" />
-          </filter>
-        </defs>
-      </svg>
+      {/* Background Ambient Glow - GPU Accelerated */}
       <div
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-28 -z-0 h-[280px] w-[500px] -translate-x-1/2 rounded-full opacity-60"
-        style={{
-          background:
-            'radial-gradient(ellipse at center, rgba(224, 30, 55, 0.4) 0%, rgba(224, 30, 55, 0.15) 40%, rgba(0, 0, 0, 0) 75%)',
-          filter: 'url(#terms-glow)',
-        }}
+        className="pointer-events-none absolute left-1/2 top-28 -z-0 h-[280px] w-[500px] -translate-x-1/2 rounded-full bg-gradient-to-r from-[#e01e37]/35 via-[#e01e37]/15 to-transparent blur-[80px] transform-gpu opacity-60"
       />
 
       <div className="relative z-10 mx-auto max-w-4xl px-4 pb-16 pt-8 sm:px-6 sm:pb-24">

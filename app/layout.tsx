@@ -4,17 +4,16 @@ import { Geist, Geist_Mono, Instrument_Serif } from 'next/font/google'
 import { Footer } from '@/components/mastrive/footer'
 import './globals.css'
 
-// Force dynamic rendering across the app to prevent stale layout caching
-export const dynamic = 'force-dynamic'
-
 const geistSans = Geist({
   subsets: ['latin'],
   variable: '--font-geist-sans',
+  display: 'swap',
 })
 
 const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-geist-mono',
+  display: 'swap',
 })
 
 const instrumentSerif = Instrument_Serif({
@@ -22,6 +21,7 @@ const instrumentSerif = Instrument_Serif({
   weight: '400',
   style: ['normal', 'italic'],
   variable: '--font-instrument-serif',
+  display: 'swap',
 })
 
 export const metadata: Metadata = {
@@ -44,8 +44,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable}${instrumentSerif.variable} bg-background`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} bg-background`}
     >
+      <head>
+        <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+      </head>
       <body className="antialiased font-sans">
         <main>{children}</main>
         <Footer />

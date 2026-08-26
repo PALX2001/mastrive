@@ -16,32 +16,28 @@ export default function InstructorApplicationView() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
-  const supabase = createClient()
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErrorMessage('')
 
-    console.log('Target URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
-    console.log('Anon Key Present:', Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY))
-
     try {
+      const supabase = createClient()
       let userId: string | null = null
       try {
         const { data } = await supabase.auth.getUser()
         userId = data.user?.id || null
-      } catch (authErr) {
-        console.warn('Auth check skipped:', authErr)
+      } catch {
+        // Unauthenticated visitor submission
       }
 
       // Build payload cleanly without forced null values if absent
       const payload: Record<string, any> = {
-        full_name: formData.name,
-        skill: formData.skill,
-        whatsapp_number: formData.whatsapp,
-        location: formData.location,
-        experience: formData.experience,
+        full_name: formData.name.trim(),
+        skill: formData.skill.trim(),
+        whatsapp_number: formData.whatsapp.trim(),
+        location: formData.location.trim(),
+        experience: formData.experience.trim(),
         status: 'pending',
       }
 
@@ -49,26 +45,24 @@ export default function InstructorApplicationView() {
         payload.user_id = userId
       }
 
-      // Performed pure insert without .select() readback
+      // Perform insert
       const { error } = await supabase
         .from('instructor_applications')
         .insert([payload])
 
       if (error) throw error
 
-      console.log('Submission Successful')
       setSubmitted(true)
     } catch (err: any) {
-      console.error('Full Error Object:', err)
-      console.error('Error Message:', err?.message)
-      console.error('Error Code:', err?.code)
-      console.error('Error Details:', err?.details)
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Application submission error:', err)
+      }
 
       const detailedMsg = err?.message || err?.error_description || String(err)
 
       if (detailedMsg.includes('Failed to fetch')) {
         setErrorMessage(
-          'Network error: Unable to connect to Supabase. Check your URL in .env.local or browser extensions blocking requests.'
+          'Network error: Unable to connect to Supabase. Check your connection or disable ad blockers.'
         )
       } else {
         setErrorMessage(detailedMsg || 'Something went wrong.')

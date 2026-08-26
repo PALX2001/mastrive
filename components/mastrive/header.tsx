@@ -27,16 +27,24 @@ export function Header({
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const supabase = createClient()
 
   useEffect(() => {
+    const supabase = createClient()
+
     // Check initial auth state
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        setUser(user)
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Error fetching user:', err)
+        }
+      } finally {
+        setLoading(false)
+      }
     }
 
     getUser()
@@ -50,7 +58,7 @@ export function Header({
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [])
 
   const userAvatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture
 

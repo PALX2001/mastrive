@@ -1,11 +1,19 @@
 'use client'
 
-import { useMemo, useState, useRef } from 'react'
+import React, { useMemo, useState, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
 import { Star, Quote } from 'lucide-react'
 import { instructors, type CategoryId } from '@/lib/data'
 import { InstructorCard } from './instructor-card'
-import { BookingModal, type BookingInstructor } from './booking-modal'
+import type { BookingInstructor } from './booking-modal'
+
+// Code-split heavy modal: Only loaded when user clicks "Book Session"
+const BookingModal = dynamic(
+  () => import('./booking-modal').then((mod) => mod.BookingModal),
+  { ssr: false }
+)
 
 const REVIEWS = [
   {
@@ -94,7 +102,7 @@ export function InstructorDirectory({
   const col2Y = useTransform(smoothProgress, [0, 1], [80, 0])
   const col3Y = useTransform(smoothProgress, [0, 1], [30, 0])
 
-  const handleBookClick = (id: string) => {
+  const handleBookClick = useCallback((id: string) => {
     const instructor = instructors.find((i) => i.id === id)
     if (instructor) {
       setSelectedInstructor({
@@ -103,7 +111,11 @@ export function InstructorDirectory({
         price: instructor.price,
       })
     }
-  }
+  }, [])
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedInstructor(null)
+  }, [])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -122,7 +134,7 @@ export function InstructorDirectory({
           scale,
           rotateX,
         }}
-        className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 origin-top"
+        className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 origin-top transform-gpu will-change-transform"
       >
         {/* Results count */}
         <div className="mb-6 flex items-center justify-between">
@@ -142,7 +154,7 @@ export function InstructorDirectory({
                 <motion.div
                   key={instructor.id}
                   style={{ y: parallaxY }}
-                  className="w-full"
+                  className="w-full transform-gpu will-change-transform"
                 >
                   <InstructorCard
                     instructor={instructor}
@@ -162,7 +174,7 @@ export function InstructorDirectory({
         )}
 
         {/* Automatic Horizontal Reviews Marquee */}
-        <div className="mt-20 border-t border-white/10 pt-12">
+        <div className="content-auto mt-20 border-t border-white/10 pt-12">
           <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
@@ -180,38 +192,37 @@ export function InstructorDirectory({
 
           {/* Marquee Wrapper with Vignette Fades */}
           <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-            <motion.div
-              className="flex w-max gap-4 py-4"
-              animate={{ x: ['0%', '-50%'] }}
-              transition={{
-                duration: 25,
-                ease: 'linear',
-                repeat: Infinity,
-              }}
-            >
+            <div className="animate-marquee gap-4 py-4 transform-gpu">
               {MARQUEE_REVIEWS.map((rev, idx) => (
                 <div
                   key={`${rev.id}-${idx}`}
-                  className="relative flex w-[320px] flex-col justify-between rounded-2xl border border-white/10 bg-[#161b22] p-6 shadow-sm transition-all hover:border-white/20 sm:w-[380px]"
+                  className="relative flex w-[320px] shrink-0 flex-col justify-between rounded-2xl border border-white/10 bg-[#161b22] p-6 shadow-sm transition-all duration-300 hover:border-white/20 sm:w-[380px]"
                 >
                   <Quote className="absolute right-5 top-5 size-8 text-white/5" />
                   <div>
                     <div className="flex items-center gap-1 text-amber-400">
-                      {Array.from({ length: rev.rating }).map((_, i) => (
-                        <Star key={i} className="size-3.5 fill-current" />
-                      ))}
+                      <Star className="size-3.5 fill-current" />
+                      <Star className="size-3.5 fill-current" />
+                      <Star className="size-3.5 fill-current" />
+                      <Star className="size-3.5 fill-current" />
+                      <Star className="size-3.5 fill-current" />
                     </div>
                     <p className="mt-4 text-sm leading-relaxed text-[#8b949e]">
-                      "{rev.comment}"
+                      &ldquo;{rev.comment}&rdquo;
                     </p>
                   </div>
 
                   <div className="mt-6 flex items-center gap-3 border-t border-white/5 pt-4">
-                    <img
-                      src={rev.avatar}
-                      alt={rev.name}
-                      className="size-10 rounded-full border border-white/10 object-cover"
-                    />
+                    <div className="relative size-10 overflow-hidden rounded-full border border-white/10">
+                      <Image
+                        src={rev.avatar}
+                        alt={rev.name}
+                        width={40}
+                        height={40}
+                        loading="lazy"
+                        className="size-full object-cover"
+                      />
+                    </div>
                     <div>
                       <h4 className="text-sm font-bold text-[#f0f6fc]">
                         {rev.name}
@@ -223,16 +234,18 @@ export function InstructorDirectory({
                   </div>
                 </div>
               ))}
-            </motion.div>
+            </div>
           </div>
         </div>
 
-        {/* Booking Modal */}
-        <BookingModal
-          isOpen={Boolean(selectedInstructor)}
-          onClose={() => setSelectedInstructor(null)}
-          instructor={selectedInstructor}
-        />
+        {/* Booking Modal (Loaded on Demand) */}
+        {selectedInstructor && (
+          <BookingModal
+            isOpen={Boolean(selectedInstructor)}
+            onClose={handleCloseModal}
+            instructor={selectedInstructor}
+          />
+        )}
       </motion.section>
     </div>
   )
