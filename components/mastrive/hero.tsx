@@ -168,6 +168,13 @@ export function Hero({
   return (
     <section className="relative z-10 flex min-h-[70vh] w-full flex-col items-center justify-center overflow-visible px-4 pb-6 pt-12 sm:pt-16">
       <div className="relative mx-auto max-w-3xl text-center">
+
+        {/* Centered Ambient Glow — covers the full hero content block */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[420px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e01e37]/15 blur-[90px] transform-gpu"
+        />
+
         {/* Minimal Location Badge */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -184,34 +191,26 @@ export function Hero({
           <span>{locationName}</span>
         </motion.div>
 
-        {/* Heading Container with Centered GPU Glow & Animated Phrase Flip */}
-        <div className="relative inline-block w-full">
-          {/* Centered Ambient Glow Element - GPU Accelerated */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[280px] w-[460px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#e01e37]/40 via-[#e01e37]/20 to-transparent blur-[70px] transform-gpu opacity-75"
-          />
-
-          <div className="relative flex min-h-[70px] sm:h-[80px] w-full items-center justify-center">
-            <AnimatePresence mode="wait">
-              <motion.h1
-                key={HERO_PHRASES[phraseIndex].id}
-                initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -20, filter: 'blur(6px)' }}
-                transition={{
-                  duration: 0.5,
-                  ease: [0.16, 1, 0.3, 1],
-                }}
-                className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 text-center text-3xl font-extrabold leading-tight tracking-tight text-[#f0f6fc] sm:text-6xl"
-              >
-                <span className="shrink-0">{HERO_PHRASES[phraseIndex].line1}</span>
-                <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
-                  {HERO_PHRASES[phraseIndex].line2}
-                </span>
-              </motion.h1>
-            </AnimatePresence>
-          </div>
+        {/* Heading — animated phrase flip */}
+        <div className="relative flex min-h-[70px] sm:h-[80px] w-full items-center justify-center">
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={HERO_PHRASES[phraseIndex].id}
+              initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -20, filter: 'blur(6px)' }}
+              transition={{
+                duration: 0.5,
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 text-center text-3xl font-extrabold leading-tight tracking-tight text-[#f0f6fc] sm:text-6xl"
+            >
+              <span className="shrink-0">{HERO_PHRASES[phraseIndex].line1}</span>
+              <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
+                {HERO_PHRASES[phraseIndex].line2}
+              </span>
+            </motion.h1>
+          </AnimatePresence>
         </div>
 
         {/* Subtitle */}
