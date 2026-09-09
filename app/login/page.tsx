@@ -24,6 +24,7 @@ function AuthContent() {
   const [sex, setSex] = useState('')
   const [phone, setPhone] = useState('')
 
+  const [checkingAuth, setCheckingAuth] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,12 +32,73 @@ function AuthContent() {
     else if (searchParams.get('mode') === 'signin') setMode('signin')
   }, [searchParams])
 
+  // Check if already signed in
+  useEffect(() => {
+    let isMounted = true
+
+    const checkExistingSession = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!isMounted) return
+
+        if (user) {
+          const explicitNext = searchParams.get('next')
+          if (explicitNext) {
+            router.replace(explicitNext)
+            return
+          }
+
+          // Check if instructor
+          let isInstructor = user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor'
+
+          if (!isInstructor) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', user.id)
+              .maybeSingle()
+
+            if (profile?.role === 'instructor') isInstructor = true
+          }
+
+          if (!isInstructor) {
+            const { data: appData } = await supabase
+              .from('instructor_applications')
+              .select('status')
+              .eq('user_id', user.id)
+              .eq('status', 'approved')
+              .maybeSingle()
+
+            if (appData) isInstructor = true
+          }
+
+          if (isInstructor) {
+            router.replace('/dashboard/instructor')
+          } else {
+            router.replace('/profile')
+          }
+          return
+        }
+      } catch (err) {
+        // Continue to show login form
+      } finally {
+        if (isMounted) setCheckingAuth(false)
+      }
+    }
+
+    checkExistingSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [router, searchParams, supabase])
+
   const handleGoogleLogin = async () => {
     setLoading(true)
     setMessage(null)
     
-    // Pass the destination path to the callback route via query param
-    const targetUrl = `${window.location.origin}/auth/callback?next=/dashboard/instructor`
+    const explicitNext = searchParams.get('next')
+    const targetUrl = `${window.location.origin}/auth/callback${explicitNext ? `?next=${encodeURIComponent(explicitNext)}` : ''}`
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -68,8 +130,8 @@ function AuthContent() {
     setLoading(true)
     setMessage(null)
 
-    // Pass target destination to email callback handler
-    const redirectUrl = `${window.location.origin}/auth/callback?next=/dashboard/instructor`
+    const explicitNext = searchParams.get('next')
+    const redirectUrl = `${window.location.origin}/auth/callback${explicitNext ? `?next=${encodeURIComponent(explicitNext)}` : ''}`
 
     const { error } = await supabase.auth.signInWithOtp({
       email,

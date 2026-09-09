@@ -15,10 +15,12 @@ type InstructorWithMedia = Instructor & {
 export const InstructorCard = memo(function InstructorCard({
   instructor,
   onBook,
+  onCardClick,
   booked,
 }: {
   instructor: InstructorWithMedia
   onBook: (id: string) => void
+  onCardClick?: (instructor: Instructor) => void
   booked: boolean
 }) {
   const isOnline = instructor.mode === 'online'
@@ -29,7 +31,8 @@ export const InstructorCard = memo(function InstructorCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3 }}
-      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all duration-300 hover:border-white/25 hover:shadow-2xl will-change-transform transform-gpu"
+      onClick={() => onCardClick?.(instructor)}
+      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all duration-300 hover:border-white/25 hover:shadow-2xl will-change-transform transform-gpu cursor-pointer"
     >
       <div>
         {/* Media / Image Container with Fixed Proportion & Perfect Ratio Fit */}
@@ -52,7 +55,7 @@ export const InstructorCard = memo(function InstructorCard({
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
               loading="lazy"
-              className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
+              className="object-cover object-[50%_32%] transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
@@ -65,7 +68,7 @@ export const InstructorCard = memo(function InstructorCard({
 
         <div className="p-4">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-bold text-[#f0f6fc]">
+            <h3 className="text-sm font-bold text-[#f0f6fc] group-hover:text-white transition-colors">
               {instructor.name}
             </h3>
             {instructor.verified && (
@@ -107,7 +110,11 @@ export const InstructorCard = memo(function InstructorCard({
           <span className="text-[10px] font-normal text-[#8b949e]">/hr</span>
         </p>
         <button
-          onClick={() => onBook(instructor.id)}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onBook(instructor.id)
+          }}
           className={`rounded-full px-4 py-1.5 text-[11px] font-bold text-white transition-all active:scale-95 ${
             booked
               ? 'bg-[#3fb950] text-white shadow-[0_2px_8px_rgba(63,185,80,0.3)]'

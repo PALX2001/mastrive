@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const instructorAppId = searchParams.get('instructor_app_id')
   
   // Default fallback if no explicit requested route is passed
   let next = searchParams.get('next')
@@ -44,18 +45,108 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
-        // Fetch role from your existing profiles table
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
+        // ——— POST VERIFICATION HOOK: Link instructor application + set role ———
+        try {
+          // Prefer explicit app_id from magic-link params, then fall back to user metadata
+          const appId = instructorAppId || (user.user_metadata?.instructor_app_id as string | undefined)
+
+          if (appId) {
+            // Attach verified user id to the application row, promote status to 'verified'
+            await supabase
+              .from('instructor_applications')
+              .update({
+                user_id: user.id,
+                verified_at: new Date().toISOString(),
+                status: user.user_metadata?.role === 'instructor' ? 'approved' : 'verified',
+              })
+              .eq('id', appId)
+
+            // Upsert a profile row so dashboard lookups find the role instantly
+            const profileName =
+              user.user_metadata?.full_name ||
+              (user.email ? user.email.split('@')[0] : 'Instructor')
+
+            await supabase
+              .from('profiles')
+              .upsert(
+                {
+                  id: user.id,
+                  full_name: profileName,
+                  email: user.email,
+                  role: 'instructor',
+                  phone: user.user_metadata?.whatsapp_number || null,
+                  city: user.user_metadata?.city || null,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'id' }
+              )
+          } else if (
+            user.user_metadata?.role === 'instructor' &&
+            !(await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()).data
+          ) {
+            // Fallback: Instructor signed up via login page, still seed a profile row
+            const profileName =
+              user.user_metadata?.full_name ||
+              (user.email ? user.email.split('@')[0] : 'Instructor')
+
+            await supabase.from('profiles').upsert(
+              {
+                id: user.id,
+                full_name: profileName,
+                email: user.email,
+                role: 'instructor',
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'id' }
+            )
+          }
+        } catch (syncErr) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[auth/callback] Instructor profile sync failed:', syncErr)
+          }
+          // Non-fatal: user still verifies, dashboard falls back to checking applications
+        }
+
+        // Check instructor role across multiple indicators
+        let isInstructor = user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor'
+
+        if (!isInstructor) {
+          // Fetch role from profiles table
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (profile?.role === 'instructor') {
+            isInstructor = true
+          }
+        }
+
+        if (!isInstructor && instructorAppId) {
+          // Explicit instructor verification link overrides
+          isInstructor = true
+        }
+
+        if (!isInstructor) {
+          // Check approved instructor applications
+          const { data: application } = await supabase
+            .from('instructor_applications')
+            .select('status')
+            .eq('user_id', user.id)
+            .in('status', ['approved', 'verified'])
+            .maybeSingle()
+
+          if (application) {
+            isInstructor = true
+          }
+        }
 
         // Determine destination based on explicitly requested path or user role
         let targetPath = next
 
-        if (!targetPath) {
-          targetPath = profile?.role === 'instructor' ? '/dashboard/instructor' : '/dashboard'
+        if (!targetPath || targetPath === '/dashboard') {
+          targetPath = isInstructor ? '/dashboard/instructor' : '/profile'
         }
 
         // Domain origin resolution

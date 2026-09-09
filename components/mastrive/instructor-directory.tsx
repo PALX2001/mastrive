@@ -5,13 +5,18 @@ import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
 import { Star, Quote } from 'lucide-react'
-import { instructors, type CategoryId } from '@/lib/data'
+import { instructors, type CategoryId, type Instructor } from '@/lib/data'
 import { InstructorCard } from './instructor-card'
 import type { BookingInstructor } from './booking-modal'
 
-// Code-split heavy modal: Only loaded when user clicks "Book Session"
+// Code-split heavy modals: Loaded on demand
 const BookingModal = dynamic(
   () => import('./booking-modal').then((mod) => mod.BookingModal),
+  { ssr: false }
+)
+
+const InstructorProfileModal = dynamic(
+  () => import('./instructor-profile-modal').then((mod) => mod.InstructorProfileModal),
   { ssr: false }
 )
 
@@ -77,6 +82,7 @@ export function InstructorDirectory({
   query: string
 }) {
   const [selectedInstructor, setSelectedInstructor] = useState<BookingInstructor | null>(null)
+  const [activeProfileInstructor, setActiveProfileInstructor] = useState<Instructor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Track scroll position right as section enters viewport
@@ -113,8 +119,16 @@ export function InstructorDirectory({
     }
   }, [])
 
+  const handleCardClick = useCallback((instructor: Instructor) => {
+    setActiveProfileInstructor(instructor)
+  }, [])
+
   const handleCloseModal = useCallback(() => {
     setSelectedInstructor(null)
+  }, [])
+
+  const handleCloseProfileModal = useCallback(() => {
+    setActiveProfileInstructor(null)
   }, [])
 
   const filtered = useMemo(() => {
@@ -159,6 +173,7 @@ export function InstructorDirectory({
                   <InstructorCard
                     instructor={instructor}
                     onBook={handleBookClick}
+                    onCardClick={handleCardClick}
                     booked={false}
                   />
                 </motion.div>
@@ -237,6 +252,16 @@ export function InstructorDirectory({
             </div>
           </div>
         </div>
+
+        {/* UrbanPro Style Skill Details Popup Modal */}
+        {activeProfileInstructor && (
+          <InstructorProfileModal
+            isOpen={Boolean(activeProfileInstructor)}
+            onClose={handleCloseProfileModal}
+            instructor={activeProfileInstructor}
+            onBook={handleBookClick}
+          />
+        )}
 
         {/* Booking Modal (Loaded on Demand) */}
         {selectedInstructor && (

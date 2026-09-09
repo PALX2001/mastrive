@@ -21,9 +21,11 @@ import type { User as SupabaseUser } from '@supabase/supabase-js'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [isInstructor, setIsInstructor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'settings'>('overview')
   const router = useRouter()
+
   useEffect(() => {
     const supabase = createClient()
     let isMounted = true
@@ -34,8 +36,33 @@ export default function ProfilePage() {
         if (!isMounted) return
         if (error || !user) {
           router.push('/login')
+          return
+        }
+        
+        setUser(user)
+
+        // Check instructor role
+        if (user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor') {
+          setIsInstructor(true)
         } else {
-          setUser(user)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (profile?.role === 'instructor') {
+            setIsInstructor(true)
+          } else {
+            const { data: application } = await supabase
+              .from('instructor_applications')
+              .select('status')
+              .eq('user_id', user.id)
+              .eq('status', 'approved')
+              .maybeSingle()
+
+            if (application) setIsInstructor(true)
+          }
         }
       } catch {
         if (isMounted) router.push('/login')
@@ -99,8 +126,12 @@ export default function ProfilePage() {
                   <h1 className="text-2xl font-bold tracking-tight text-white">
                     {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Mastrive User'}
                   </h1>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-                    <CheckCircle2 className="size-3" /> Verified Student
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+                    isInstructor
+                      ? 'bg-[#e01e37]/10 text-[#e01e37] border-[#e01e37]/30'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  }`}>
+                    <CheckCircle2 className="size-3" /> {isInstructor ? 'Verified Instructor' : 'Verified Student'}
                   </span>
                 </div>
                 <p className="text-sm text-[#8b949e] mt-1">{user?.email}</p>
@@ -111,13 +142,23 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition-all hover:bg-red-500 hover:text-white"
-            >
-              <LogOut className="size-4" />
-              Sign Out
-            </button>
+            <div className="flex items-center gap-3">
+              {isInstructor && (
+                <Link
+                  href="/dashboard/instructor"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]"
+                >
+                  Instructor Dashboard
+                </Link>
+              )}
+              <button
+                onClick={handleSignOut}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-400 transition-all hover:bg-red-500 hover:text-white"
+              >
+                <LogOut className="size-4" />
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
 
