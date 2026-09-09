@@ -40,17 +40,23 @@ import {
   Bell,
   SlidersHorizontal,
   RefreshCw,
-  QrCode
+  QrCode,
+  BarChart3,
+  Search,
+  Settings,
+  LayoutDashboard,
+  Mail,
+  CircleDot
 } from 'lucide-react'
 
 type DashTab = 'dash' | 'inbox' | 'calendar' | 'earnings' | 'services'
 
-const navItems: { id: DashTab; label: string; badge?: string }[] = [
-  { id: 'dash', label: 'Overview' },
-  { id: 'inbox', label: 'Learner Inbox', badge: '2' },
-  { id: 'calendar', label: 'Schedule & Slots' },
-  { id: 'earnings', label: 'Earnings & Escrow' },
-  { id: 'services', label: 'Services & Pricing' },
+const sidebarNavItems: { id: DashTab; label: string; icon: React.ElementType; badge?: string }[] = [
+  { id: 'dash', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: '2' },
+  { id: 'calendar', label: 'Schedule', icon: CalendarIcon },
+  { id: 'earnings', label: 'Earnings', icon: Wallet },
+  { id: 'services', label: 'Services', icon: Layers },
 ]
 
 interface RequestItem {
@@ -87,6 +93,25 @@ interface MessageThread {
   lastMessage: string
   time: string
   messages: { sender: 'learner' | 'instructor'; text: string; timestamp: string }[]
+}
+
+// Simple CSS donut chart component
+function DonutChart({ percentage, label }: { percentage: number; label: string }) {
+  const circumference = 2 * Math.PI * 54
+  const strokeDashoffset = circumference - (percentage / 100) * circumference
+  return (
+    <div className="relative flex flex-col items-center justify-center">
+      <svg width="140" height="140" viewBox="0 0 120 120" className="-rotate-90">
+        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#e01e37" strokeWidth="12" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-1000" />
+        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" strokeDasharray={circumference} strokeDashoffset={circumference - strokeDashoffset} transform={`rotate(${(percentage / 100) * 360} 60 60)`} />
+      </svg>
+      <div className="absolute flex flex-col items-center">
+        <span className="text-2xl font-black text-white">{percentage}%</span>
+        <span className="text-[10px] text-[#8b949e] font-medium">{label}</span>
+      </div>
+    </div>
+  )
 }
 
 export default function InstructorDashboard() {
@@ -449,6 +474,17 @@ export default function InstructorDashboard() {
 
   const activeThread = threads.find(t => t.id === selectedThreadId) || threads[0]
 
+  // Session analytics data (sessions per day this week)
+  const weeklySessionData = [
+    { day: 'S', sessions: 2, max: 6 },
+    { day: 'M', sessions: 5, max: 6 },
+    { day: 'T', sessions: 3, max: 6 },
+    { day: 'W', sessions: 6, max: 6 },
+    { day: 'T', sessions: 4, max: 6 },
+    { day: 'F', sessions: 3, max: 6 },
+    { day: 'S', sessions: 5, max: 6 },
+  ]
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#080a0f] text-white">
@@ -464,65 +500,47 @@ export default function InstructorDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#080a0f] text-white font-sans selection:bg-[#e01e37] selection:text-white relative overflow-x-hidden">
+    <div className="flex min-h-screen bg-[#080a0f] text-white font-sans selection:bg-[#e01e37] selection:text-white">
       
-      {/* Ambient background glow effects */}
-      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -left-40 -top-40 size-[500px] rounded-full bg-[#e01e37]/10 blur-[140px]" />
-        <div className="absolute right-0 top-1/4 size-[450px] rounded-full bg-blue-600/5 blur-[150px]" />
-        <div className="absolute bottom-10 left-1/3 size-[500px] rounded-full bg-emerald-600/5 blur-[160px]" />
-      </div>
+      {/* ===== SIDEBAR (Desktop) ===== */}
+      <aside className="fixed left-0 top-0 z-30 hidden lg:flex flex-col w-[260px] h-screen border-r border-white/[0.08] bg-[#0b0e14]">
+        
+        {/* Logo */}
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-white/[0.06]">
+          <Link href="/" aria-label="MASTRIVE home" className="flex items-center group">
+            <Image
+              src="/logo.svg"
+              alt="MASTRIVE"
+              width={130}
+              height={32}
+              priority
+              className="h-7 w-auto object-contain transition-transform group-hover:scale-105"
+            />
+          </Link>
+        </div>
 
-      {/* Top Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#0b0e14]/85 px-4 py-3 backdrop-blur-2xl sm:px-8">
-        <div className="relative mx-auto flex max-w-7xl items-center justify-between">
-          
-          {/* Mobile Menu Button (< md) */}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            aria-label="Open Navigation Menu"
-            className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-[#161b22]/80 text-[#f0f6fc] backdrop-blur-xl transition hover:border-white/20 active:scale-95 md:hidden"
-          >
-            <Menu className="size-5" />
-          </button>
-
-          {/* Left: Official Logo */}
-          <div className="flex items-center gap-5 z-10">
-            <Link href="/" aria-label="MASTRIVE home" className="flex items-center group">
-              <Image
-                src="/logo.svg"
-                alt="MASTRIVE"
-                width={130}
-                height={32}
-                priority
-                className="h-7 w-auto object-contain transition-transform group-hover:scale-105 sm:h-8"
-              />
-            </Link>
-          </div>
-
-          {/* Center: Desktop Navigation Pills (≥ md) */}
-          <nav className="hidden h-[50px] items-center gap-1 rounded-full border border-white/10 bg-[#14171f]/80 p-1.5 shadow-2xl backdrop-blur-2xl md:flex">
-            {navItems.map((item) => {
+        {/* Menu Section */}
+        <div className="flex-1 overflow-y-auto px-4 py-6">
+          <p className="px-3 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">Menu</p>
+          <nav className="space-y-1">
+            {sidebarNavItems.map((item) => {
               const active = activeTab === item.id
+              const Icon = item.icon
               return (
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`relative flex h-full items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold tracking-wide transition-all ${
-                    active ? 'text-white' : 'text-[#8b949e] hover:text-[#f0f6fc]'
+                  className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all ${
+                    active
+                      ? 'bg-[#e01e37] text-white shadow-[0_4px_16px_rgba(224,30,55,0.3)]'
+                      : 'text-[#8b949e] hover:bg-white/[0.04] hover:text-white'
                   }`}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="dash-nav-pill"
-                      className="absolute inset-0 rounded-full bg-gradient-to-r from-[#e01e37] to-[#b0142b] shadow-[0_2px_14px_rgba(224,30,55,0.45)]"
-                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                    />
-                  )}
-                  <span className="relative z-10">{item.label}</span>
+                  <Icon className="size-[18px]" />
+                  <span>{item.label}</span>
                   {item.badge && (
-                    <span className={`relative z-10 flex size-4 items-center justify-center rounded-full text-[9px] font-bold ${
-                      active ? 'bg-white text-[#e01e37]' : 'bg-[#e01e37] text-white'
+                    <span className={`ml-auto flex size-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                      active ? 'bg-white/20 text-white' : 'bg-[#e01e37]/15 text-[#e01e37]'
                     }`}>
                       {item.badge}
                     </span>
@@ -532,801 +550,745 @@ export default function InstructorDashboard() {
             })}
           </nav>
 
-          {/* Right: Instructor Profile */}
-          <div className="flex items-center gap-3 z-10">
-            {/* Profile Avatar & Details */}
+          {/* General Section */}
+          <p className="px-3 mt-8 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">General</p>
+          <nav className="space-y-1">
+            <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+              <Settings className="size-[18px]" />
+              <span>Settings</span>
+            </Link>
+            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+              <HelpCircle className="size-[18px]" />
+              <span>Help</span>
+            </Link>
+            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+              <LogOut className="size-[18px]" />
+              <span>Logout</span>
+            </Link>
+          </nav>
+        </div>
+
+        {/* Bottom CTA Card */}
+        <div className="px-4 pb-5">
+          <div className="rounded-2xl bg-gradient-to-br from-[#e01e37]/20 to-[#e01e37]/5 border border-[#e01e37]/20 p-4 text-center">
+            <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 mx-auto mb-2">
+              <Share2 className="size-5 text-[#e01e37]" />
+            </div>
+            <p className="text-xs font-bold text-white mb-1">Share your profile</p>
+            <p className="text-[10px] text-[#8b949e] mb-3 leading-relaxed">Get more bookings by sharing your link</p>
+            <button
+              onClick={() => setActiveModal('share')}
+              className="w-full rounded-lg bg-[#e01e37] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+            >
+              Copy Link
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ===== MAIN CONTENT AREA ===== */}
+      <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
+
+        {/* Top Bar */}
+        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-white/[0.08] bg-[#0b0e14]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+          
+          {/* Mobile: menu button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            aria-label="Open Navigation Menu"
+            className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-[#161b22]/80 text-[#f0f6fc] transition hover:border-white/20 active:scale-95 lg:hidden"
+          >
+            <Menu className="size-5" />
+          </button>
+
+          {/* Mobile: logo (only on small screens) */}
+          <Link href="/" className="lg:hidden flex items-center">
+            <Image src="/logo.svg" alt="MASTRIVE" width={110} height={26} priority className="h-6 w-auto object-contain" />
+          </Link>
+
+          {/* Search Bar */}
+          <div className="hidden md:flex flex-1 max-w-md items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3.5 py-2">
+            <Search className="size-4 text-[#6e7681]" />
+            <input
+              type="text"
+              placeholder="Search sessions, learners..."
+              className="flex-1 bg-transparent text-xs text-white placeholder-[#6e7681] outline-none"
+            />
+            <kbd className="hidden sm:flex items-center gap-0.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold text-[#6e7681]">⌘F</kbd>
+          </div>
+
+          {/* Right: Notifications + Profile */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white">
+              <Mail className="size-4" />
+            </button>
+            <button className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white">
+              <Bell className="size-4" />
+              <span className="absolute -right-0.5 -top-0.5 flex size-2.5 rounded-full bg-[#e01e37] ring-2 ring-[#0b0e14]" />
+            </button>
+
+            {/* Profile Pill */}
             <Link
               href="/profile"
-              className="flex h-[42px] sm:h-[48px] items-center gap-2.5 rounded-full border border-white/10 bg-[#161b22]/80 px-3 sm:px-4 shadow-xl backdrop-blur-xl transition hover:border-white/20"
+              className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 transition hover:border-white/15"
             >
-              <div className="flex size-7 items-center justify-center rounded-full bg-[#e01e37]/20 border border-[#e01e37]/40 text-xs font-bold text-[#e01e37]">
+              <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-[#e01e37] to-[#900d1f] text-xs font-bold text-white">
                 {profileName.substring(0, 2).toUpperCase()}
               </div>
               <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold leading-tight text-white line-clamp-1">{profileName}</p>
-                <p className="text-[10px] text-emerald-400 font-medium">Verified Coach</p>
+                <p className="text-xs font-bold text-white leading-tight line-clamp-1">{profileName}</p>
+                <p className="text-[10px] text-[#8b949e]">{profileSkill.length > 20 ? profileSkill.substring(0, 20) + '...' : profileSkill}</p>
               </div>
             </Link>
           </div>
+        </header>
 
-        </div>
-      </header>
+        {/* ===== PAGE CONTENT ===== */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
 
-      {/* Main Container */}
-      <main className="relative z-10 mx-auto max-w-7xl p-4 sm:p-6 space-y-6">
-
-        {/* OVERVIEW TAB */}
-        {activeTab === 'dash' && (
-          <div className="space-y-6">
-            
-            {/* 1. HERO BANNER: Welcome & Direct Booking Share */}
-            <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#161b24] via-[#12151d] to-[#0c0f16] p-6 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
-              <div className="absolute -right-16 -top-16 size-72 rounded-full bg-[#e01e37]/15 blur-3xl pointer-events-none" />
-              <div className="absolute -left-10 bottom-0 size-60 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+          {/* OVERVIEW TAB */}
+          {activeTab === 'dash' && (
+            <div className="space-y-6">
               
-              <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              {/* Page Title & CTAs */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white">
-                    WELCOME BACK, <span className="bg-gradient-to-r from-[#e01e37] via-[#ff4d6d] to-[#ff758f] bg-clip-text text-transparent">{profileName.toUpperCase()}!</span>
-                  </h1>
-                  <p className="text-sm text-[#8b949e] mt-1.5 max-w-2xl leading-relaxed">
-                    You have <strong className="text-white">3 confirmed sessions</strong> today. 100% of your earnings go straight to your bank account with zero deduction during the founder promo period.
+                  <h1 className="text-2xl font-black text-white tracking-tight">Dashboard</h1>
+                  <p className="text-sm text-[#8b949e] mt-0.5">
+                    Welcome back, <span className="text-[#e01e37] font-semibold">{profileName}</span>. You have <strong className="text-white">3 confirmed sessions</strong> today.
                   </p>
-
-                  {/* Rating & Performance Trust Badges */}
-                  <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
-                    <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 font-medium text-yellow-400">
-                      <Star className="size-3.5 fill-yellow-400 text-yellow-400" />
-                      <strong>4.9</strong> (148 verified reviews)
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 font-medium text-emerald-400">
-                      <ShieldCheck className="size-3.5" />
-                      100% Escrow Protection
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-1.5 font-medium text-indigo-400">
-                      <Award className="size-3.5" />
-                      Rank #2 Combat Tier (Delhi NCR)
-                    </span>
-                  </div>
                 </div>
-
-                {/* Quick Action CTAs */}
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 min-w-[260px]">
+                <div className="flex items-center gap-2.5">
                   <button
                     onClick={() => setActiveModal('share')}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] px-5 py-3.5 text-xs sm:text-sm font-bold text-white shadow-[0_4px_20px_rgba(224,30,55,0.4)] transition hover:brightness-110 active:scale-[0.98]"
+                    className="flex items-center gap-2 rounded-xl bg-[#e01e37] px-4 py-2.5 text-xs font-bold text-white shadow-[0_4px_16px_rgba(224,30,55,0.3)] transition hover:brightness-110 active:scale-[0.98]"
                   >
-                    <Share2 className="size-4" />
+                    <Share2 className="size-3.5" />
                     <span>Share Booking Link</span>
                   </button>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setActiveModal('add-slot')}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-xs font-semibold text-[#f0f6fc] transition hover:bg-white/[0.08] hover:border-white/20 active:scale-[0.98]"
-                    >
-                      <Plus className="size-3.5 text-[#e01e37]" />
-                      <span>Add Slot</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveModal('payout')}
-                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
-                    >
-                      <Wallet className="size-3.5" />
-                      <span>Claim Payout</span>
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setActiveModal('payout')}
+                    className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/[0.06] active:scale-[0.98]"
+                  >
+                    <Wallet className="size-3.5" />
+                    <span>Claim Payout</span>
+                  </button>
                 </div>
               </div>
-            </div>
 
-            {/* 2. STATS & REVENUE METRICS CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              {/* Stat 1: Today's Sessions */}
-              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f]/90 p-5 backdrop-blur-xl transition hover:border-white/20 shadow-lg">
-                <div className="flex items-center justify-between text-[#8b949e]">
-                  <span className="text-xs font-bold uppercase tracking-wider">Today's Sessions</span>
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-[#e01e37]/10 text-[#e01e37]">
-                    <CalendarIcon className="size-4" />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white">3</span>
-                  <span className="text-xs font-semibold text-emerald-400">Confirmed</span>
-                </div>
-                <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
-                  <Clock className="size-3 text-[#e01e37]" />
-                  Next: Vikram M. at 5:00 PM
-                </p>
-              </div>
-
-              {/* Stat 2: Monthly Revenue */}
-              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f]/90 p-5 backdrop-blur-xl transition hover:border-white/20 shadow-lg">
-                <div className="flex items-center justify-between text-[#8b949e]">
-                  <span className="text-xs font-bold uppercase tracking-wider">Month Revenue</span>
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-                    <TrendingUp className="size-4" />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white">₹42,500</span>
-                  <span className="text-xs font-semibold text-emerald-400">+14.2%</span>
-                </div>
-                <p className="mt-2 text-xs text-[#8b949e]">
-                  34 completed sessions in October
-                </p>
-              </div>
-
-              {/* Stat 3: Escrow Balance */}
-              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f]/90 p-5 backdrop-blur-xl transition hover:border-white/20 shadow-lg">
-                <div className="flex items-center justify-between text-[#8b949e]">
-                  <span className="text-xs font-bold uppercase tracking-wider">Escrow Held</span>
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-                    <ShieldCheck className="size-4" />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-amber-400">₹8,500</span>
-                  <span className="text-xs font-semibold text-amber-400/80">Secured</span>
-                </div>
-                <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1">
-                  <Clock className="size-3 text-amber-400" />
-                  Next release: ₹1,500 in 4h
-                </p>
-              </div>
-
-              {/* Stat 4: Active Learners */}
-              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f]/90 p-5 backdrop-blur-xl transition hover:border-white/20 shadow-lg">
-                <div className="flex items-center justify-between text-[#8b949e]">
-                  <span className="text-xs font-bold uppercase tracking-wider">Active Learners</span>
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
-                    <Users className="size-4" />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-white">28</span>
-                  <span className="text-xs font-semibold text-indigo-400">82% Repeat</span>
-                </div>
-                <p className="mt-2 text-xs text-[#8b949e]">
-                  94 total lifetime students
-                </p>
-              </div>
-
-            </div>
-
-            {/* 3. TODAY'S AGENDA & PENDING REQUESTS (2-COL SPLIT) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Left 2-Cols: Upcoming Sessions & Learner Requests */}
-              <div className="lg:col-span-2 space-y-6">
+              {/* ===== STAT CARDS ROW ===== */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 
-                {/* Upcoming Confirmed Sessions */}
-                <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg">
-                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-4 mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-8 items-center justify-center rounded-xl bg-[#e01e37]/10 text-[#e01e37]">
-                        <Clock className="size-4" />
-                      </div>
-                      <div>
-                        <h2 className="text-base font-bold text-white">Today's Schedule & Agenda</h2>
-                        <p className="text-xs text-[#8b949e]">Live confirmed sessions for today</p>
+                {/* Stat 1: Today's Sessions — Highlighted card (like the green "Total Projects" in reference) */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#e01e37] to-[#a0111f] p-5 shadow-[0_8px_24px_rgba(224,30,55,0.25)]">
+                  <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-white/70">Today&apos;s Sessions</span>
+                      <div className="flex size-8 items-center justify-center rounded-full bg-white/20">
+                        <CalendarIcon className="size-4 text-white" />
                       </div>
                     </div>
+                    <div className="mt-4">
+                      <span className="text-4xl font-black text-white">3</span>
+                    </div>
+                    <p className="mt-2 text-xs text-white/70 flex items-center gap-1.5">
+                      <TrendingUp className="size-3" />
+                      Increased from last week
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stat 2: Month Revenue */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Month Revenue</span>
+                    <button className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                      <ChevronRight className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    <span className="text-4xl font-black text-white">₹42.5K</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
+                    <TrendingUp className="size-3 text-emerald-400" />
+                    <span className="text-emerald-400 font-semibold">+14.2%</span> from last month
+                  </p>
+                </div>
+
+                {/* Stat 3: Escrow Held */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Escrow Held</span>
+                    <button className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                      <ChevronRight className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    <span className="text-4xl font-black text-white">₹8,500</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
+                    <Clock className="size-3 text-amber-400" />
+                    Next release in 4h
+                  </p>
+                </div>
+
+                {/* Stat 4: Active Learners */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Active Learners</span>
+                    <button className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                      <ChevronRight className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-4">
+                    <span className="text-4xl font-black text-white">28</span>
+                  </div>
+                  <p className="mt-2 text-xs text-[#8b949e]">
+                    <span className="text-[#e01e37] font-semibold">82%</span> repeat learners
+                  </p>
+                </div>
+              </div>
+
+              {/* ===== MIDDLE ROW: Analytics | Schedule | Services ===== */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Session Analytics (Bar chart) */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                  <h3 className="text-sm font-bold text-white mb-5">Session Analytics</h3>
+                  <div className="flex items-end justify-between gap-3 h-[140px]">
+                    {weeklySessionData.map((d, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                        <div className="w-full flex flex-col justify-end h-[110px]">
+                          <div
+                            className={`w-full rounded-lg transition-all duration-500 ${
+                              i === 3 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25'
+                            }`}
+                            style={{ height: `${(d.sessions / d.max) * 100}%` }}
+                          />
+                        </div>
+                        <span className={`text-[10px] font-bold ${i === 3 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Today's Schedule / Reminders */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                  <h3 className="text-sm font-bold text-white mb-4">Reminders</h3>
+                  
+                  <div className="space-y-4">
+                    {/* Next session highlight */}
+                    <div className="rounded-xl bg-[#0b0e14] border border-white/[0.06] p-4">
+                      <p className="text-xs font-bold text-white">Boxing Sparring with Vikram M.</p>
+                      <p className="text-[11px] text-[#8b949e] mt-1 flex items-center gap-1.5">
+                        <Clock className="size-3 text-[#e01e37]" />
+                        Today, 5:00 PM – 6:00 PM
+                      </p>
+                      <p className="text-[11px] text-[#6e7681] mt-1 flex items-center gap-1.5">
+                        <MapPin className="size-3" />
+                        Siri Fort Sports Complex
+                      </p>
+                    </div>
+                    
                     <button
                       onClick={() => setActiveTab('calendar')}
-                      className="text-xs font-semibold text-[#e01e37] hover:underline flex items-center gap-1"
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] py-2.5 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
                     >
-                      View Calendar <ChevronRight className="size-3.5" />
+                      <CalendarIcon className="size-3.5" />
+                      View Full Schedule
+                    </button>
+                  </div>
+                </div>
+
+                {/* Services / Activities List */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-white">Services</h3>
+                    <button
+                      onClick={() => setActiveModal('add-service')}
+                      className="flex items-center gap-1 text-[11px] font-semibold text-[#e01e37] hover:underline"
+                    >
+                      <Plus className="size-3" /> New
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {services.slice(0, 4).map((svc, i) => {
+                      const colors = ['bg-[#e01e37]', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500']
+                      return (
+                        <div key={svc.id} className="flex items-center gap-3 group">
+                          <div className={`size-2 rounded-full ${colors[i % colors.length]} shrink-0`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">{svc.name}</p>
+                            <p className="text-[10px] text-[#6e7681]">₹{svc.price} · {svc.duration}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* ===== BOTTOM ROW: Learner Sessions | Progress | Escrow ===== */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Learner Collaboration / Recent Sessions */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-white">Recent Learners</h3>
+                    <button
+                      onClick={() => setActiveTab('inbox')}
+                      className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-[#8b949e] hover:text-white transition"
+                    >
+                      <Plus className="size-3" /> View All
                     </button>
                   </div>
 
                   <div className="space-y-3">
                     {upcomingSessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="rounded-2xl border border-white/[0.06] bg-[#0b0e14]/70 p-4 transition hover:border-white/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-sm">{session.learnerName}</span>
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              session.mode === 'in-person' 
-                                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                                : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                            }`}>
-                              {session.mode === 'in-person' ? 'In-Person' : 'Live Stream'}
-                            </span>
-                            <span className="text-xs font-semibold text-emerald-400">₹{session.price}</span>
-                          </div>
-                          <p className="text-xs font-medium text-[#8b949e]">{session.service}</p>
-                          <div className="flex items-center gap-3 text-[11px] text-[#6e7681]">
-                            <span className="flex items-center gap-1 text-white/80">
-                              <Clock className="size-3 text-[#e01e37]" /> {session.time}
-                            </span>
-                            <span className="flex items-center gap-1 truncate max-w-[200px]">
-                              {session.mode === 'in-person' ? <MapPin className="size-3" /> : <Video className="size-3" />}
-                              {session.locationOrLink}
-                            </span>
-                          </div>
+                      <div key={session.id} className="flex items-center gap-3">
+                        <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/10 border border-[#e01e37]/20 text-[10px] font-bold text-[#e01e37] shrink-0">
+                          {session.learnerName.split(' ').map(n => n[0]).join('')}
                         </div>
-
-                        <div className="flex items-center gap-2 self-end sm:self-center">
-                          {session.mode === 'online' ? (
-                            <a
-                              href={session.locationOrLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110 active:scale-95"
-                            >
-                              <Video className="size-3.5" />
-                              <span>Join Room</span>
-                            </a>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setSelectedLearner(session.learnerName)
-                                setActiveModal('reply')
-                              }}
-                              className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-white/10 active:scale-95"
-                            >
-                              <MessageSquare className="size-3.5 text-[#e01e37]" />
-                              <span>Chat</span>
-                            </button>
-                          )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{session.learnerName}</p>
+                          <p className="text-[10px] text-[#6e7681] truncate">{session.service}</p>
                         </div>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold shrink-0 ${
+                          session.mode === 'in-person'
+                            ? 'bg-blue-500/10 text-blue-400'
+                            : 'bg-purple-500/10 text-purple-400'
+                        }`}>
+                          {session.mode === 'in-person' ? 'In-Person' : 'Online'}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Learner Inquiries & Booking Requests */}
-                <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg">
-                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-4 mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-8 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-                        <MessageSquare className="size-4" />
-                      </div>
-                      <div>
-                        <h2 className="text-base font-bold text-white">Learner Inquiries & Requests</h2>
-                        <p className="text-xs text-[#8b949e]">Accept or reschedule incoming student bookings</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {requests.map((req) => (
-                      <div
-                        key={req.id}
-                        className="rounded-2xl border border-white/[0.06] bg-[#0b0e14]/70 p-4 transition hover:border-white/15 space-y-3"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-sm text-white">{req.name}</p>
-                              <span className="text-xs font-bold text-emerald-400">₹{req.price}</span>
-                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                                req.status === 'accepted'
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : req.status === 'declined'
-                                  ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                  : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                              }`}>
-                                {req.status === 'accepted' ? 'Confirmed' : req.status === 'declined' ? 'Declined' : 'Pending Action'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#8b949e]">{req.service} · {req.date} ({req.time})</p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {req.status === 'pending' ? (
-                              <>
-                                <button
-                                  onClick={() => handleAcceptRequest(req.id)}
-                                  className="rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md transition hover:brightness-110 active:scale-95"
-                                >
-                                  Accept
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setSelectedLearner(req.name)
-                                    setActiveModal('reschedule')
-                                  }}
-                                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-[#8b949e] hover:text-white hover:bg-white/[0.08] transition active:scale-95"
-                                >
-                                  Reschedule
-                                </button>
-                                <button
-                                  onClick={() => handleDeclineRequest(req.id)}
-                                  className="rounded-xl border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500 hover:text-white transition active:scale-95"
-                                >
-                                  Decline
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  setSelectedLearner(req.name)
-                                  setActiveModal('reply')
-                                }}
-                                className="rounded-xl bg-[#e01e37] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#c0182f] active:scale-95"
-                              >
-                                Reply
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-2.5 text-xs text-[#8b949e] italic">
-                          {req.message}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Right 1-Col: Escrow Protection Tracker & Leaderboard Standings */}
-              <div className="space-y-6">
-                
-                {/* Real-time Escrow Timeline Tracker */}
-                <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="size-5 text-emerald-400" />
-                      <h2 className="font-bold text-sm text-white">Escrow Protection Hub</h2>
-                    </div>
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                      100% Guaranteed
+                {/* Session Completion Progress (Donut chart) */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col items-center">
+                  <h3 className="text-sm font-bold text-white self-start mb-4">Session Progress</h3>
+                  <DonutChart percentage={82} label="Completed" />
+                  <div className="flex items-center gap-4 mt-4 text-[10px]">
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full bg-[#e01e37]" />
+                      <span className="text-[#8b949e]">Completed</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="size-2 rounded-full bg-white/10" />
+                      <span className="text-[#8b949e]">Remaining</span>
                     </span>
                   </div>
+                </div>
 
-                  <p className="text-xs text-[#8b949e] leading-relaxed">
-                    Student payments are held in escrow before sessions start and automatically deposited to your account upon completion.
-                  </p>
+                {/* Escrow Tracker */}
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-bold text-white">Escrow Tracker</h3>
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/20">Protected</span>
+                  </div>
 
-                  <div className="space-y-3">
-                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3 flex items-center justify-between">
+                  <div className="space-y-2.5">
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-white">₹2,000 · Vikram M.</p>
-                        <p className="text-[11px] text-emerald-400">Held in Escrow (Paid & Ready)</p>
+                        <p className="text-[10px] text-emerald-400">Held in Escrow</p>
                       </div>
-                      <CheckCircle2 className="size-4 text-emerald-400" />
+                      <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
                     </div>
-
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3 flex items-center justify-between">
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-white">₹1,500 · Ananya S.</p>
-                        <p className="text-[11px] text-amber-400">Session Done · Clears in 4h</p>
+                        <p className="text-[10px] text-amber-400">Clears in 4h</p>
                       </div>
-                      <Clock className="size-4 text-amber-400" />
+                      <Clock className="size-4 text-amber-400 shrink-0" />
                     </div>
-
-                    <div className="rounded-xl border border-white/[0.06] bg-[#0b0e14]/60 p-3 flex items-center justify-between">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-white">₹5,000 · Weekly Batch</p>
-                        <p className="text-[11px] text-[#8b949e]">Auto-Deposit Scheduled: Monday</p>
+                        <p className="text-[10px] text-[#8b949e]">Auto-Deposit: Monday</p>
                       </div>
-                      <Check className="size-4 text-[#8b949e]" />
+                      <Check className="size-4 text-[#6e7681] shrink-0" />
                     </div>
                   </div>
 
                   <button
                     onClick={() => setActiveModal('payout')}
-                    className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
+                    className="mt-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
                   >
                     Manage Payout Method
                   </button>
                 </div>
-
-                {/* Tournament & Leaderboard XP Card */}
-                <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-                    <div className="flex items-center gap-2">
-                      <Award className="size-5 text-[#e01e37]" />
-                      <h2 className="font-bold text-sm text-white">Coach Leaderboard</h2>
-                    </div>
-                    <span className="text-xs font-bold text-yellow-400">5,010 XP</span>
-                  </div>
-
-                  <div className="rounded-2xl bg-[#0b0e14]/80 p-4 border border-white/[0.06] space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#8b949e]">Current Rank</span>
-                      <span className="font-bold text-white">#2 in Delhi Combat</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#8b949e]">Hours Taught</span>
-                      <span className="font-bold text-white">288 hrs verified</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#8b949e]">Next Reward Tier</span>
-                      <span className="font-bold text-[#e01e37]">410 XP to #1 Master</span>
-                    </div>
-
-                    <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden mt-3">
-                      <div className="bg-gradient-to-r from-[#e01e37] to-amber-500 h-full rounded-full" style={{ width: '85%' }} />
-                    </div>
-                  </div>
-
-                  <Link
-                    href="/#tournaments"
-                    className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#8b949e] hover:text-white transition"
-                  >
-                    <span>View Tournament Standings</span>
-                    <ExternalLink className="size-3" />
-                  </Link>
-                </div>
-
               </div>
 
             </div>
+          )}
 
-          </div>
-        )}
-
-        {/* INBOX TAB */}
-        {activeTab === 'inbox' && (
-          <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 backdrop-blur-xl shadow-2xl overflow-hidden min-h-[600px] grid grid-cols-1 md:grid-cols-3">
-            
-            {/* Thread List Column */}
-            <div className="border-r border-white/[0.08] bg-[#0d1017]/60 p-4 space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-                <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                  <MessageSquare className="size-4 text-[#e01e37]" />
-                  Learner Conversations
-                </h3>
-                <span className="rounded-full bg-[#e01e37]/20 px-2 py-0.5 text-[10px] font-bold text-[#e01e37]">
-                  {threads.length} Active
-                </span>
-              </div>
-
-              <div className="space-y-1.5">
-                {threads.map((thread) => {
-                  const selected = thread.id === selectedThreadId
-                  return (
-                    <button
-                      key={thread.id}
-                      onClick={() => setSelectedThreadId(thread.id)}
-                      className={`w-full text-left p-3 rounded-2xl transition flex items-start gap-3 ${
-                        selected
-                          ? 'bg-[#1e232d] border border-white/10 shadow-md'
-                          : 'hover:bg-white/[0.04] border border-transparent'
-                      }`}
-                    >
-                      <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#e01e37] to-[#800016] text-xs font-bold text-white shrink-0">
-                        {thread.avatarLetter}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-bold text-xs text-white truncate">{thread.name}</p>
-                          <span className="text-[10px] text-[#8b949e]">{thread.time}</span>
-                        </div>
-                        <p className="text-[11px] text-[#e01e37] font-medium truncate">{thread.skill}</p>
-                        <p className="text-[11px] text-[#8b949e] truncate mt-0.5">{thread.lastMessage}</p>
-                      </div>
-                      {thread.unread > 0 && (
-                        <span className="size-2 rounded-full bg-[#e01e37] shrink-0 mt-2" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Active Conversation Chat Window */}
-            <div className="md:col-span-2 flex flex-col h-[600px] bg-[#0b0e14]/80">
+          {/* INBOX TAB */}
+          {activeTab === 'inbox' && (
+            <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] overflow-hidden min-h-[600px] grid grid-cols-1 md:grid-cols-3">
               
-              {/* Header */}
-              <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#12161f]/80">
-                <div className="flex items-center gap-3">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 border border-[#e01e37]/30 text-xs font-bold text-[#e01e37]">
-                    {activeThread.avatarLetter}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">{activeThread.name}</h3>
-                    <p className="text-xs text-[#8b949e] flex items-center gap-1.5">
-                      <span>{activeThread.skill}</span>
-                      <span>·</span>
-                      <span className="text-emerald-400">Active Booking</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedLearner(activeThread.name)
-                      setActiveModal('reschedule')
-                    }}
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-[#8b949e] hover:text-white transition"
-                  >
-                    Reschedule
-                  </button>
-                  <button
-                    onClick={() => setActiveModal('share')}
-                    className="rounded-xl bg-[#e01e37] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#c0182f]"
-                  >
-                    Share Slot
-                  </button>
-                </div>
-              </div>
-
-              {/* Message Feed */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                <div className="text-center my-2">
-                  <span className="rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-[#8b949e]">
-                    Encrypted Chat for Booking #{activeThread.id}
+              {/* Thread List Column */}
+              <div className="border-r border-white/[0.08] bg-[#0d1017]/60 p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <MessageSquare className="size-4 text-[#e01e37]" />
+                    Conversations
+                  </h3>
+                  <span className="rounded-full bg-[#e01e37]/20 px-2 py-0.5 text-[10px] font-bold text-[#e01e37]">
+                    {threads.length} Active
                   </span>
                 </div>
 
-                {activeThread.messages.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex flex-col ${msg.sender === 'instructor' ? 'items-end' : 'items-start'}`}
-                  >
-                    <div
-                      className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs ${
-                        msg.sender === 'instructor'
-                          ? 'bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-md rounded-br-none'
-                          : 'bg-[#1b202a] text-gray-200 border border-white/[0.06] rounded-bl-none'
-                      }`}
-                    >
-                      {msg.text}
+                <div className="space-y-1.5">
+                  {threads.map((thread) => {
+                    const selected = thread.id === selectedThreadId
+                    return (
+                      <button
+                        key={thread.id}
+                        onClick={() => setSelectedThreadId(thread.id)}
+                        className={`w-full text-left p-3 rounded-xl transition flex items-start gap-3 ${
+                          selected
+                            ? 'bg-[#1e232d] border border-white/10 shadow-md'
+                            : 'hover:bg-white/[0.04] border border-transparent'
+                        }`}
+                      >
+                        <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#e01e37] to-[#800016] text-xs font-bold text-white shrink-0">
+                          {thread.avatarLetter}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-xs text-white truncate">{thread.name}</p>
+                            <span className="text-[10px] text-[#8b949e]">{thread.time}</span>
+                          </div>
+                          <p className="text-[11px] text-[#e01e37] font-medium truncate">{thread.skill}</p>
+                          <p className="text-[11px] text-[#8b949e] truncate mt-0.5">{thread.lastMessage}</p>
+                        </div>
+                        {thread.unread > 0 && (
+                          <span className="size-2 rounded-full bg-[#e01e37] shrink-0 mt-2" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Active Conversation Chat Window */}
+              <div className="md:col-span-2 flex flex-col h-[600px] bg-[#0b0e14]/80">
+                
+                {/* Header */}
+                <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#12161f]/80">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 border border-[#e01e37]/30 text-xs font-bold text-[#e01e37]">
+                      {activeThread.avatarLetter}
                     </div>
-                    <span className="text-[9px] text-[#6e7681] mt-1 px-1">{msg.timestamp}</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-white">{activeThread.name}</h3>
+                      <p className="text-xs text-[#8b949e] flex items-center gap-1.5">
+                        <span>{activeThread.skill}</span>
+                        <span>·</span>
+                        <span className="text-emerald-400">Active Booking</span>
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              {/* Quick Reply Presets */}
-              <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto border-t border-white/[0.04] bg-[#0f131a]">
-                <span className="text-[10px] font-bold text-[#8b949e] shrink-0">Quick:</span>
-                {[
-                  'See you at the session on time!',
-                  'Bring wraps and water bottle.',
-                  'Here is the studio pin location.',
-                  'Ready on the live stream!',
-                ].map((quick, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setChatInput(quick)}
-                    className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] text-gray-300 hover:bg-white/10 transition"
-                  >
-                    {quick}
-                  </button>
-                ))}
-              </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedLearner(activeThread.name)
+                        setActiveModal('reschedule')
+                      }}
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-[#8b949e] hover:text-white transition"
+                    >
+                      Reschedule
+                    </button>
+                    <button
+                      onClick={() => setActiveModal('share')}
+                      className="rounded-xl bg-[#e01e37] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#c0182f]"
+                    >
+                      Share Slot
+                    </button>
+                  </div>
+                </div>
 
-              {/* Input Footer */}
-              <form onSubmit={handleSendMessageInThread} className="p-3 border-t border-white/[0.08] flex items-center gap-2 bg-[#12161f]/90">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Type a message or instruction..."
-                  className="flex-1 rounded-xl border border-white/10 bg-[#0b0e14] px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
-                />
-                <button
-                  type="submit"
-                  className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-md transition hover:brightness-110 active:scale-95"
-                >
-                  <Send className="size-4" />
-                </button>
-              </form>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* CALENDAR & SLOTS TAB */}
-        {activeTab === 'calendar' && (
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="size-5 text-[#e01e37]" />
-                  Weekly Availability & Time Blocks
-                </h2>
-                <p className="text-xs text-[#8b949e] mt-1">
-                  Click any slot to toggle availability. Students can only book your active open slots.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setActiveModal('add-slot')}
-                  className="flex items-center gap-1.5 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-[#c0182f] active:scale-95"
-                >
-                  <Plus className="size-3.5" />
-                  <span>+ Add Time Slot</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Weekly Slot Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {calendarSlots.map((slot) => (
-                <div
-                  key={slot.id}
-                  onClick={() => handleToggleSlot(slot.id)}
-                  className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 ${
-                    slot.status === 'booked'
-                      ? 'bg-[#181d28] border-purple-500/30 shadow-lg'
-                      : 'bg-[#0d1017] border-white/[0.08] hover:border-emerald-500/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">{slot.day}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
-                      slot.status === 'booked'
-                        ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                        : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                    }`}>
-                      {slot.status === 'booked' ? 'Booked' : 'Available'}
+                {/* Message Feed */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                  <div className="text-center my-2">
+                    <span className="rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-[#8b949e]">
+                      Encrypted Chat for Booking #{activeThread.id}
                     </span>
                   </div>
 
-                  <p className="mt-3 font-bold text-sm text-white">{slot.title}</p>
-                  <p className="text-xs text-[#8b949e] mt-1 flex items-center gap-1">
-                    <Clock className="size-3 text-[#e01e37]" /> {slot.time}
-                  </p>
-
-                  <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
-                    <span className="text-[#8b949e]">{slot.student || 'Open for booking'}</span>
-                    <span className="text-[#e01e37] font-semibold">{slot.type === 'in-person' ? 'Delhi' : 'Online'}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* EARNINGS & ESCROW TAB */}
-        {activeTab === 'earnings' && (
-          <div className="space-y-6">
-            
-            {/* Top Balance Banner */}
-            <div className="rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#12161f] to-[#0c0f16] p-6 sm:p-8 backdrop-blur-xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Available Wallet Balance</span>
-                <div className="mt-2 flex items-baseline gap-3">
-                  <span className="text-4xl sm:text-5xl font-black text-white">₹8,500</span>
-                  <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20">
-                    Ready for Instant Withdrawal
-                  </span>
-                </div>
-                <p className="text-xs text-[#8b949e] mt-2">
-                  Total lifetime payout earned: <strong className="text-white">₹1,42,500</strong> · Platform fee: <strong className="text-emerald-400">0% (Founder tier)</strong>
-                </p>
-              </div>
-
-              <button
-                onClick={() => setActiveModal('payout')}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(16,185,129,0.3)] transition hover:brightness-110 active:scale-95"
-              >
-                <Wallet className="size-4" />
-                <span>Withdraw to UPI / Bank</span>
-              </button>
-            </div>
-
-            {/* Payouts Breakdown Table */}
-            <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg space-y-4">
-              <h3 className="font-bold text-base text-white">Recent Completed Sessions & Escrow Settlements</h3>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-[#8b949e]">
-                  <thead className="border-b border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-white/70">
-                    <tr>
-                      <th className="py-3 px-4">Session Date</th>
-                      <th className="py-3 px-4">Learner</th>
-                      <th className="py-3 px-4">Service</th>
-                      <th className="py-3 px-4">Gross</th>
-                      <th className="py-3 px-4">Platform Fee</th>
-                      <th className="py-3 px-4">Net Payout</th>
-                      <th className="py-3 px-4">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {[
-                      { date: '22 Oct 2026', learner: 'Vikram M.', service: 'Boxing 1-on-1', gross: '₹1,500', fee: '₹0', net: '₹1,500', status: 'Deposited' },
-                      { date: '21 Oct 2026', learner: 'Ananya S.', service: 'Pad Work & Sparring', gross: '₹1,200', fee: '₹0', net: '₹1,200', status: 'Escrow Clearing' },
-                      { date: '20 Oct 2026', learner: 'Karan P.', service: 'Cardio Blast Live', gross: '₹800', fee: '₹0', net: '₹800', status: 'Deposited' },
-                      { date: '19 Oct 2026', learner: 'Dev Malhotra', service: 'Kick Drills 1-on-1', gross: '₹1,500', fee: '₹0', net: '₹1,500', status: 'Deposited' },
-                      { date: '18 Oct 2026', learner: 'Meera Nair', service: 'Combat Conditioning', gross: '₹1,000', fee: '₹0', net: '₹1,000', status: 'Deposited' },
-                    ].map((row, i) => (
-                      <tr key={i} className="hover:bg-white/[0.02] transition">
-                        <td className="py-3.5 px-4 font-medium text-white">{row.date}</td>
-                        <td className="py-3.5 px-4 text-white">{row.learner}</td>
-                        <td className="py-3.5 px-4">{row.service}</td>
-                        <td className="py-3.5 px-4 text-white font-semibold">{row.gross}</td>
-                        <td className="py-3.5 px-4 text-emerald-400 font-bold">{row.fee} (0%)</td>
-                        <td className="py-3.5 px-4 text-white font-bold">{row.net}</td>
-                        <td className="py-3.5 px-4">
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                            row.status === 'Deposited'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}>
-                            {row.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* SERVICES & PRICING TAB */}
-        {activeTab === 'services' && (
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-white/[0.08] bg-[#12161f]/90 p-6 backdrop-blur-xl shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Layers className="size-5 text-[#e01e37]" />
-                  Your Offered Services & Pricing
-                </h2>
-                <p className="text-xs text-[#8b949e] mt-1">
-                  Customize your session offerings, rates per hour, and formats (in-person vs virtual).
-                </p>
-              </div>
-
-              <button
-                onClick={() => setActiveModal('add-service')}
-                className="flex items-center gap-1.5 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-[#c0182f] active:scale-95"
-              >
-                <Plus className="size-3.5" />
-                <span>+ Create New Package</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {services.map((svc) => (
-                <div
-                  key={svc.id}
-                  className="rounded-2xl border border-white/[0.08] bg-[#0d1017]/80 p-5 transition hover:border-white/20 shadow-md flex flex-col justify-between gap-4"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                        svc.mode === 'in-person'
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                      }`}>
-                        {svc.mode === 'in-person' ? 'In-Person (Delhi)' : 'Live Online Stream'}
-                      </span>
-                      <span className="text-xs text-[#8b949e]">{svc.duration}</span>
-                    </div>
-
-                    <h3 className="font-bold text-base text-white">{svc.name}</h3>
-                    <p className="text-xs text-[#8b949e]">{svc.bookingsCount} learners booked so far</p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
-                    <div>
-                      <span className="text-[10px] uppercase text-[#8b949e]">Your Price</span>
-                      <p className="text-xl font-black text-white">₹{svc.price}</p>
-                    </div>
-
-                    <button
-                      onClick={() => setActiveModal('share')}
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition active:scale-95"
+                  {activeThread.messages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex flex-col ${msg.sender === 'instructor' ? 'items-end' : 'items-start'}`}
                     >
-                      Share Package
-                    </button>
-                  </div>
+                      <div
+                        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs ${
+                          msg.sender === 'instructor'
+                            ? 'bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-md rounded-br-none'
+                            : 'bg-[#1b202a] text-gray-200 border border-white/[0.06] rounded-bl-none'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                      <span className="text-[9px] text-[#6e7681] mt-1 px-1">{msg.timestamp}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-      </main>
+                {/* Quick Reply Presets */}
+                <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto border-t border-white/[0.04] bg-[#0f131a]">
+                  <span className="text-[10px] font-bold text-[#8b949e] shrink-0">Quick:</span>
+                  {[
+                    'See you at the session on time!',
+                    'Bring wraps and water bottle.',
+                    'Here is the studio pin location.',
+                    'Ready on the live stream!',
+                  ].map((quick, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setChatInput(quick)}
+                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] text-gray-300 hover:bg-white/10 transition"
+                    >
+                      {quick}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input Footer */}
+                <form onSubmit={handleSendMessageInThread} className="p-3 border-t border-white/[0.08] flex items-center gap-2 bg-[#12161f]/90">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Type a message or instruction..."
+                    className="flex-1 rounded-xl border border-white/10 bg-[#0b0e14] px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
+                  />
+                  <button
+                    type="submit"
+                    className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-md transition hover:brightness-110 active:scale-95"
+                  >
+                    <Send className="size-4" />
+                  </button>
+                </form>
+
+              </div>
+
+            </div>
+          )}
+
+          {/* CALENDAR & SLOTS TAB */}
+          {activeTab === 'calendar' && (
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <CalendarIcon className="size-5 text-[#e01e37]" />
+                    Weekly Availability & Time Blocks
+                  </h2>
+                  <p className="text-xs text-[#8b949e] mt-1">
+                    Click any slot to toggle availability. Students can only book your active open slots.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveModal('add-slot')}
+                    className="flex items-center gap-1.5 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-[#c0182f] active:scale-95"
+                  >
+                    <Plus className="size-3.5" />
+                    <span>+ Add Time Slot</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Weekly Slot Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {calendarSlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    onClick={() => handleToggleSlot(slot.id)}
+                    className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 ${
+                      slot.status === 'booked'
+                        ? 'bg-[#181d28] border-purple-500/30 shadow-lg'
+                        : 'bg-[#0d1017] border-white/[0.08] hover:border-emerald-500/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">{slot.day}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                        slot.status === 'booked'
+                          ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      }`}>
+                        {slot.status === 'booked' ? 'Booked' : 'Available'}
+                      </span>
+                    </div>
+
+                    <p className="mt-3 font-bold text-sm text-white">{slot.title}</p>
+                    <p className="text-xs text-[#8b949e] mt-1 flex items-center gap-1">
+                      <Clock className="size-3 text-[#e01e37]" /> {slot.time}
+                    </p>
+
+                    <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
+                      <span className="text-[#8b949e]">{slot.student || 'Open for booking'}</span>
+                      <span className="text-[#e01e37] font-semibold">{slot.type === 'in-person' ? 'Delhi' : 'Online'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* EARNINGS & ESCROW TAB */}
+          {activeTab === 'earnings' && (
+            <div className="space-y-6">
+              
+              {/* Top Balance Banner */}
+              <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#12161f] to-[#0c0f16] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Available Wallet Balance</span>
+                  <div className="mt-2 flex items-baseline gap-3">
+                    <span className="text-4xl sm:text-5xl font-black text-white">₹8,500</span>
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20">
+                      Ready for Instant Withdrawal
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#8b949e] mt-2">
+                    Total lifetime payout earned: <strong className="text-white">₹1,42,500</strong> · Platform fee: <strong className="text-emerald-400">0% (Founder tier)</strong>
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setActiveModal('payout')}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(16,185,129,0.3)] transition hover:brightness-110 active:scale-95"
+                >
+                  <Wallet className="size-4" />
+                  <span>Withdraw to UPI / Bank</span>
+                </button>
+              </div>
+
+              {/* Payouts Breakdown Table */}
+              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-6 space-y-4">
+                <h3 className="font-bold text-base text-white">Recent Completed Sessions & Escrow Settlements</h3>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-[#8b949e]">
+                    <thead className="border-b border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-white/70">
+                      <tr>
+                        <th className="py-3 px-4">Session Date</th>
+                        <th className="py-3 px-4">Learner</th>
+                        <th className="py-3 px-4">Service</th>
+                        <th className="py-3 px-4">Gross</th>
+                        <th className="py-3 px-4">Platform Fee</th>
+                        <th className="py-3 px-4">Net Payout</th>
+                        <th className="py-3 px-4">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {[
+                        { date: '22 Oct 2026', learner: 'Vikram M.', service: 'Boxing 1-on-1', gross: '₹1,500', fee: '₹0', net: '₹1,500', status: 'Deposited' },
+                        { date: '21 Oct 2026', learner: 'Ananya S.', service: 'Pad Work & Sparring', gross: '₹1,200', fee: '₹0', net: '₹1,200', status: 'Escrow Clearing' },
+                        { date: '20 Oct 2026', learner: 'Karan P.', service: 'Cardio Blast Live', gross: '₹800', fee: '₹0', net: '₹800', status: 'Deposited' },
+                        { date: '19 Oct 2026', learner: 'Dev Malhotra', service: 'Kick Drills 1-on-1', gross: '₹1,500', fee: '₹0', net: '₹1,500', status: 'Deposited' },
+                        { date: '18 Oct 2026', learner: 'Meera Nair', service: 'Combat Conditioning', gross: '₹1,000', fee: '₹0', net: '₹1,000', status: 'Deposited' },
+                      ].map((row, i) => (
+                        <tr key={i} className="hover:bg-white/[0.02] transition">
+                          <td className="py-3.5 px-4 font-medium text-white">{row.date}</td>
+                          <td className="py-3.5 px-4 text-white">{row.learner}</td>
+                          <td className="py-3.5 px-4">{row.service}</td>
+                          <td className="py-3.5 px-4 text-white font-semibold">{row.gross}</td>
+                          <td className="py-3.5 px-4 text-emerald-400 font-bold">{row.fee} (0%)</td>
+                          <td className="py-3.5 px-4 text-white font-bold">{row.net}</td>
+                          <td className="py-3.5 px-4">
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                              row.status === 'Deposited'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* SERVICES & PRICING TAB */}
+          {activeTab === 'services' && (
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Layers className="size-5 text-[#e01e37]" />
+                    Your Offered Services & Pricing
+                  </h2>
+                  <p className="text-xs text-[#8b949e] mt-1">
+                    Customize your session offerings, rates per hour, and formats (in-person vs virtual).
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setActiveModal('add-service')}
+                  className="flex items-center gap-1.5 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:bg-[#c0182f] active:scale-95"
+                >
+                  <Plus className="size-3.5" />
+                  <span>+ Create New Package</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((svc) => (
+                  <div
+                    key={svc.id}
+                    className="rounded-2xl border border-white/[0.08] bg-[#0d1017]/80 p-5 transition hover:border-white/20 shadow-md flex flex-col justify-between gap-4"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                          svc.mode === 'in-person'
+                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                        }`}>
+                          {svc.mode === 'in-person' ? 'In-Person (Delhi)' : 'Live Online Stream'}
+                        </span>
+                        <span className="text-xs text-[#8b949e]">{svc.duration}</span>
+                      </div>
+
+                      <h3 className="font-bold text-base text-white">{svc.name}</h3>
+                      <p className="text-xs text-[#8b949e]">{svc.bookingsCount} learners booked so far</p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
+                      <div>
+                        <span className="text-[10px] uppercase text-[#8b949e]">Your Price</span>
+                        <p className="text-xl font-black text-white">₹{svc.price}</p>
+                      </div>
+
+                      <button
+                        onClick={() => setActiveModal('share')}
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition active:scale-95"
+                      >
+                        Share Package
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
 
       {/* ========================================================================= */}
       {/* INTERACTIVE ACTION MODALS */}
@@ -1346,7 +1308,7 @@ export default function InstructorDashboard() {
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-md rounded-3xl border border-white/15 bg-[#141822] p-6 sm:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-10"
+              className="relative w-full max-w-md rounded-2xl border border-white/15 bg-[#141822] p-6 sm:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-10"
             >
               <button
                 onClick={() => setActiveModal(null)}
@@ -1368,7 +1330,7 @@ export default function InstructorDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#0b0e14] p-3 shadow-inner">
+                  <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#0b0e14] p-3 shadow-inner">
                     <input
                       readOnly
                       value={bookingLink}
@@ -1376,14 +1338,14 @@ export default function InstructorDashboard() {
                     />
                     <button
                       onClick={handleCopyLink}
-                      className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110 active:scale-95 shrink-0"
+                      className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#e01e37] to-[#b0142b] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110 active:scale-95 shrink-0"
                     >
                       {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                       <span>{copied ? 'Copied' : 'Copy'}</span>
                     </button>
                   </div>
 
-                  <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] p-3 text-center">
+                  <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-3 text-center">
                     <p className="text-[11px] text-[#8b949e]">
                       Tip: Add this link to your WhatsApp bio or Instagram to receive direct 0% commission bookings.
                     </p>
@@ -1619,16 +1581,17 @@ export default function InstructorDashboard() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm lg:hidden"
             />
             <motion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="fixed bottom-0 left-0 top-0 z-50 flex w-[290px] flex-col border-r border-white/10 bg-[#0d1117] p-6 shadow-2xl md:hidden"
+              className="fixed bottom-0 left-0 top-0 z-50 flex w-[280px] flex-col border-r border-white/10 bg-[#0b0e14] shadow-2xl lg:hidden"
             >
-              <div className="flex items-center justify-between pb-6 border-b border-white/[0.08]">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-5 border-b border-white/[0.08]">
                 <Image
                   src="/logo.svg"
                   alt="MASTRIVE"
@@ -1640,15 +1603,18 @@ export default function InstructorDashboard() {
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   aria-label="Close menu"
-                  className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#161b22] text-[#8b949e] hover:text-white"
+                  className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-[#161b22] text-[#8b949e] hover:text-white"
                 >
                   <X className="size-4" />
                 </button>
               </div>
 
-              <nav className="flex flex-col gap-2 py-4">
-                {navItems.map((item) => {
+              {/* Nav Items */}
+              <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-1.5">
+                <p className="px-3 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">Menu</p>
+                {sidebarNavItems.map((item) => {
                   const active = activeTab === item.id
+                  const Icon = item.icon
                   return (
                     <button
                       key={item.id}
@@ -1656,39 +1622,43 @@ export default function InstructorDashboard() {
                         setActiveTab(item.id)
                         setIsMobileMenuOpen(false)
                       }}
-                      className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                      className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all ${
                         active
                           ? 'bg-[#e01e37] text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)]'
                           : 'text-[#8b949e] hover:bg-white/5 hover:text-[#f0f6fc]'
                       }`}
                     >
+                      <Icon className="size-[18px]" />
                       <span>{item.label}</span>
                       {item.badge && (
-                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white">
+                        <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                          active ? 'bg-white/20 text-white' : 'bg-[#e01e37]/15 text-[#e01e37]'
+                        }`}>
                           {item.badge}
                         </span>
                       )}
                     </button>
                   )
                 })}
-              </nav>
 
-              <div className="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2">
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white"
-                >
-                  <ArrowLeft className="size-4" />
-                  <span>Back to Explore</span>
-                </Link>
+                <p className="px-3 mt-6 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">General</p>
                 <Link
                   href="/profile"
-                  className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
                 >
-                  <UserIcon className="size-4" />
-                  <span>View Public Profile</span>
+                  <Settings className="size-[18px]" />
+                  <span>Settings</span>
                 </Link>
-              </div>
+                <Link
+                  href="/"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
+                >
+                  <ArrowLeft className="size-[18px]" />
+                  <span>Back to Explore</span>
+                </Link>
+              </nav>
             </motion.aside>
           </>
         )}
