@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { X, Lock, MapPin, Video, ArrowRight, ArrowLeft, Calendar, Repeat, Tag, Check, AlertCircle } from 'lucide-react'
+import { X, Lock, ArrowRight, ArrowLeft, Calendar, Repeat, Tag, Check, AlertCircle, Phone, Mail } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export interface BookingInstructor {
   name: string
@@ -16,16 +17,6 @@ interface BookingModalProps {
   onClose: () => void
   instructor: BookingInstructor | null
 }
-
-const DATES = [
-  { day: 'THU', date: '20' },
-  { day: 'FRI', date: '21' },
-  { day: 'SAT', date: '22' },
-  { day: 'SUN', date: '23' },
-  { day: 'MON', date: '24' },
-  { day: 'TUE', date: '25' },
-  { day: 'WED', date: '26' },
-]
 
 const TIME_SLOTS = [
   { time: '7:00 AM', available: true },
@@ -45,7 +36,7 @@ const COUPONS: Record<string, { discount: number; description: string }> = {
   MASTRIVE10: { discount: 0.10, description: '10% Off Promo Discount' },
 }
 
-// Singleton Razorpay script loader - prevents injecting multiple <script> tags
+// Singleton Razorpay script loader
 let razorpayPromise: Promise<boolean> | null = null
 
 const loadRazorpayScript = (): Promise<boolean> => {
@@ -79,13 +70,37 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
   const [step, setStep] = useState<1 | 2>(1)
   const [bookingType, setBookingType] = useState<'single' | 'monthly'>('single')
   const [mode, setMode] = useState<'in-person' | 'online'>('in-person')
-  const [selectedDate, setSelectedDate] = useState('20')
+  
+  // Dynamic 7-day upcoming dates
+  const dynamicDates = useMemo(() => {
+    const list = []
+    const today = new Date()
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date()
+      d.setDate(today.getDate() + i)
+      list.push({
+        id: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`,
+        day: dayNames[d.getDay()],
+        date: String(d.getDate()).padStart(2, '0'),
+        month: monthNames[d.getMonth()],
+        fullLabel: `${dayNames[d.getDay()]}, ${d.getDate()} ${monthNames[d.getMonth()]}`,
+      })
+    }
+    return list
+  }, [])
+
+  const [selectedDateObj, setSelectedDateObj] = useState(dynamicDates[0] || { id: '1', day: 'TODAY', date: '01', month: 'Sep', fullLabel: 'Today' })
   const [selectedTime, setSelectedTime] = useState<string | null>(null)
 
   const [personCount, setPersonCount] = useState(1)
   const [title, setTitle] = useState('Mr.')
   const [fullName, setFullName] = useState('')
   const [age, setAge] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
 
   // Coupon state
   const [couponInput, setCouponInput] = useState('')
@@ -94,6 +109,21 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
 
   useEffect(() => {
     setMounted(true)
+    // Autofill user details if signed in
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) {
+        if (data.user.user_metadata?.full_name) {
+          setFullName(data.user.user_metadata.full_name)
+        }
+        if (data.user.email) {
+          setEmail(data.user.email)
+        }
+        if (data.user.user_metadata?.phone) {
+          setPhone(data.user.user_metadata.phone)
+        }
+      }
+    })
   }, [])
 
   const basePricePerSession = instructor?.price ?? 0
@@ -154,23 +184,30 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
       currency: 'INR',
       name: 'MASTRIVE',
       description: `${bookingType === 'monthly' ? 'Monthly Pass' : 'Single Session'} with ${instructor.name} (${personCount} participant)`,
+      image: '/logo.svg',
       handler: function (response: any) {
-        alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`)
+        alert(`Booking Confirmed & Payment Successful! Payment ID: ${response.razorpay_payment_id}`)
         handleModalClose()
       },
       prefill: {
-        name: `${title} ${fullName}`,
-        email: 'user@example.com',
-        contact: '9999999999',
+        name: `${title} ${fullName}`.trim(),
+        email: email || 'user@mastrive.com',
+        contact: phone || '9876543210',
+      },
+      notes: {
+        instructor_name: instructor.name,
+        session_date: selectedDateObj.fullLabel,
+        session_time: selectedTime || '7:00 AM',
+        mode: mode,
       },
       theme: {
-        color: '#e52e42',
+        color: '#e01e37',
       },
     }
 
     const paymentObject = new (window as any).Razorpay(options)
     paymentObject.open()
-  }, [instructor, totalPrice, bookingType, personCount, title, fullName, handleModalClose])
+  }, [instructor, totalPrice, bookingType, personCount, title, fullName, email, phone, selectedDateObj, selectedTime, mode, handleModalClose])
 
   if (!mounted || !instructor || !isOpen) return null
 
@@ -192,16 +229,16 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative z-10 my-auto w-full max-w-2xl rounded-2xl border border-white/10 bg-[#12161f] p-6 shadow-2xl backdrop-blur-xl sm:p-8 transform-gpu"
+          className="relative z-10 my-auto w-full max-w-2xl rounded-3xl border border-white/10 bg-[#12161f] p-6 shadow-2xl backdrop-blur-xl sm:p-8 transform-gpu"
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-5">
             <div>
               <h2 className="text-lg font-bold text-white sm:text-xl">
                 Book {instructor.name} — <span className="text-[#8b949e]">{instructor.skill}</span>
               </h2>
               <div className="mt-1 flex items-center gap-2 text-xs text-[#8b949e]">
-                <span className={`size-1.5 rounded-full ${step === 1 ? 'bg-[#e52e42]' : 'bg-white/30'}`} />
+                <span className={`size-1.5 rounded-full ${step === 1 ? 'bg-[#e01e37]' : 'bg-white/30'}`} />
                 Step {step} of 2: {step === 1 ? 'Schedule & Mode' : 'Participant Details'}
               </div>
             </div>
@@ -216,7 +253,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
           {/* Grid Layout */}
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-12">
             {/* Left Column: Form Controls */}
-            <div className="space-y-6 md:col-span-7">
+            <div className="space-y-5 md:col-span-7">
               {step === 1 ? (
                 <>
                   {/* Booking Type Toggle */}
@@ -224,13 +261,13 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
                       Booking Type
                     </span>
-                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-[#0d1117] p-1.5">
+                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-[#0d1117] p-1.5">
                       <button
                         type="button"
                         onClick={() => setBookingType('single')}
-                        className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all ${
                           bookingType === 'single'
-                            ? 'bg-[#e52e42] text-white shadow-md'
+                            ? 'bg-[#e01e37] text-white shadow-md'
                             : 'text-[#8b949e] hover:text-white'
                         }`}
                       >
@@ -240,102 +277,96 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       <button
                         type="button"
                         onClick={() => setBookingType('monthly')}
-                        className={`relative flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
+                        className={`relative flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all ${
                           bookingType === 'monthly'
-                            ? 'bg-[#e52e42] text-white shadow-md'
+                            ? 'bg-[#e01e37] text-white shadow-md'
                             : 'text-[#8b949e] hover:text-white'
                         }`}
                       >
                         <Repeat className="size-3.5" />
                         Monthly Pass
-                        <span className="absolute -right-1 -top-1.5 flex h-4 items-center rounded-full bg-emerald-500 px-1.5 text-[9px] font-extrabold uppercase text-black">
+                        <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-400">
                           20% OFF
                         </span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Session Mode */}
+                  {/* Mode Selector */}
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
-                      Session Mode
+                      Session Format
                     </span>
-                    <div className="mt-2 grid grid-cols-2 gap-3">
+                    <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-[#0d1117] p-1.5">
                       <button
                         type="button"
                         onClick={() => setMode('in-person')}
-                        className={`flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all ${
                           mode === 'in-person'
-                            ? 'border-[#e52e42] bg-[#e52e42]/10 text-white'
-                            : 'border-white/10 bg-[#0d1117] text-[#8b949e] hover:border-white/20'
+                            ? 'bg-white/15 text-white shadow-sm'
+                            : 'text-[#8b949e] hover:text-white'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 text-xs font-semibold">
-                          <MapPin className="size-3.5 text-[#e52e42]" />
-                          In-Person
-                        </div>
-                        <span className="mt-1 text-[10px] text-[#8b949e]">Studio / Park</span>
+                        Studio / In-Person
                       </button>
-
                       <button
                         type="button"
                         onClick={() => setMode('online')}
-                        className={`flex flex-col items-center justify-center rounded-xl border p-3 text-center transition-all ${
+                        className={`flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-semibold transition-all ${
                           mode === 'online'
-                            ? 'border-[#e52e42] bg-[#e52e42]/10 text-white'
-                            : 'border-white/10 bg-[#0d1117] text-[#8b949e] hover:border-white/20'
+                            ? 'bg-white/15 text-white shadow-sm'
+                            : 'text-[#8b949e] hover:text-white'
                         }`}
                       >
-                        <div className="flex items-center gap-1.5 text-xs font-semibold">
-                          <Video className="size-3.5 text-[#e52e42]" />
-                          Live Online
-                        </div>
-                        <span className="mt-1 text-[10px] text-[#8b949e]">WebRTC Room</span>
+                        Live 1-on-1 Stream
                       </button>
                     </div>
                   </div>
 
-                  {/* Select Date */}
+                  {/* Upcoming Date Picker */}
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
-                      {bookingType === 'monthly' ? 'Start Date' : 'Select Date'}
+                      Select Date ({selectedDateObj.month})
                     </span>
-                    <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1">
-                      {DATES.map((item) => (
-                        <button
-                          key={item.date}
-                          type="button"
-                          onClick={() => setSelectedDate(item.date)}
-                          className={`flex min-w-[50px] flex-col items-center rounded-xl border p-2.5 transition-all ${
-                            selectedDate === item.date
-                              ? 'border-[#e52e42] bg-[#e52e42]/10 text-white'
-                              : 'border-white/10 bg-[#0d1117] text-[#8b949e] hover:border-white/20'
-                          }`}
-                        >
-                          <span className="text-[10px] font-medium uppercase">{item.day}</span>
-                          <span className="text-sm font-bold">{item.date}</span>
-                        </button>
-                      ))}
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                      {dynamicDates.map((item) => {
+                        const isSelected = selectedDateObj.id === item.id
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setSelectedDateObj(item)}
+                            className={`flex min-w-[58px] flex-col items-center rounded-2xl border py-2.5 transition-all ${
+                              isSelected
+                                ? 'border-[#e01e37] bg-[#e01e37] text-white shadow-lg shadow-[#e01e37]/30'
+                                : 'border-white/10 bg-[#0d1117] text-[#8b949e] hover:border-white/20 hover:text-white'
+                            }`}
+                          >
+                            <span className="text-[10px] font-bold">{item.day}</span>
+                            <span className="text-base font-extrabold">{item.date}</span>
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
 
-                  {/* Select Time Slot */}
+                  {/* Time Slot Picker */}
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
-                      Select Time Slot
+                      Available Time Slots
                     </span>
-                    <div className="mt-2 grid grid-cols-3 gap-2">
+                    <div className="mt-2 grid grid-cols-4 gap-2">
                       {TIME_SLOTS.map((slot) => (
                         <button
                           key={slot.time}
                           type="button"
                           disabled={!slot.available}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`rounded-lg border py-2 text-center text-xs font-semibold transition-all ${
+                          className={`rounded-xl border py-2 text-center text-xs font-semibold transition-all ${
                             !slot.available
                               ? 'cursor-not-allowed border-white/5 bg-[#0d1117]/50 text-white/20 line-through'
                               : selectedTime === slot.time
-                              ? 'border-[#e52e42] bg-[#e52e42] text-white'
+                              ? 'border-[#e01e37] bg-[#e01e37] text-white shadow-md'
                               : 'border-white/10 bg-[#0d1117] text-[#8b949e] hover:border-white/20 hover:text-white'
                           }`}
                         >
@@ -358,7 +389,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                         max="10"
                         value={personCount}
                         onChange={(e) => setPersonCount(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e52e42]"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
                       />
                     </div>
 
@@ -369,7 +400,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       <select
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e52e42]"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
                       >
                         <option value="Mr.">Mr.</option>
                         <option value="Ms.">Ms.</option>
@@ -384,32 +415,66 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                       </label>
                       <input
                         type="number"
-                        placeholder="e.g. 24"
+                        placeholder="24"
                         value={age}
                         onChange={(e) => setAge(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e52e42]"
+                        className="w-full rounded-2xl border border-white/10 bg-[#0d1117] px-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
-                      Full Name
+                      Full Name <span className="text-[#e01e37]">*</span>
                     </label>
                     <input
                       type="text"
                       placeholder="e.g. Rahul Sharma"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-[#0d1117] px-3.5 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e52e42]"
+                      className="w-full rounded-2xl border border-white/10 bg-[#0d1117] px-3.5 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-[#8b949e]" />
+                        <input
+                          type="email"
+                          placeholder="rahul@example.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-[#0d1117] pl-9 pr-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#8b949e]">
+                        WhatsApp Phone
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-[#8b949e]" />
+                        <input
+                          type="tel"
+                          placeholder="+91 98765 43210"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="w-full rounded-2xl border border-white/10 bg-[#0d1117] pl-9 pr-3 py-2.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
             </div>
 
             {/* Right Column: Order Summary & Action */}
-            <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#0d1117] p-5 md:col-span-5">
+            <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-[#0d1117] p-5 md:col-span-5">
               <div className="space-y-3">
                 <div className="flex justify-between text-xs">
                   <span className="text-[#8b949e]">Instructor</span>
@@ -427,7 +492,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-[#8b949e]">{bookingType === 'monthly' ? 'Start Date' : 'Date'}</span>
-                  <span className="font-semibold text-white">Thu, {selectedDate} Aug</span>
+                  <span className="font-semibold text-white">{selectedDateObj.fullLabel}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-[#8b949e]">Time</span>
@@ -442,11 +507,11 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                   </div>
                 )}
 
-                <div className="my-4 rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 text-[11px] text-yellow-200/80">
+                <div className="my-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] text-emerald-200/90">
                   <div className="flex gap-2">
-                    <Lock className="size-4 shrink-0 text-yellow-500" />
+                    <Lock className="size-4 shrink-0 text-emerald-400" />
                     <span>
-                      Payment held securely in escrow until the session is completed — full refund if your instructor no-shows.
+                      100% Escrow Protected: Funds released only after the session. Full refund on cancellation.
                     </span>
                   </div>
                 </div>
@@ -454,10 +519,10 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                 {/* Coupon Code Section */}
                 <div className="border-t border-white/10 pt-3">
                   <label className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8b949e]">
-                    <Tag className="size-3 text-[#e52e42]" /> Have a Coupon?
+                    <Tag className="size-3 text-[#e01e37]" /> Have a Coupon?
                   </label>
                   {appliedCoupon ? (
-                    <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
+                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
                       <div className="flex items-center gap-2 text-emerald-400">
                         <Check className="size-3.5" />
                         <span className="font-bold">{appliedCoupon}</span>
@@ -482,12 +547,12 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                             setCouponInput(e.target.value)
                             setCouponError('')
                           }}
-                          className="w-full rounded-lg border border-white/10 bg-[#161b22] px-3 py-1.5 text-xs uppercase text-white outline-none focus:border-[#e52e42]"
+                          className="w-full rounded-xl border border-white/10 bg-[#161b22] px-3 py-1.5 text-xs uppercase text-white outline-none focus:border-[#e01e37]"
                         />
                         <button
                           type="button"
                           onClick={handleApplyCoupon}
-                          className="rounded-lg border border-white/10 bg-[#161b22] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#e52e42] hover:border-[#e52e42]"
+                          className="rounded-xl border border-white/10 bg-[#161b22] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#e01e37] hover:border-[#e01e37]"
                         >
                           Apply
                         </button>
@@ -503,17 +568,17 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                 </div>
               </div>
 
-              <div className="mt-6">
+              <div className="mt-5">
                 {appliedCoupon && (
                   <div className="mb-1 flex justify-between text-xs text-[#8b949e]">
                     <span>Original</span>
-                    <span className="line-through">₹{rawTotalPrice.toLocaleString()}</span>
+                    <span className="line-through">₹{rawTotalPrice.toLocaleString('en-IN')}</span>
                   </div>
                 )}
                 <div className="mb-4 flex items-baseline justify-between">
                   <span className="text-xs uppercase text-[#8b949e]">Total</span>
                   <span className="text-2xl font-black text-white">
-                    ₹{totalPrice.toLocaleString()}
+                    ₹{totalPrice.toLocaleString('en-IN')}
                   </span>
                 </div>
 
@@ -522,7 +587,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                     type="button"
                     disabled={!selectedTime}
                     onClick={() => setStep(2)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#e52e42] py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#d02538] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e01e37] py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-[#e01e37]/30 transition-all hover:bg-[#c0182f] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Continue to Details <ArrowRight className="size-4" />
                   </button>
@@ -531,17 +596,17 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                     <button
                       type="button"
                       onClick={() => setStep(1)}
-                      className="rounded-xl border border-white/10 bg-[#161b22] px-3 py-3 text-xs font-bold text-[#8b949e] transition-colors hover:text-white"
+                      className="rounded-2xl border border-white/10 bg-[#161b22] px-3.5 py-3 text-xs font-bold text-[#8b949e] transition-colors hover:text-white active:scale-95"
                     >
                       <ArrowLeft className="size-4" />
                     </button>
                     <button
                       type="button"
-                      disabled={!fullName.trim() || !age}
+                      disabled={!fullName.trim()}
                       onClick={handleRazorpayPayment}
-                      className="w-full rounded-xl bg-[#e52e42] py-3 text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#d02538] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-[#e01e37]/30 transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Confirm & Pay
+                      Confirm & Pay ₹{totalPrice.toLocaleString('en-IN')}
                     </button>
                   </div>
                 )}
@@ -553,4 +618,4 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     </AnimatePresence>,
     document.body
   )
-}
+}

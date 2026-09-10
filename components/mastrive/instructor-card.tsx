@@ -24,6 +24,7 @@ export const InstructorCard = memo(function InstructorCard({
   booked: boolean
 }) {
   const isOnline = instructor.mode === 'online'
+  const [imgError, setImgError] = React.useState(false)
 
   return (
     <motion.article
@@ -48,17 +49,18 @@ export const InstructorCard = memo(function InstructorCard({
             </span>
           </div>
 
-          {instructor.image ? (
+          {instructor.image && !imgError ? (
             <Image
               src={instructor.image}
               alt={instructor.name}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
               loading="lazy"
+              onError={() => setImgError(true)}
               className="object-cover object-[50%_32%] transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#12161f] to-[#0b0e14]">
               <span className="select-none text-4xl transition-transform duration-500 ease-out group-hover:scale-110 filter drop-shadow-md">
                 {instructor.icon || '🥊'}
               </span>

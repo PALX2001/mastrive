@@ -115,10 +115,9 @@ export default function PublicInstructorProfilePage() {
         console.warn('Database lookup notice:', err)
       }
 
-      // 3. Fallback to primary featured instructor if slug is not matched
+      // 3. Mark as not found if slug does not match any instructor
       if (isMounted) {
-        setInstructor(instructors[0])
-        setSelectedImage(instructors[0].image || '')
+        setInstructor(null)
         setLoading(false)
       }
     }
@@ -138,13 +137,34 @@ export default function PublicInstructorProfilePage() {
     }
   }
 
-  if (loading || !instructor) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#080a0f] text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="size-8 animate-spin rounded-full border-2 border-[#e01e37] border-t-transparent" />
           <p className="text-xs uppercase tracking-widest text-[#8b949e]">Loading Profile...</p>
         </div>
+      </div>
+    )
+  }
+
+  if (!instructor) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#080a0f] px-4 text-center text-[#f0f6fc]">
+        <div className="size-16 rounded-2xl border border-white/10 bg-[#161b22] flex items-center justify-center text-2xl mb-4">
+          🔍
+        </div>
+        <h1 className="text-2xl font-bold text-white">Instructor Profile Not Found</h1>
+        <p className="mt-2 text-sm text-[#8b949e] max-w-sm">
+          We couldn&apos;t find an active instructor profile matching &quot;{rawSlug}&quot;.
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#e01e37] px-6 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-[#e01e37]/30 transition hover:bg-[#c0182f]"
+        >
+          <ArrowLeft className="size-4" />
+          Browse All Instructors
+        </Link>
       </div>
     )
   }

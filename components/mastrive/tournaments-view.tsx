@@ -111,19 +111,22 @@ export function TournamentsView() {
   const displayedLeaderboard = useMemo(() => {
     return liveLeaderboard.filter((item) => {
       // Skill filter
-      const matchesSkill =
-        selectedSkill === 'All Skills' ||
-        (item.skill && item.skill.toLowerCase().includes(selectedSkill.toLowerCase())) ||
-        (item.skill && selectedSkill.toLowerCase().includes(item.skill.toLowerCase()))
+      let matchesSkill = true
+      if (selectedSkill !== 'All Skills') {
+        const itemSkill = (item.skill || item.category || '').trim().toLowerCase()
+        const filterSkill = selectedSkill.trim().toLowerCase()
+        matchesSkill = itemSkill.includes(filterSkill) || filterSkill.includes(itemSkill)
+      }
 
       // State / Region filter
       let matchesState = true
       if (selectedState !== 'Global') {
-        const itemState = item.state || 'Delhi'
-        if (selectedState === 'Delhi NCR') {
-          matchesState = itemState === 'Delhi' || itemState === 'Gurgaon' || itemState === 'Delhi NCR' || !!item.isUser
+        const itemState = (item.state || 'Delhi').trim().toLowerCase()
+        const filterState = selectedState.trim().toLowerCase()
+        if (filterState === 'delhi ncr' || filterState === 'delhi') {
+          matchesState = itemState.includes('delhi') || itemState.includes('gurgaon') || !!item.isUser
         } else {
-          matchesState = itemState.toLowerCase() === selectedState.toLowerCase() || !!item.isUser
+          matchesState = itemState === filterState || !!item.isUser
         }
       }
 

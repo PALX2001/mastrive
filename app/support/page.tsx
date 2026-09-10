@@ -42,6 +42,7 @@ const FAQS = [
 export default function SupportPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [ticketSent, setTicketSent] = useState(false)
+  const [ticketId, setTicketId] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -49,12 +50,15 @@ export default function SupportPage() {
   const handleTicketSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !email || !message) return
+    setTicketId(`MST-${Math.floor(1000 + Math.random() * 9000)}`)
     setTicketSent(true)
-    setTimeout(() => {
-      setName('')
-      setEmail('')
-      setMessage('')
-    }, 1500)
+  }
+
+  const handleResetTicket = () => {
+    setTicketSent(false)
+    setName('')
+    setEmail('')
+    setMessage('')
   }
 
   return (
@@ -178,16 +182,21 @@ export default function SupportPage() {
                   <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 mx-auto">
                     <CheckCircle2 className="size-8" />
                   </div>
-                  <h4 className="text-base font-bold text-white">Message Received!</h4>
-                  <p className="text-xs text-[#8b949e]">
-                    Our support concierge will respond to <strong className="text-white">{email}</strong> within 15 minutes.
+                  <h4 className="text-base font-bold text-white">Ticket Submitted!</h4>
+                  <div className="inline-block rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-xs font-bold text-emerald-300">
+                    Ticket ID: {ticketId}
+                  </div>
+                  <p className="text-xs text-[#8b949e] max-w-sm mx-auto">
+                    Our support concierge will review your message and reply to <strong className="text-white">{email}</strong> within 15 minutes.
                   </p>
-                  <button
-                    onClick={() => setTicketSent(false)}
-                    className="mt-4 rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5"
-                  >
-                    Send Another Message
-                  </button>
+                  <div>
+                    <button
+                      onClick={handleResetTicket}
+                      className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                    >
+                      Submit Another Question
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleTicketSubmit} className="mt-6 space-y-4">
