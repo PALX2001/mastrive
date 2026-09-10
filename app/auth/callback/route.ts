@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
           if (appId) {
             // Attach verified user id to the application row, promote status to 'verified'
-            await supabase
+            const { error: applicationUpdateError } = await supabase
               .from('instructor_applications')
               .update({
                 user_id: user.id,
@@ -66,6 +66,10 @@ export async function GET(request: Request) {
                 status: user.user_metadata?.role === 'instructor' ? 'approved' : 'verified',
               })
               .eq('id', appId)
+
+            if (applicationUpdateError) {
+              throw applicationUpdateError
+            }
 
             // Upsert a profile row so dashboard lookups find the role instantly
             const profileName =

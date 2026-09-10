@@ -52,6 +52,7 @@ export type Instructor = {
   price: number
   tag: string
   image?: string
+  icon?: string
   description?: string
   headline?: string
   experienceYears?: number

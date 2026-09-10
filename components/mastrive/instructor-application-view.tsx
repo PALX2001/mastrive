@@ -108,6 +108,11 @@ export default function InstructorApplicationView() {
       const payload: Record<string, any> = {
         profile_type: formData.profile_type,
         full_name: formData.name.trim(),
+        // Keep the legacy columns populated while the new public-card trigger
+        // uses the richer fields below.
+        skill: formData.sub_skills.trim(),
+        location: [formData.locality.trim(), formData.city.trim()].filter(Boolean).join(', '),
+        experience: formData.experience_years || null,
         institute_name: formData.institute_name.trim() || null,
         email: formData.email.trim(),
         country_code: formData.country_code,

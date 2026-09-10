@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useMemo, useState, useRef, useCallback } from 'react'
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
 import { Star, Quote } from 'lucide-react'
 import { instructors, type CategoryId, type Instructor } from '@/lib/data'
+import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
 import type { BookingInstructor } from './booking-modal'
 
@@ -74,6 +75,60 @@ const REVIEWS = [
 // Duplicate reviews list to create seamless infinite marquee loop
 const MARQUEE_REVIEWS = [...REVIEWS, ...REVIEWS]
 
+type PublishedInstructorRow = {
+  id: string
+  display_name: string
+  skill: string
+  category: string
+  teaching_modes: string[] | null
+  locality: string | null
+  city: string | null
+  price_per_hour: number | null
+  bio: string | null
+  experience_years: string | null
+  languages_spoken: string[] | null
+  education: string | null
+  certifications: string | null
+}
+
+const categoryIdFor = (category: string): Exclude<CategoryId, 'all'> => {
+  const normalized = category.toLowerCase()
+  if (normalized.includes('fitness')) return 'fitness'
+  if (normalized.includes('music') || normalized.includes('performing')) return 'music'
+  if (normalized.includes('lifestyle') || normalized.includes('sports')) return 'lifestyle'
+  return 'strategy'
+}
+
+const toInstructor = (row: PublishedInstructorRow): Instructor => {
+  const isOnline = row.teaching_modes?.some((mode) => /online|stream|video/i.test(mode)) ?? false
+  const area = isOnline ? 'Live Stream' : row.locality || row.city || 'Location to be confirmed'
+  const experience = Number.parseInt(row.experience_years || '', 10)
+
+  return {
+    id: row.id,
+    name: row.display_name,
+    verified: true,
+    skill: row.skill,
+    category: categoryIdFor(row.category),
+    mode: isOnline ? 'online' : 'in-person',
+    area,
+    city: row.city || '',
+    rating: 0,
+    reviews: 0,
+    price: row.price_per_hour || 0,
+    tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(row.city || area).toUpperCase()}`,
+    icon: '🎓',
+    description: row.bio || `Verified ${row.skill} instructor available for personalised sessions.`,
+    experienceYears: Number.isFinite(experience) ? experience : undefined,
+    languages: row.languages_spoken || [],
+    education: row.education || undefined,
+    certifications: row.certifications
+      ? [{ title: row.certifications, institute: 'Instructor-provided', year: '' }]
+      : [],
+    modes: row.teaching_modes || [],
+  }
+}
+
 export function InstructorDirectory({
   activeCategory,
   query,
@@ -83,6 +138,7 @@ export function InstructorDirectory({
 }) {
   const [selectedInstructor, setSelectedInstructor] = useState<BookingInstructor | null>(null)
   const [activeProfileInstructor, setActiveProfileInstructor] = useState<Instructor | null>(null)
+  const [publishedInstructors, setPublishedInstructors] = useState<Instructor[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Track scroll position right as section enters viewport
@@ -103,13 +159,40 @@ export function InstructorDirectory({
   const scale = useTransform(smoothProgress, [0, 1], [0.94, 1])
   const rotateX = useTransform(smoothProgress, [0, 1], [8, 0])
 
+  useEffect(() => {
+    let mounted = true
+    const supabase = createClient()
+
+    const loadPublishedInstructors = async () => {
+      const { data, error } = await supabase
+        .from('instructors')
+        .select('id, display_name, skill, category, teaching_modes, locality, city, price_per_hour, bio, experience_years, languages_spoken, education, certifications')
+        .eq('is_published', true)
+        .order('published_at', { ascending: false })
+
+      if (!error && data && mounted) {
+        setPublishedInstructors(data.map(toInstructor))
+      }
+    }
+
+    loadPublishedInstructors()
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const allInstructors = useMemo(
+    () => [...publishedInstructors, ...instructors],
+    [publishedInstructors]
+  )
+
   // Parallax offsets
   const col1Y = useTransform(smoothProgress, [0, 1], [40, 0])
   const col2Y = useTransform(smoothProgress, [0, 1], [80, 0])
   const col3Y = useTransform(smoothProgress, [0, 1], [30, 0])
 
   const handleBookClick = useCallback((id: string) => {
-    const instructor = instructors.find((i) => i.id === id)
+    const instructor = allInstructors.find((i) => i.id === id)
     if (instructor) {
       setSelectedInstructor({
         name: instructor.name,
@@ -117,7 +200,7 @@ export function InstructorDirectory({
         price: instructor.price,
       })
     }
-  }, [])
+  }, [allInstructors])
 
   const handleCardClick = useCallback((instructor: Instructor) => {
     setActiveProfileInstructor(instructor)
@@ -133,12 +216,12 @@ export function InstructorDirectory({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return instructors.filter((i) => {
+    return allInstructors.filter((i) => {
       if (activeCategory !== 'all' && i.category !== activeCategory) return false
       if (q && !`${i.skill} ${i.name}`.toLowerCase().includes(q)) return false
       return true
     })
-  }, [activeCategory, query])
+  }, [activeCategory, allInstructors, query])
 
   return (
     <div ref={containerRef} className="perspective-1000 w-full pb-24 overflow-hidden">
