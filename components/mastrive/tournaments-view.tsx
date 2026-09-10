@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { Flame, X, ShieldCheck, Trophy, Sparkles, TrendingUp, RefreshCw, Radio } from 'lucide-react'
+import { Flame, X, ShieldCheck, Trophy, Filter, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry } from '@/lib/data'
 import { TierBadge, XPMetric } from './leaderboard-tiers'
@@ -15,8 +15,31 @@ interface Tournament {
   date: string
 }
 
-const CATEGORIES = ['All', 'Music & Arts', 'Fitness & Combat', 'Strategy & Tech', 'Lifestyle']
-const STATES = ['Delhi', 'Gurgaon', 'Mumbai', 'Bengaluru']
+const SKILLS_LIST = [
+  'All Skills',
+  'Fitness & Strength Coach',
+  'Muay Thai Striking',
+  'Kickboxing',
+  'Fingerstyle Guitar',
+  'Watercolour Landscapes',
+  'Tournament Chess',
+  'Python & DSA Bootcamp',
+  'Vinyasa Yoga',
+  'Piano Mastery',
+  'Vocal Training',
+  'Boxing',
+]
+
+const STATES_OPTIONS = [
+  'Global',
+  'Delhi NCR',
+  'Gurgaon',
+  'Mumbai',
+  'Bengaluru',
+  'Maharashtra',
+  'Karnataka',
+  'Haryana',
+]
 
 // Singleton Razorpay script loader
 let razorpayPromise: Promise<boolean> | null = null
@@ -49,11 +72,9 @@ const loadRazorpayScript = (): Promise<boolean> => {
 
 export function TournamentsView() {
   const [registered, setRegistered] = useState<Set<string>>(() => new Set())
-  const [activeScope, setActiveScope] = useState<'state' | 'global'>('state')
-  const [selectedState, setSelectedState] = useState<string>('Delhi')
-  const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [selectedState, setSelectedState] = useState<string>('Global')
+  const [selectedSkill, setSelectedSkill] = useState<string>('All Skills')
   const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard)
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
   // Real-time live pulse XP simulation (simulating live session completions across India)
   useEffect(() => {
@@ -71,7 +92,6 @@ export function TournamentsView() {
         updated.sort((a, b) => b.xp - a.xp)
         return updated.map((entry, idx) => ({ ...entry, rank: idx + 1 }))
       })
-      setLastUpdated(new Date())
     }, 4500)
 
     return () => clearInterval(interval)
@@ -89,14 +109,26 @@ export function TournamentsView() {
 
   const displayedLeaderboard = useMemo(() => {
     return liveLeaderboard.filter((item) => {
-      const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory
-      if (activeScope === 'global') return matchesCategory
-      const itemState = (item as any).state || 'Delhi'
-      const matchesState = itemState === selectedState || item.isUser
+      // Skill filter
+      const matchesSkill =
+        selectedSkill === 'All Skills' ||
+        (item.skill && item.skill.toLowerCase().includes(selectedSkill.toLowerCase())) ||
+        (item.skill && selectedSkill.toLowerCase().includes(item.skill.toLowerCase()))
 
-      return matchesCategory && matchesState
+      // State / Region filter
+      let matchesState = true
+      if (selectedState !== 'Global') {
+        const itemState = item.state || 'Delhi'
+        if (selectedState === 'Delhi NCR') {
+          matchesState = itemState === 'Delhi' || itemState === 'Gurgaon' || itemState === 'Delhi NCR' || !!item.isUser
+        } else {
+          matchesState = itemState.toLowerCase() === selectedState.toLowerCase() || !!item.isUser
+        }
+      }
+
+      return matchesSkill && matchesState
     })
-  }, [liveLeaderboard, selectedCategory, activeScope, selectedState])
+  }, [liveLeaderboard, selectedSkill, selectedState])
 
   // Open Registration Modal
   const handleOpenRegistration = useCallback((t: Tournament) => {
@@ -158,7 +190,7 @@ export function TournamentsView() {
   return (
     <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 selection:bg-[#e01e37] selection:text-white">
       
-      {/* Title & Live Badge */}
+      {/* Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="max-w-2xl">
           <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight text-[#f0f6fc] sm:text-3xl">
@@ -173,14 +205,6 @@ export function TournamentsView() {
             status.
           </p>
         </div>
-
-        <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-400 self-start sm:self-center">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-          </span>
-          <span>Live Sync Active</span>
-        </div>
       </div>
 
       {/* Tournament Cards */}
@@ -193,33 +217,35 @@ export function TournamentsView() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: idx * 0.05 }}
-              className="flex flex-col rounded-3xl border border-white/10 bg-[#12161f]/90 p-6 shadow-xl backdrop-blur-xl"
+              className="flex flex-col justify-between h-full rounded-3xl border border-white/10 bg-[#12161f]/90 p-6 shadow-xl backdrop-blur-xl"
             >
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
-                {t.category}
-              </span>
-              <h3 className="mt-2 text-lg font-bold leading-snug text-[#f0f6fc]">
-                {t.name}
-              </h3>
+              <div className="flex flex-col flex-1">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
+                  {t.category}
+                </span>
+                <h3 className="mt-2 text-lg font-bold leading-snug text-[#f0f6fc] min-h-[52px] flex items-start">
+                  {t.name}
+                </h3>
 
-              <dl className="mt-4 space-y-2 text-sm border-t border-white/5 pt-3">
-                <div className="flex items-center justify-between">
-                  <dt className="text-[#8b949e]">Entry Fee</dt>
-                  <dd className="font-semibold text-[#f0f6fc]">
-                    ₹{t.entryFee.toLocaleString('en-IN')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-[#8b949e]">Prize Pool</dt>
-                  <dd className="font-extrabold text-[#e01e37]">
-                    ₹{t.prizePool.toLocaleString('en-IN')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between">
-                  <dt className="text-[#8b949e]">Date</dt>
-                  <dd className="font-medium text-[#f0f6fc]">{t.date}</dd>
-                </div>
-              </dl>
+                <dl className="mt-4 space-y-2 text-sm border-t border-white/5 pt-3">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-[#8b949e]">Entry Fee</dt>
+                    <dd className="font-semibold text-[#f0f6fc]">
+                      ₹{t.entryFee.toLocaleString('en-IN')}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-[#8b949e]">Prize Pool</dt>
+                    <dd className="font-extrabold text-[#e01e37]">
+                      ₹{t.prizePool.toLocaleString('en-IN')}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-[#8b949e]">Date</dt>
+                    <dd className="font-medium text-[#f0f6fc]">{t.date}</dd>
+                  </div>
+                </dl>
+              </div>
 
               <button
                 onClick={() => handleOpenRegistration(t)}
@@ -358,81 +384,60 @@ export function TournamentsView() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-xl font-black tracking-tight text-[#f0f6fc]">
-              {activeScope === 'state' ? `${selectedState} State` : 'Global'} Category Leaderboard
+              {selectedSkill === 'All Skills' ? '' : `${selectedSkill} • `}
+              {selectedState === 'Global' ? 'Global Leaderboard' : `${selectedState} Leaderboard`}
             </h3>
             <p className="mt-1 text-xs text-[#8b949e]">
-              {activeScope === 'state'
-                ? `Showing verified rankings and talent in ${selectedState}.`
-                : 'Showing global top performers across all categories.'}
+              {selectedState === 'Global'
+                ? 'Showing top verified performers across all regions.'
+                : `Showing verified rankings and talent in ${selectedState}.`}
             </p>
           </div>
 
-          {/* Scope Filter Toggle */}
-          <div className="flex items-center gap-2">
-            {activeScope === 'state' && (
+          {/* Skill Filter & Region Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Skill Filter Dropdown with Filter Icon */}
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#12161f] px-3.5 py-1.5 shadow-sm hover:border-white/20 transition">
+              <Filter className="size-3.5 text-[#e01e37]" />
+              <select
+                value={selectedSkill}
+                onChange={(e) => setSelectedSkill(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-[#f0f6fc] outline-none cursor-pointer pr-1"
+              >
+                {SKILLS_LIST.map((sk) => (
+                  <option key={sk} value={sk} className="bg-[#12161f] text-white">
+                    {sk}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* State / Region Dropdown (Global by default) */}
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#12161f] px-3.5 py-1.5 shadow-sm hover:border-white/20 transition">
               <select
                 value={selectedState}
                 onChange={(e) => setSelectedState(e.target.value)}
-                className="rounded-full border border-white/10 bg-[#12161f] px-3 py-1.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
+                className="bg-transparent text-xs font-semibold text-[#f0f6fc] outline-none cursor-pointer pr-1"
               >
-                {STATES.map((st) => (
-                  <option key={st} value={st} className="bg-[#12161f]">{st}</option>
+                {STATES_OPTIONS.map((st) => (
+                  <option key={st} value={st} className="bg-[#12161f] text-white">
+                    {st}
+                  </option>
                 ))}
               </select>
-            )}
-
-            <div className="inline-flex items-center rounded-full border border-white/10 bg-[#12161f] p-1">
-              <button
-                onClick={() => setActiveScope('state')}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-                  activeScope === 'state'
-                    ? 'bg-[#e01e37] text-white shadow-md'
-                    : 'text-[#8b949e] hover:text-[#f0f6fc]'
-                }`}
-              >
-                State
-              </button>
-
-              <button
-                onClick={() => setActiveScope('global')}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-                  activeScope === 'global'
-                    ? 'bg-[#e01e37] text-white shadow-md'
-                    : 'text-[#8b949e] hover:text-[#f0f6fc]'
-                }`}
-              >
-                Global
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Category Filter Pills Row */}
-        <div className="mt-6 flex flex-wrap items-center gap-2">
-          {CATEGORIES.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
-                selectedCategory === category
-                  ? 'bg-white font-bold text-[#0d0f12] shadow-sm'
-                  : 'border border-white/10 bg-[#12161f] text-[#8b949e] hover:border-white/20 hover:text-white'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-
         {/* Leaderboard Table Container */}
-        <div className="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-[#12161f]/90 shadow-2xl backdrop-blur-xl">
+        <div className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-[#12161f]/90 shadow-2xl backdrop-blur-xl">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-[10px] uppercase font-bold tracking-wider text-[#8b949e] bg-[#0b0e14]/50">
                   <th className="w-16 px-4 py-3.5">Rank</th>
                   <th className="px-4 py-3.5">Learner / Athlete</th>
-                  <th className="px-4 py-3.5">Category</th>
+                  <th className="px-4 py-3.5">Skill / Discipline</th>
                   <th className="px-4 py-3.5 text-right">XP Points</th>
                   <th className="px-4 py-3.5 text-right">Verified Hrs</th>
                   <th className="py-3.5 pl-4 pr-6 text-right">Tier Status</th>
@@ -474,8 +479,10 @@ export function TournamentsView() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-xs text-[#8b949e]">
-                        {row.category}
+                      <td className="px-4 py-4 text-xs font-medium text-[#f0f6fc]/80">
+                        <span className="inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs">
+                          {row.skill || row.category}
+                        </span>
                       </td>
 
                       <td className="px-4 py-4">
@@ -495,8 +502,8 @@ export function TournamentsView() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-sm text-[#8b949e]">
-                      No rankings found for this category.
+                    <td colSpan={6} className="py-10 text-center text-sm text-[#8b949e]">
+                      No rankings found for this skill/region filter.
                     </td>
                   </tr>
                 )}

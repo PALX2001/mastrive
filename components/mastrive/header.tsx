@@ -27,6 +27,16 @@ export function Header({
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 15)
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -63,7 +73,13 @@ export function Header({
   const userAvatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture
 
   return (
-    <header className="sticky top-0 z-50 w-full px-4 py-3 sm:px-8">
+    <header
+      className={`sticky top-0 z-50 w-full px-4 py-3 sm:px-8 transition-all duration-300 ${
+        scrolled
+          ? 'bg-[#0d1117]/85 backdrop-blur-xl border-b border-white/5 py-2.5 shadow-2xl'
+          : 'bg-transparent'
+      }`}
+    >
       <div className="relative mx-auto flex max-w-7xl items-center justify-between">
         
         {/* Left: Hamburger Button (Mobile & Tablet < 1280px) */}
@@ -96,7 +112,7 @@ export function Header({
         </div>
 
         {/* Center: Desktop Navigation Pills (≥ 1280px) */}
-        <nav className="hidden h-[50px] items-center gap-1.5 rounded-full border border-white/10 bg-[#161b22]/70 p-1.5 shadow-2xl backdrop-blur-xl xl:flex">
+        <nav className="hidden h-[50px] items-center gap-1.5 rounded-full border border-white/10 bg-[#161b22]/90 p-1.5 shadow-2xl backdrop-blur-xl xl:flex">
           {navItems.map((item) => {
             const active = activeTab === item.id
             return (
@@ -111,9 +127,9 @@ export function Header({
               >
                 {active && (
                   <motion.span
-                    layoutId="nav-active-pill"
-                    className="absolute inset-0 rounded-full bg-[#e01e37] shadow-[0_4px_12px_rgba(224,30,55,0.35)]"
-                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                    layoutId="header-active-pill"
+                    className="absolute inset-0 rounded-full bg-[#e01e37] shadow-[0_4px_12px_rgba(224,30,55,0.4)]"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
                 )}
                 <span className="relative z-10">{item.label}</span>

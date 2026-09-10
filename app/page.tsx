@@ -50,10 +50,17 @@ function MainApp() {
     }
   }, [searchParams])
 
+  const handleTabChange = (newTab: MainTab) => {
+    setTab(newTab)
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background flex flex-col justify-between selection:bg-[#e01e37] selection:text-white">
       <div>
-        <Header activeTab={tab} onTabChange={setTab} />
+        <Header activeTab={tab} onTabChange={handleTabChange} />
 
         {/* Welcome Celebratory Banner Toast */}
         <AnimatePresence>

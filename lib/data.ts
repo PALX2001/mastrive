@@ -445,6 +445,8 @@ export type LeaderboardEntry = {
   rank: number
   name: string
   category: string
+  skill: string
+  state: string
   xp: number
   verifiedHrs: number
   status: 'certified' | 'rising'
@@ -456,6 +458,8 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 1,
     name: 'Meera Nair',
     category: 'Music & Arts',
+    skill: 'Fingerstyle Guitar',
+    state: 'Mumbai',
     xp: 5420,
     verifiedHrs: 312,
     status: 'certified',
@@ -464,6 +468,8 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 2,
     name: 'Ikjot Singh',
     category: 'Fitness & Combat',
+    skill: 'Fitness & Strength Coach',
+    state: 'Delhi',
     xp: 5010,
     verifiedHrs: 288,
     status: 'certified',
@@ -472,6 +478,8 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 3,
     name: 'Kabir Chawla',
     category: 'Strategy & Tech',
+    skill: 'Tournament Chess',
+    state: 'Delhi',
     xp: 4780,
     verifiedHrs: 254,
     status: 'certified',
@@ -480,6 +488,8 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 4,
     name: 'Dev Malhotra',
     category: 'Lifestyle',
+    skill: 'Vinyasa Yoga',
+    state: 'Delhi',
     xp: 3990,
     verifiedHrs: 201,
     status: 'rising',
@@ -488,6 +498,8 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 5,
     name: 'You (Palash B.)',
     category: 'Fitness & Combat',
+    skill: 'Muay Thai Striking',
+    state: 'Delhi',
     xp: 3640,
     verifiedHrs: 176,
     status: 'rising',
@@ -497,6 +509,8 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 6,
     name: 'Aisha Rahman',
     category: 'Fitness & Combat',
+    skill: 'Muay Thai Striking',
+    state: 'Gurgaon',
     xp: 3120,
     verifiedHrs: 152,
     status: 'rising',
@@ -505,10 +519,63 @@ export const leaderboard: LeaderboardEntry[] = [
     rank: 7,
     name: 'Arjun Mehta',
     category: 'Music & Arts',
+    skill: 'Watercolour Landscapes',
+    state: 'Delhi',
     xp: 2890,
     verifiedHrs: 131,
+    status: 'rising',
+  },
+  {
+    rank: 8,
+    name: 'Nisha Verma',
+    category: 'Strategy & Tech',
+    skill: 'Python & DSA Bootcamp',
+    state: 'Bengaluru',
+    xp: 2750,
+    verifiedHrs: 124,
+    status: 'rising',
+  },
+  {
+    rank: 9,
+    name: 'Vikram Singh',
+    category: 'Fitness & Combat',
+    skill: 'Kickboxing',
+    state: 'Delhi',
+    xp: 2610,
+    verifiedHrs: 110,
+    status: 'rising',
+  },
+  {
+    rank: 10,
+    name: 'Rohan Kapoor',
+    category: 'Music & Arts',
+    skill: 'Piano Mastery',
+    state: 'Mumbai',
+    xp: 2480,
+    verifiedHrs: 98,
+    status: 'rising',
+  },
+  {
+    rank: 11,
+    name: 'Ananya Sen',
+    category: 'Music & Arts',
+    skill: 'Vocal Training',
+    state: 'Bengaluru',
+    xp: 2320,
+    verifiedHrs: 89,
+    status: 'rising',
+  },
+  {
+    rank: 12,
+    name: 'Sameer Joshi',
+    category: 'Fitness & Combat',
+    skill: 'Boxing',
+    state: 'Maharashtra',
+    xp: 2190,
+    verifiedHrs: 82,
     status: 'rising',
   },
 ]
 
 export const cities = ['All Cities', 'Delhi', 'Gurgaon', 'Mumbai', 'Bengaluru']
+
