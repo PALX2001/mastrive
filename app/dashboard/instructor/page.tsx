@@ -126,6 +126,16 @@ export default function InstructorDashboard() {
   const [isOnline, setIsOnline] = useState(true)
   const [copied, setCopied] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+
+  // Real-time timer ticker
+  useEffect(() => {
+    setCurrentTime(new Date())
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Interactive Modals
   const [activeModal, setActiveModal] = useState<'share' | 'reply' | 'reschedule' | 'payout' | 'add-slot' | 'add-service' | null>(null)
@@ -506,7 +516,7 @@ export default function InstructorDashboard() {
       <aside className="fixed left-0 top-0 z-30 hidden lg:flex flex-col w-[260px] h-screen border-r border-white/[0.08] bg-[#0b0e14]">
         
         {/* Logo */}
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-white/[0.06]">
+        <div className="flex h-[72px] items-center gap-3 px-6 border-b border-white/[0.08]">
           <Link href="/" aria-label="MASTRIVE home" className="flex items-center group">
             <Image
               src="/logo.svg"
@@ -590,31 +600,86 @@ export default function InstructorDashboard() {
       <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
 
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-white/[0.08] bg-[#0b0e14]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-4 border-b border-white/[0.08] bg-[#0b0e14]/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           
-          {/* Mobile: menu button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            aria-label="Open Navigation Menu"
-            className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-[#161b22]/80 text-[#f0f6fc] transition hover:border-white/20 active:scale-95 lg:hidden"
-          >
-            <Menu className="size-5" />
-          </button>
+          {/* Left: Mobile Menu + Logo & Search Bar */}
+          <div className="flex items-center gap-3 flex-1 max-w-sm">
+            {/* Mobile: menu button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open Navigation Menu"
+              className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-[#161b22]/80 text-[#f0f6fc] transition hover:border-white/20 active:scale-95 lg:hidden"
+            >
+              <Menu className="size-5" />
+            </button>
 
-          {/* Mobile: logo (only on small screens) */}
-          <Link href="/" className="lg:hidden flex items-center">
-            <Image src="/logo.svg" alt="MASTRIVE" width={110} height={26} priority className="h-6 w-auto object-contain" />
-          </Link>
+            {/* Mobile: logo (only on small screens) */}
+            <Link href="/" className="lg:hidden flex items-center">
+              <Image src="/logo.svg" alt="MASTRIVE" width={110} height={26} priority className="h-6 w-auto object-contain" />
+            </Link>
 
-          {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-md items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3.5 py-2">
-            <Search className="size-4 text-[#6e7681]" />
-            <input
-              type="text"
-              placeholder="Search sessions, learners..."
-              className="flex-1 bg-transparent text-xs text-white placeholder-[#6e7681] outline-none"
-            />
-            <kbd className="hidden sm:flex items-center gap-0.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold text-[#6e7681]">⌘F</kbd>
+            {/* Search Bar */}
+            <div className="hidden md:flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3.5 py-2 transition focus-within:border-white/20">
+              <Search className="size-4 text-[#6e7681]" />
+              <input
+                type="text"
+                placeholder="Search sessions, learners..."
+                className="flex-1 bg-transparent text-xs text-white placeholder-[#6e7681] outline-none"
+              />
+              <kbd className="hidden sm:flex items-center gap-0.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold text-[#6e7681]">⌘F</kbd>
+            </div>
+          </div>
+
+          {/* Center: Real-Time Timer & Date Widget */}
+          <div className="hidden lg:flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3.5 py-2 shadow-inner backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              <div className="flex items-center gap-1.5 font-mono text-xs font-bold tracking-wider text-white">
+                <Clock className="size-3.5 text-[#e01e37]" />
+                <span>
+                  {currentTime
+                    ? currentTime.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true,
+                      })
+                    : '--:--:--'}
+                </span>
+              </div>
+            </div>
+            <div className="h-3.5 w-px bg-white/10" />
+            <div className="flex items-center gap-1.5 text-xs font-medium text-[#8b949e]">
+              <CalendarIcon className="size-3.5 text-[#6e7681]" />
+              <span>
+                {currentTime
+                  ? currentTime.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })
+                  : '--- --, ----'}
+              </span>
+            </div>
+          </div>
+
+          {/* Tablet Compact Live Clock */}
+          <div className="hidden sm:flex lg:hidden items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 font-mono text-xs font-bold text-white">
+            <Clock className="size-3.5 text-[#e01e37]" />
+            <span>
+              {currentTime
+                ? currentTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true,
+                  })
+                : '--:--:--'}
+            </span>
           </div>
 
           {/* Right: Notifications + Profile */}
