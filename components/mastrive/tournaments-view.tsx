@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
-import { Flame, X, ShieldCheck, Trophy } from 'lucide-react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
+import { Flame, X, ShieldCheck, Trophy, Sparkles, TrendingUp, RefreshCw, Radio } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
-import { leaderboard, tournaments } from '@/lib/data'
+import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry } from '@/lib/data'
 import { TierBadge, XPMetric } from './leaderboard-tiers'
 
 interface Tournament {
@@ -16,6 +16,7 @@ interface Tournament {
 }
 
 const CATEGORIES = ['All', 'Music & Arts', 'Fitness & Combat', 'Strategy & Tech', 'Lifestyle']
+const STATES = ['Delhi', 'Gurgaon', 'Mumbai', 'Bengaluru']
 
 // Singleton Razorpay script loader
 let razorpayPromise: Promise<boolean> | null = null
@@ -51,6 +52,30 @@ export function TournamentsView() {
   const [activeScope, setActiveScope] = useState<'state' | 'global'>('state')
   const [selectedState, setSelectedState] = useState<string>('Delhi')
   const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+
+  // Real-time live pulse XP simulation (simulating live session completions across India)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLiveLeaderboard((prev) => {
+        const randomIndex = Math.floor(Math.random() * prev.length)
+        const updated = [...prev]
+        const target = { ...updated[randomIndex] }
+        const xpGain = Math.floor(Math.random() * 25) + 15
+        target.xp += xpGain
+        target.verifiedHrs += Math.random() > 0.6 ? 1 : 0
+        updated[randomIndex] = target
+
+        // Re-sort dynamically by XP and re-assign rank
+        updated.sort((a, b) => b.xp - a.xp)
+        return updated.map((entry, idx) => ({ ...entry, rank: idx + 1 }))
+      })
+      setLastUpdated(new Date())
+    }, 4500)
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Modal & Registration state
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null)
@@ -63,7 +88,7 @@ export function TournamentsView() {
   const [isProcessing, setIsProcessing] = useState(false)
 
   const displayedLeaderboard = useMemo(() => {
-    return leaderboard.filter((item) => {
+    return liveLeaderboard.filter((item) => {
       const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory
       if (activeScope === 'global') return matchesCategory
       const itemState = (item as any).state || 'Delhi'
@@ -71,7 +96,7 @@ export function TournamentsView() {
 
       return matchesCategory && matchesState
     })
-  }, [selectedCategory, activeScope, selectedState])
+  }, [liveLeaderboard, selectedCategory, activeScope, selectedState])
 
   // Open Registration Modal
   const handleOpenRegistration = useCallback((t: Tournament) => {
@@ -94,14 +119,13 @@ export function TournamentsView() {
     }
 
     const options = {
-      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_dummyKey123',
+      key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
       amount: selectedTournament.entryFee * 100, // Amount in paise
       currency: 'INR',
       name: 'MASTRIVE',
       description: `Registration for ${selectedTournament.name}`,
       image: '/logo.svg',
       handler: function (response: any) {
-        // Handle successful payment
         setRegistered((prev) => new Set(prev).add(selectedTournament.id))
         setSelectedTournament(null)
         setIsProcessing(false)
@@ -132,23 +156,34 @@ export function TournamentsView() {
   }, [selectedTournament, participant])
 
   return (
-    <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
-      {/* Title */}
-      <div className="max-w-2xl">
-        <h2 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-[#f0f6fc] sm:text-3xl">
-          The Supply Flywheel
-          <Flame className="size-6 text-[#e01e37]" aria-hidden />
-        </h2>
-        <p className="mt-2 text-pretty leading-relaxed text-[#8b949e]">
-          Compete, climb the leaderboard, and unlock certified{' '}
-          <span className="font-serif italic text-[#f0f6fc]">
-            paid-instructor
-          </span>{' '}
-          status.
-        </p>
+    <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 selection:bg-[#e01e37] selection:text-white">
+      
+      {/* Title & Live Badge */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="max-w-2xl">
+          <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight text-[#f0f6fc] sm:text-3xl">
+            The Supply Flywheel & Tournaments
+            <Flame className="size-6 text-[#e01e37]" aria-hidden />
+          </h2>
+          <p className="mt-2 text-pretty leading-relaxed text-[#8b949e]">
+            Compete, climb the verified leaderboard, and unlock certified{' '}
+            <span className="font-serif italic text-[#f0f6fc]">
+              paid-instructor
+            </span>{' '}
+            status.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-bold text-emerald-400 self-start sm:self-center">
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+          </span>
+          <span>Live Sync Active</span>
+        </div>
       </div>
 
-      {/* Event cards */}
+      {/* Tournament Cards */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {tournaments.map((t, idx) => {
           const isRegistered = registered.has(t.id)
@@ -158,7 +193,7 @@ export function TournamentsView() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: idx * 0.05 }}
-              className="flex flex-col rounded-2xl border border-white/10 bg-[#161b22] p-5 will-change-transform transform-gpu"
+              className="flex flex-col rounded-3xl border border-white/10 bg-[#12161f]/90 p-6 shadow-xl backdrop-blur-xl"
             >
               <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
                 {t.category}
@@ -167,16 +202,16 @@ export function TournamentsView() {
                 {t.name}
               </h3>
 
-              <dl className="mt-4 space-y-2 text-sm">
+              <dl className="mt-4 space-y-2 text-sm border-t border-white/5 pt-3">
                 <div className="flex items-center justify-between">
                   <dt className="text-[#8b949e]">Entry Fee</dt>
-                  <dd className="font-medium text-[#f0f6fc]">
+                  <dd className="font-semibold text-[#f0f6fc]">
                     ₹{t.entryFee.toLocaleString('en-IN')}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-[#8b949e]">Prize Pool</dt>
-                  <dd className="font-bold text-[#e01e37]">
+                  <dd className="font-extrabold text-[#e01e37]">
                     ₹{t.prizePool.toLocaleString('en-IN')}
                   </dd>
                 </div>
@@ -189,13 +224,13 @@ export function TournamentsView() {
               <button
                 onClick={() => handleOpenRegistration(t)}
                 disabled={isRegistered}
-                className={`mt-5 w-full rounded-full px-4 py-2.5 text-sm font-bold transition-all active:scale-95 ${
+                className={`mt-6 w-full rounded-2xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${
                   isRegistered
                     ? 'cursor-default border border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
-                    : 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)] hover:bg-[#c0182f]'
+                    : 'bg-[#e01e37] text-white shadow-lg shadow-[#e01e37]/25 hover:bg-[#c0182f]'
                 }`}
               >
-                {isRegistered ? 'Registered ✓' : 'Register'}
+                {isRegistered ? 'Registered ✓' : 'Register Now'}
               </button>
             </motion.article>
           )
@@ -206,21 +241,19 @@ export function TournamentsView() {
       <AnimatePresence>
         {selectedTournament && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => !isProcessing && setSelectedTournament(null)}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md"
+              className="absolute inset-0 bg-black/75 backdrop-blur-md"
             />
 
-            {/* Modal Box */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#0d1117] p-6 shadow-2xl transform-gpu"
+              className="relative z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-[#141822] p-6 sm:p-7 shadow-2xl"
             >
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div>
@@ -241,7 +274,7 @@ export function TournamentsView() {
               </div>
 
               {/* Tournament Summary */}
-              <div className="mt-4 flex items-center justify-between rounded-xl border border-white/5 bg-[#161b22] p-3 text-xs">
+              <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/5 bg-[#0b0e14] p-3.5 text-xs">
                 <div className="flex items-center gap-2 text-[#8b949e]">
                   <Trophy className="size-4 text-[#e01e37]" />
                   <span>Entry Fee</span>
@@ -261,7 +294,7 @@ export function TournamentsView() {
                     value={participant.name}
                     onChange={(e) => setParticipant({ ...participant, name: e.target.value })}
                     placeholder="John Doe"
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-[#161b22] px-3.5 py-2 text-sm text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 py-2.5 text-xs text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
                   />
                 </div>
 
@@ -273,7 +306,7 @@ export function TournamentsView() {
                     value={participant.email}
                     onChange={(e) => setParticipant({ ...participant, email: e.target.value })}
                     placeholder="john@example.com"
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-[#161b22] px-3.5 py-2 text-sm text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
+                    className="mt-1 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 py-2.5 text-xs text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
                   />
                 </div>
 
@@ -286,7 +319,7 @@ export function TournamentsView() {
                       value={participant.phone}
                       onChange={(e) => setParticipant({ ...participant, phone: e.target.value })}
                       placeholder="9876543210"
-                      className="mt-1 w-full rounded-xl border border-white/10 bg-[#161b22] px-3.5 py-2 text-sm text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 py-2.5 text-xs text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
                     />
                   </div>
                   <div>
@@ -297,7 +330,7 @@ export function TournamentsView() {
                       value={participant.xpHandle}
                       onChange={(e) => setParticipant({ ...participant, xpHandle: e.target.value })}
                       placeholder="@handle"
-                      className="mt-1 w-full rounded-xl border border-white/10 bg-[#161b22] px-3.5 py-2 text-sm text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
+                      className="mt-1 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 py-2.5 text-xs text-[#f0f6fc] placeholder-[#8b949e]/50 outline-none focus:border-[#e01e37]"
                     />
                   </div>
                 </div>
@@ -306,7 +339,7 @@ export function TournamentsView() {
                   <button
                     type="submit"
                     disabled={isProcessing}
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#e01e37] py-3 text-sm font-bold text-white shadow-[0_4px_14px_rgba(224,30,55,0.4)] transition-all hover:bg-[#c0182f] active:scale-95 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] py-3 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-[#e01e37]/25 transition hover:brightness-110 active:scale-95 disabled:opacity-50"
                   >
                     <ShieldCheck className="size-4" />
                     {isProcessing ? 'Opening Payment...' : `Proceed to Pay ₹${selectedTournament.entryFee}`}
@@ -318,47 +351,59 @@ export function TournamentsView() {
         )}
       </AnimatePresence>
 
-      {/* Leaderboard Section */}
-      <div className="content-auto mt-12">
+      {/* ========================================================================= */}
+      {/* REAL-TIME LEADERBOARD SECTION */}
+      {/* ========================================================================= */}
+      <div className="mt-14">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-xl font-bold tracking-tight text-[#f0f6fc]">
+            <h3 className="text-xl font-black tracking-tight text-[#f0f6fc]">
               {activeScope === 'state' ? `${selectedState} State` : 'Global'} Category Leaderboard
             </h3>
             <p className="mt-1 text-xs text-[#8b949e]">
               {activeScope === 'state'
-                ? `Showing regional talent and top ranks within ${selectedState}.`
+                ? `Showing verified rankings and talent in ${selectedState}.`
                 : 'Showing global top performers across all categories.'}
             </p>
           </div>
 
           {/* Scope Filter Toggle */}
-          <div className="inline-flex items-center rounded-full border border-white/10 bg-[#161b22] p-1">
-            <button
-              onClick={() => setActiveScope('state')}
-              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-                activeScope === 'state'
-                  ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
-                  : 'text-[#8b949e] hover:text-[#f0f6fc]'
-              }`}
-            >
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-              </span>
-              {selectedState}
-            </button>
+          <div className="flex items-center gap-2">
+            {activeScope === 'state' && (
+              <select
+                value={selectedState}
+                onChange={(e) => setSelectedState(e.target.value)}
+                className="rounded-full border border-white/10 bg-[#12161f] px-3 py-1.5 text-xs font-semibold text-white outline-none focus:border-[#e01e37]"
+              >
+                {STATES.map((st) => (
+                  <option key={st} value={st} className="bg-[#12161f]">{st}</option>
+                ))}
+              </select>
+            )}
 
-            <button
-              onClick={() => setActiveScope('global')}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-                activeScope === 'global'
-                  ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
-                  : 'text-[#8b949e] hover:text-[#f0f6fc]'
-              }`}
-            >
-              Global
-            </button>
+            <div className="inline-flex items-center rounded-full border border-white/10 bg-[#12161f] p-1">
+              <button
+                onClick={() => setActiveScope('state')}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                  activeScope === 'state'
+                    ? 'bg-[#e01e37] text-white shadow-md'
+                    : 'text-[#8b949e] hover:text-[#f0f6fc]'
+                }`}
+              >
+                State
+              </button>
+
+              <button
+                onClick={() => setActiveScope('global')}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
+                  activeScope === 'global'
+                    ? 'bg-[#e01e37] text-white shadow-md'
+                    : 'text-[#8b949e] hover:text-[#f0f6fc]'
+                }`}
+              >
+                Global
+              </button>
+            </div>
           </div>
         </div>
 
@@ -370,8 +415,8 @@ export function TournamentsView() {
               onClick={() => setSelectedCategory(category)}
               className={`rounded-full px-4 py-1.5 text-xs font-medium transition-all ${
                 selectedCategory === category
-                  ? 'bg-white font-semibold text-[#0d0f12] shadow-sm'
-                  : 'border border-white/10 bg-[#161b22] text-[#8b949e] hover:border-white/20 hover:text-white'
+                  ? 'bg-white font-bold text-[#0d0f12] shadow-sm'
+                  : 'border border-white/10 bg-[#12161f] text-[#8b949e] hover:border-white/20 hover:text-white'
               }`}
             >
               {category}
@@ -379,57 +424,69 @@ export function TournamentsView() {
           ))}
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#161b22]">
+        {/* Leaderboard Table Container */}
+        <div className="mt-4 overflow-hidden rounded-3xl border border-white/10 bg-[#12161f]/90 shadow-2xl backdrop-blur-xl">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-[#8b949e]">
-                  <th className="w-16 px-4 py-3 font-semibold">Rank</th>
-                  <th className="px-4 py-3 font-semibold">Learner</th>
-                  <th className="px-4 py-3 font-semibold">Category</th>
-                  <th className="px-4 py-3 text-right font-semibold">XP</th>
-                  <th className="px-4 py-3 text-right font-semibold">Verified Hrs</th>
-                  <th className="py-3 pl-4 pr-6 text-right font-semibold">Status</th>
+                <tr className="border-b border-white/10 text-[10px] uppercase font-bold tracking-wider text-[#8b949e] bg-[#0b0e14]/50">
+                  <th className="w-16 px-4 py-3.5">Rank</th>
+                  <th className="px-4 py-3.5">Learner / Athlete</th>
+                  <th className="px-4 py-3.5">Category</th>
+                  <th className="px-4 py-3.5 text-right">XP Points</th>
+                  <th className="px-4 py-3.5 text-right">Verified Hrs</th>
+                  <th className="py-3.5 pl-4 pr-6 text-right">Tier Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-white/[0.04]">
                 {displayedLeaderboard.length > 0 ? (
                   displayedLeaderboard.map((row) => (
                     <tr
-                      key={row.rank}
-                      className={`border-b border-white/10 transition-colors last:border-0 ${
+                      key={`${row.name}-${row.rank}`}
+                      className={`transition-colors ${
                         row.isUser
-                          ? 'bg-[#e01e37]/10'
+                          ? 'bg-[#e01e37]/15 border-l-2 border-l-[#e01e37]'
                           : 'hover:bg-white/[0.02]'
                       }`}
                     >
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-4">
                         <span
                           className={`inline-flex size-7 items-center justify-center rounded-full text-xs font-bold ${
-                            row.rank <= 3
-                              ? 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)]'
+                            row.rank === 1
+                              ? 'bg-[#e01e37] text-white shadow-lg shadow-[#e01e37]/40 ring-2 ring-[#e01e37]/30'
+                              : row.rank === 2
+                              ? 'bg-amber-500 text-black font-extrabold'
+                              : row.rank === 3
+                              ? 'bg-neutral-300 text-black font-extrabold'
                               : 'bg-white/10 text-[#8b949e]'
                           }`}
                         >
                           {row.rank}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 font-medium text-[#f0f6fc]">
-                        {row.name}
+                      <td className="px-4 py-4 font-bold text-[#f0f6fc]">
+                        <div className="flex items-center gap-2">
+                          <span>{row.name}</span>
+                          {row.isUser && (
+                            <span className="rounded-full bg-[#e01e37] px-2 py-0.5 text-[9px] font-extrabold text-white">
+                              YOU
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3.5 text-[#8b949e]">
+                      <td className="px-4 py-4 text-xs text-[#8b949e]">
                         {row.category}
                       </td>
 
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-4">
                         <XPMetric xp={row.xp} />
                       </td>
 
-                      <td className="px-4 py-3.5 text-right tabular-nums text-[#8b949e]">
-                        {row.verifiedHrs}
+                      <td className="px-4 py-4 text-right tabular-nums text-xs text-[#8b949e]">
+                        {row.verifiedHrs} hrs
                       </td>
 
-                      <td className="py-3.5 pl-4 pr-6 text-right">
+                      <td className="py-4 pl-4 pr-6 text-right">
                         <div className="flex justify-end">
                           <TierBadge xp={row.xp} />
                         </div>
@@ -439,7 +496,7 @@ export function TournamentsView() {
                 ) : (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-sm text-[#8b949e]">
-                      No rankings found for this category scope.
+                      No rankings found for this category.
                     </td>
                   </tr>
                 )}

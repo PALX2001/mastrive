@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
           if (appId) {
             // Attach verified user id to the application row, promote status to 'verified'
-            const { error: applicationUpdateError } = await supabase
+            await supabase
               .from('instructor_applications')
               .update({
                 user_id: user.id,
@@ -66,10 +66,6 @@ export async function GET(request: Request) {
                 status: user.user_metadata?.role === 'instructor' ? 'approved' : 'verified',
               })
               .eq('id', appId)
-
-            if (applicationUpdateError) {
-              throw applicationUpdateError
-            }
 
             // Upsert a profile row so dashboard lookups find the role instantly
             const profileName =
@@ -90,31 +86,11 @@ export async function GET(request: Request) {
                 },
                 { onConflict: 'id' }
               )
-          } else if (
-            user.user_metadata?.role === 'instructor' &&
-            !(await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()).data
-          ) {
-            // Fallback: Instructor signed up via login page, still seed a profile row
-            const profileName =
-              user.user_metadata?.full_name ||
-              (user.email ? user.email.split('@')[0] : 'Instructor')
-
-            await supabase.from('profiles').upsert(
-              {
-                id: user.id,
-                full_name: profileName,
-                email: user.email,
-                role: 'instructor',
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: 'id' }
-            )
           }
         } catch (syncErr) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn('[auth/callback] Instructor profile sync failed:', syncErr)
+            console.warn('[auth/callback] Profile sync notice:', syncErr)
           }
-          // Non-fatal: user still verifies, dashboard falls back to checking applications
         }
 
         // Check instructor role across multiple indicators
@@ -134,7 +110,6 @@ export async function GET(request: Request) {
         }
 
         if (!isInstructor && instructorAppId) {
-          // Explicit instructor verification link overrides
           isInstructor = true
         }
 
@@ -152,11 +127,24 @@ export async function GET(request: Request) {
           }
         }
 
-        // Determine destination based on explicitly requested path or user role
+        // Determine destination
         let targetPath = next
 
-        if (!targetPath || targetPath === '/dashboard') {
-          targetPath = isInstructor ? '/dashboard/instructor' : '/profile'
+        if (isInstructor) {
+          targetPath = '/dashboard/instructor'
+        } else if (!targetPath || targetPath === '/dashboard' || targetPath === '/profile') {
+          // Check if user has completed onboarding profile
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (!userProfile?.full_name && !user.user_metadata?.full_name) {
+            targetPath = '/onboarding'
+          } else {
+            targetPath = targetPath || '/profile'
+          }
         }
 
         // Domain origin resolution

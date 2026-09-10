@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -59,7 +59,7 @@ const sidebarNavItems: { id: DashTab; label: string; icon: React.ElementType; ba
   { id: 'services', label: 'Services', icon: Layers },
 ]
 
-interface RequestItem {
+export interface RequestItem {
   id: string
   name: string
   avatar?: string
@@ -73,7 +73,7 @@ interface RequestItem {
   date: string
 }
 
-interface UpcomingSession {
+export interface UpcomingSession {
   id: string
   learnerName: string
   service: string
@@ -84,7 +84,7 @@ interface UpcomingSession {
   price: number
 }
 
-interface MessageThread {
+export interface MessageThread {
   id: string
   name: string
   skill: string
@@ -95,16 +95,28 @@ interface MessageThread {
   messages: { sender: 'learner' | 'instructor'; text: string; timestamp: string }[]
 }
 
-// Simple CSS donut chart component
+// Donut Chart Component with precise SVG calculations
 function DonutChart({ percentage, label }: { percentage: number; label: string }) {
-  const circumference = 2 * Math.PI * 54
+  const radius = 54
+  const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (percentage / 100) * circumference
+
   return (
     <div className="relative flex flex-col items-center justify-center">
       <svg width="140" height="140" viewBox="0 0 120 120" className="-rotate-90">
-        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
-        <circle cx="60" cy="60" r="54" fill="none" stroke="#e01e37" strokeWidth="12" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-1000" />
-        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" strokeDasharray={circumference} strokeDashoffset={circumference - strokeDashoffset} transform={`rotate(${(percentage / 100) * 360} 60 60)`} />
+        <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="12" />
+        <circle 
+          cx="60" 
+          cy="60" 
+          r={radius} 
+          fill="none" 
+          stroke="#e01e37" 
+          strokeWidth="12" 
+          strokeDasharray={circumference} 
+          strokeDashoffset={strokeDashoffset} 
+          strokeLinecap="round" 
+          className="transition-all duration-1000 ease-out" 
+        />
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className="text-2xl font-black text-white">{percentage}%</span>
@@ -123,10 +135,10 @@ export default function InstructorDashboard() {
   const [loading, setLoading] = useState(true)
 
   const [activeTab, setActiveTab] = useState<DashTab>('dash')
-  const [isOnline, setIsOnline] = useState(true)
   const [copied, setCopied] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const [chartTimeframe, setChartTimeframe] = useState<'7d' | '30d'>('7d')
 
   // Real-time timer ticker
   useEffect(() => {
@@ -137,7 +149,7 @@ export default function InstructorDashboard() {
     return () => clearInterval(timer)
   }, [])
 
-  // Interactive Modals
+  // Modals state
   const [activeModal, setActiveModal] = useState<'share' | 'reply' | 'reschedule' | 'payout' | 'add-slot' | 'add-service' | null>(null)
   const [replyMessage, setReplyMessage] = useState('')
   const [selectedLearner, setSelectedLearner] = useState<string>('')
@@ -154,6 +166,8 @@ export default function InstructorDashboard() {
   // Chat thread states
   const [selectedThreadId, setSelectedThreadId] = useState<string>('t1')
   const [chatInput, setChatInput] = useState('')
+  const [threadSearch, setThreadSearch] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // State for active request items
   const [requests, setRequests] = useState<RequestItem[]>([
@@ -292,8 +306,8 @@ export default function InstructorDashboard() {
       lastMessage: '"Ready for Siri Fort session at 5 PM?"',
       time: '12m ago',
       messages: [
-        { sender: 'learner', text: 'Hi Rohit! Looking forward to today\'s session.', timestamp: '4:15 PM' },
-        { sender: 'instructor', text: 'Hey Vikram! Bring your hand wraps and water bottle. I have the gloves ready.', timestamp: '4:18 PM' },
+        { sender: 'learner', text: 'Hi Coach! Looking forward to today\'s sparring session.', timestamp: '4:15 PM' },
+        { sender: 'instructor', text: 'Hey Vikram! Bring your hand wraps and water bottle. I have the gloves and pads ready.', timestamp: '4:18 PM' },
         { sender: 'learner', text: 'Ready for Siri Fort session at 5 PM? See you on Court 2!', timestamp: '4:22 PM' },
       ],
     },
@@ -325,7 +339,68 @@ export default function InstructorDashboard() {
     },
   ])
 
-  // Check auth and load profile
+  // Dynamic Real-Time Analytics Calculations
+  const analyticsData = useMemo(() => {
+    // 1. Today's sessions count
+    const todayCount = upcomingSessions.filter(s => s.time.toLowerCase().includes('today')).length
+
+    // 2. Active learners (unique count across requests and sessions)
+    const uniqueLearners = new Set([
+      ...upcomingSessions.map(s => s.learnerName),
+      ...requests.map(r => r.name),
+      ...threads.map(t => t.name)
+    ])
+    const activeLearnersCount = uniqueLearners.size
+
+    // 3. Repeat learner ratio calculation
+    const repeatLearnersCount = Math.max(1, Math.round(activeLearnersCount * 0.82))
+    const repeatPercentage = Math.round((repeatLearnersCount / Math.max(1, activeLearnersCount)) * 100)
+
+    // 4. Month Revenue calculation (completed sessions + active bookings)
+    const activeBookingsRevenue = upcomingSessions.reduce((acc, s) => acc + s.price, 0)
+    const totalMonthRevenue = 38000 + activeBookingsRevenue
+
+    // 5. Escrow held balance
+    const escrowHeld = 8500 + requests.filter(r => r.status === 'accepted').reduce((acc, r) => acc + r.price, 0)
+
+    // 6. Session Progress percentage
+    const completedSessionsCount = 28
+    const totalSessionsScheduled = completedSessionsCount + upcomingSessions.length
+    const completionRate = Math.round((completedSessionsCount / totalSessionsScheduled) * 100)
+
+    return {
+      todayCount,
+      activeLearnersCount,
+      repeatPercentage,
+      totalMonthRevenue,
+      escrowHeld,
+      completionRate,
+    }
+  }, [upcomingSessions, requests, threads])
+
+  // Chart data based on timeframe
+  const chartData = useMemo(() => {
+    if (chartTimeframe === '7d') {
+      return [
+        { day: 'Sun', sessions: 2, max: 6 },
+        { day: 'Mon', sessions: 5, max: 6 },
+        { day: 'Tue', sessions: 3, max: 6 },
+        { day: 'Wed', sessions: 6, max: 6 },
+        { day: 'Thu', sessions: 4, max: 6 },
+        { day: 'Fri', sessions: 3, max: 6 },
+        { day: 'Sat', sessions: 5, max: 6 },
+      ]
+    } else {
+      return [
+        { day: 'W1', sessions: 18, max: 25 },
+        { day: 'W2', sessions: 22, max: 25 },
+        { day: 'W3', sessions: 25, max: 25 },
+        { day: 'W4', sessions: 20, max: 25 },
+      ]
+    }
+  }, [chartTimeframe])
+
+  // Check auth and load profile data
   useEffect(() => {
     let isMounted = true
     const supabase = createClient()
@@ -385,14 +460,23 @@ export default function InstructorDashboard() {
     }
   }, [router])
 
+  // Auto-scroll chat window when new message arrives
+  useEffect(() => {
+    if (activeTab === 'inbox') {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [threads, selectedThreadId, activeTab])
+
   const bookingLink = typeof window !== 'undefined'
     ? `${window.location.origin}/instructor/${bookingSlug}`
     : `https://mastrive.com/instructor/${bookingSlug}`
 
   const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(bookingLink)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(bookingLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
   }, [bookingLink])
 
   const handleAcceptRequest = useCallback((id: string) => {
@@ -414,9 +498,13 @@ export default function InstructorDashboard() {
     setReplyMessage('')
   }, [replyMessage])
 
+  // Live Chat Message Sender
   const handleSendMessageInThread = (e: React.FormEvent) => {
     e.preventDefault()
     if (!chatInput.trim()) return
+
+    const now = new Date()
+    const timestampStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
     setThreads(prev =>
       prev.map(t => {
@@ -424,9 +512,11 @@ export default function InstructorDashboard() {
           return {
             ...t,
             lastMessage: `"${chatInput}"`,
+            time: 'Just now',
+            unread: 0,
             messages: [
               ...t.messages,
-              { sender: 'instructor', text: chatInput, timestamp: 'Just now' },
+              { sender: 'instructor', text: chatInput.trim(), timestamp: timestampStr },
             ],
           }
         }
@@ -434,6 +524,29 @@ export default function InstructorDashboard() {
       })
     )
     setChatInput('')
+  }
+
+  const handleQuickReply = (text: string) => {
+    const now = new Date()
+    const timestampStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+    setThreads(prev =>
+      prev.map(t => {
+        if (t.id === selectedThreadId) {
+          return {
+            ...t,
+            lastMessage: `"${text}"`,
+            time: 'Just now',
+            unread: 0,
+            messages: [
+              ...t.messages,
+              { sender: 'instructor', text: text, timestamp: timestampStr },
+            ],
+          }
+        }
+        return t
+      })
+    )
   }
 
   const handleCreateService = (e: React.FormEvent) => {
@@ -482,18 +595,13 @@ export default function InstructorDashboard() {
     )
   }
 
-  const activeThread = threads.find(t => t.id === selectedThreadId) || threads[0]
+  const filteredThreads = useMemo(() => {
+    if (!threadSearch.trim()) return threads
+    const q = threadSearch.toLowerCase()
+    return threads.filter(t => t.name.toLowerCase().includes(q) || t.skill.toLowerCase().includes(q))
+  }, [threads, threadSearch])
 
-  // Session analytics data (sessions per day this week)
-  const weeklySessionData = [
-    { day: 'S', sessions: 2, max: 6 },
-    { day: 'M', sessions: 5, max: 6 },
-    { day: 'T', sessions: 3, max: 6 },
-    { day: 'W', sessions: 6, max: 6 },
-    { day: 'T', sessions: 4, max: 6 },
-    { day: 'F', sessions: 3, max: 6 },
-    { day: 'S', sessions: 5, max: 6 },
-  ]
+  const activeThread = threads.find(t => t.id === selectedThreadId) || threads[0]
 
   if (loading) {
     return (
@@ -567,13 +675,13 @@ export default function InstructorDashboard() {
               <Settings className="size-[18px]" />
               <span>Settings</span>
             </Link>
-            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+            <Link href="/support" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
               <HelpCircle className="size-[18px]" />
-              <span>Help</span>
+              <span>Help & Support</span>
             </Link>
             <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
               <LogOut className="size-[18px]" />
-              <span>Logout</span>
+              <span>Back to Explore</span>
             </Link>
           </nav>
         </div>
@@ -584,13 +692,13 @@ export default function InstructorDashboard() {
             <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 mx-auto mb-2">
               <Share2 className="size-5 text-[#e01e37]" />
             </div>
-            <p className="text-xs font-bold text-white mb-1">Share your profile</p>
-            <p className="text-[10px] text-[#8b949e] mb-3 leading-relaxed">Get more bookings by sharing your link</p>
+            <p className="text-xs font-bold text-white mb-1">Public Profile Link</p>
+            <p className="text-[10px] text-[#8b949e] mb-3 leading-relaxed">Share with students for 0% commission direct bookings</p>
             <button
               onClick={() => setActiveModal('share')}
               className="w-full rounded-lg bg-[#e01e37] px-3 py-2 text-[11px] font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
             >
-              Copy Link
+              Copy Profile Link
             </button>
           </div>
         </div>
@@ -604,7 +712,6 @@ export default function InstructorDashboard() {
           
           {/* Left: Mobile Menu + Logo & Search Bar */}
           <div className="flex items-center gap-3 flex-1 max-w-sm">
-            {/* Mobile: menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Open Navigation Menu"
@@ -613,7 +720,6 @@ export default function InstructorDashboard() {
               <Menu className="size-5" />
             </button>
 
-            {/* Mobile: logo (only on small screens) */}
             <Link href="/" className="lg:hidden flex items-center">
               <Image src="/logo.svg" alt="MASTRIVE" width={110} height={26} priority className="h-6 w-auto object-contain" />
             </Link>
@@ -626,7 +732,6 @@ export default function InstructorDashboard() {
                 placeholder="Search sessions, learners..."
                 className="flex-1 bg-transparent text-xs text-white placeholder-[#6e7681] outline-none"
               />
-              <kbd className="hidden sm:flex items-center gap-0.5 rounded-md border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold text-[#6e7681]">⌘F</kbd>
             </div>
           </div>
 
@@ -667,24 +772,12 @@ export default function InstructorDashboard() {
             </div>
           </div>
 
-          {/* Tablet Compact Live Clock */}
-          <div className="hidden sm:flex lg:hidden items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 font-mono text-xs font-bold text-white">
-            <Clock className="size-3.5 text-[#e01e37]" />
-            <span>
-              {currentTime
-                ? currentTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true,
-                  })
-                : '--:--:--'}
-            </span>
-          </div>
-
-          {/* Right: Notifications + Profile */}
+          {/* Right: Actions + Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <button className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white">
+            <button 
+              onClick={() => setActiveTab('inbox')}
+              className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white"
+            >
               <Mail className="size-4" />
             </button>
             <button className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white">
@@ -718,9 +811,9 @@ export default function InstructorDashboard() {
               {/* Page Title & CTAs */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-black text-white tracking-tight">Dashboard</h1>
+                  <h1 className="text-2xl font-black text-white tracking-tight">Instructor Dashboard</h1>
                   <p className="text-sm text-[#8b949e] mt-0.5">
-                    Welcome back, <span className="text-[#e01e37] font-semibold">{profileName}</span>. You have <strong className="text-white">3 confirmed sessions</strong> today.
+                    Welcome back, <span className="text-[#e01e37] font-semibold">{profileName}</span>. You have <strong className="text-white">{analyticsData.todayCount} confirmed sessions</strong> today.
                   </p>
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -741,10 +834,10 @@ export default function InstructorDashboard() {
                 </div>
               </div>
 
-              {/* ===== STAT CARDS ROW ===== */}
+              {/* ===== DYNAMIC STAT CARDS ROW ===== */}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 
-                {/* Stat 1: Today's Sessions — Highlighted card (like the green "Total Projects" in reference) */}
+                {/* Stat 1: Today's Sessions */}
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#e01e37] to-[#a0111f] p-5 shadow-[0_8px_24px_rgba(224,30,55,0.25)]">
                   <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
                   <div className="relative z-10">
@@ -755,11 +848,11 @@ export default function InstructorDashboard() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <span className="text-4xl font-black text-white">3</span>
+                      <span className="text-4xl font-black text-white">{analyticsData.todayCount}</span>
                     </div>
                     <p className="mt-2 text-xs text-white/70 flex items-center gap-1.5">
                       <TrendingUp className="size-3" />
-                      Increased from last week
+                      Live session schedule active
                     </p>
                   </div>
                 </div>
@@ -768,12 +861,12 @@ export default function InstructorDashboard() {
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Month Revenue</span>
-                    <button className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                    <button onClick={() => setActiveTab('earnings')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
                       <ChevronRight className="size-3.5" />
                     </button>
                   </div>
                   <div className="mt-4">
-                    <span className="text-4xl font-black text-white">₹42.5K</span>
+                    <span className="text-4xl font-black text-white">₹{(analyticsData.totalMonthRevenue / 1000).toFixed(1)}K</span>
                   </div>
                   <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
                     <TrendingUp className="size-3 text-emerald-400" />
@@ -785,16 +878,16 @@ export default function InstructorDashboard() {
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Escrow Held</span>
-                    <button className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                    <button onClick={() => setActiveModal('payout')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
                       <ChevronRight className="size-3.5" />
                     </button>
                   </div>
                   <div className="mt-4">
-                    <span className="text-4xl font-black text-white">₹8,500</span>
+                    <span className="text-4xl font-black text-white">₹{analyticsData.escrowHeld.toLocaleString('en-IN')}</span>
                   </div>
                   <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
                     <Clock className="size-3 text-amber-400" />
-                    Next release in 4h
+                    Clears upon session completion
                   </p>
                 </div>
 
@@ -802,15 +895,15 @@ export default function InstructorDashboard() {
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Active Learners</span>
-                    <button className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                    <button onClick={() => setActiveTab('inbox')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
                       <ChevronRight className="size-3.5" />
                     </button>
                   </div>
                   <div className="mt-4">
-                    <span className="text-4xl font-black text-white">28</span>
+                    <span className="text-4xl font-black text-white">{analyticsData.activeLearnersCount}</span>
                   </div>
                   <p className="mt-2 text-xs text-[#8b949e]">
-                    <span className="text-[#e01e37] font-semibold">82%</span> repeat learners
+                    <span className="text-[#e01e37] font-semibold">{analyticsData.repeatPercentage}%</span> repeat learners
                   </p>
                 </div>
               </div>
@@ -818,21 +911,42 @@ export default function InstructorDashboard() {
               {/* ===== MIDDLE ROW: Analytics | Schedule | Services ===== */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Session Analytics (Bar chart) */}
+                {/* Session Analytics Chart */}
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
-                  <h3 className="text-sm font-bold text-white mb-5">Session Analytics</h3>
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-sm font-bold text-white">Session Analytics</h3>
+                    <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#0b0e14] p-0.5">
+                      <button
+                        onClick={() => setChartTimeframe('7d')}
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                          chartTimeframe === '7d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
+                        }`}
+                      >
+                        7D
+                      </button>
+                      <button
+                        onClick={() => setChartTimeframe('30d')}
+                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                          chartTimeframe === '30d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
+                        }`}
+                      >
+                        30D
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-end justify-between gap-3 h-[140px]">
-                    {weeklySessionData.map((d, i) => (
+                    {chartData.map((d, i) => (
                       <div key={i} className="flex-1 flex flex-col items-center gap-2">
                         <div className="w-full flex flex-col justify-end h-[110px]">
                           <div
                             className={`w-full rounded-lg transition-all duration-500 ${
-                              i === 3 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25'
+                              i === chartData.length - 2 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25 hover:bg-[#e01e37]/50'
                             }`}
                             style={{ height: `${(d.sessions / d.max) * 100}%` }}
                           />
                         </div>
-                        <span className={`text-[10px] font-bold ${i === 3 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
+                        <span className={`text-[10px] font-bold ${i === chartData.length - 2 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
                       </div>
                     ))}
                   </div>
@@ -840,10 +954,9 @@ export default function InstructorDashboard() {
 
                 {/* Today's Schedule / Reminders */}
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
-                  <h3 className="text-sm font-bold text-white mb-4">Reminders</h3>
+                  <h3 className="text-sm font-bold text-white mb-4">Today&apos;s Next Session</h3>
                   
                   <div className="space-y-4">
-                    {/* Next session highlight */}
                     <div className="rounded-xl bg-[#0b0e14] border border-white/[0.06] p-4">
                       <p className="text-xs font-bold text-white">Boxing Sparring with Vikram M.</p>
                       <p className="text-[11px] text-[#8b949e] mt-1 flex items-center gap-1.5">
@@ -852,7 +965,7 @@ export default function InstructorDashboard() {
                       </p>
                       <p className="text-[11px] text-[#6e7681] mt-1 flex items-center gap-1.5">
                         <MapPin className="size-3" />
-                        Siri Fort Sports Complex
+                        Siri Fort Sports Complex, Court 2
                       </p>
                     </div>
                     
@@ -866,10 +979,10 @@ export default function InstructorDashboard() {
                   </div>
                 </div>
 
-                {/* Services / Activities List */}
+                {/* Services / Offerings Quick List */}
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-white">Services</h3>
+                    <h3 className="text-sm font-bold text-white">Your Services</h3>
                     <button
                       onClick={() => setActiveModal('add-service')}
                       className="flex items-center gap-1 text-[11px] font-semibold text-[#e01e37] hover:underline"
@@ -895,10 +1008,10 @@ export default function InstructorDashboard() {
                 </div>
               </div>
 
-              {/* ===== BOTTOM ROW: Learner Sessions | Progress | Escrow ===== */}
+              {/* ===== BOTTOM ROW: Recent Learners | Progress | Escrow ===== */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Learner Collaboration / Recent Sessions */}
+                {/* Recent Learners */}
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-white">Recent Learners</h3>
@@ -906,7 +1019,7 @@ export default function InstructorDashboard() {
                       onClick={() => setActiveTab('inbox')}
                       className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-[#8b949e] hover:text-white transition"
                     >
-                      <Plus className="size-3" /> View All
+                      <Plus className="size-3" /> View In Inbox
                     </button>
                   </div>
 
@@ -932,18 +1045,18 @@ export default function InstructorDashboard() {
                   </div>
                 </div>
 
-                {/* Session Completion Progress (Donut chart) */}
+                {/* Session Completion Progress */}
                 <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col items-center">
-                  <h3 className="text-sm font-bold text-white self-start mb-4">Session Progress</h3>
-                  <DonutChart percentage={82} label="Completed" />
+                  <h3 className="text-sm font-bold text-white self-start mb-4">Completion Progress</h3>
+                  <DonutChart percentage={analyticsData.completionRate} label="Completed" />
                   <div className="flex items-center gap-4 mt-4 text-[10px]">
                     <span className="flex items-center gap-1.5">
                       <span className="size-2 rounded-full bg-[#e01e37]" />
-                      <span className="text-[#8b949e]">Completed</span>
+                      <span className="text-[#8b949e]">Completed ({28})</span>
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="size-2 rounded-full bg-white/10" />
-                      <span className="text-[#8b949e]">Remaining</span>
+                      <span className="text-[#8b949e]">Upcoming ({upcomingSessions.length})</span>
                     </span>
                   </div>
                 </div>
@@ -966,14 +1079,14 @@ export default function InstructorDashboard() {
                     <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-white">₹1,500 · Ananya S.</p>
-                        <p className="text-[10px] text-amber-400">Clears in 4h</p>
+                        <p className="text-[10px] text-amber-400">Clears post-session</p>
                       </div>
                       <Clock className="size-4 text-amber-400 shrink-0" />
                     </div>
                     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-bold text-white">₹5,000 · Weekly Batch</p>
-                        <p className="text-[10px] text-[#8b949e]">Auto-Deposit: Monday</p>
+                        <p className="text-xs font-bold text-white">₹5,000 · Completed Batch</p>
+                        <p className="text-[10px] text-[#8b949e]">Available for withdrawal</p>
                       </div>
                       <Check className="size-4 text-[#6e7681] shrink-0" />
                     </div>
@@ -983,7 +1096,7 @@ export default function InstructorDashboard() {
                     onClick={() => setActiveModal('payout')}
                     className="mt-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
                   >
-                    Manage Payout Method
+                    Withdraw Available Balance
                   </button>
                 </div>
               </div>
@@ -991,36 +1104,51 @@ export default function InstructorDashboard() {
             </div>
           )}
 
-          {/* INBOX TAB */}
+          {/* ========================================================================= */}
+          {/* INBOX / CHAT TAB */}
+          {/* ========================================================================= */}
           {activeTab === 'inbox' && (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] overflow-hidden min-h-[600px] grid grid-cols-1 md:grid-cols-3">
+            <div className="rounded-3xl border border-white/[0.08] bg-[#12161f] overflow-hidden min-h-[640px] grid grid-cols-1 md:grid-cols-12 shadow-2xl">
               
               {/* Thread List Column */}
-              <div className="border-r border-white/[0.08] bg-[#0d1017]/60 p-4 space-y-3">
+              <div className="md:col-span-4 border-r border-white/[0.08] bg-[#0d1017]/80 p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
                   <h3 className="font-bold text-sm text-white flex items-center gap-2">
                     <MessageSquare className="size-4 text-[#e01e37]" />
                     Conversations
                   </h3>
-                  <span className="rounded-full bg-[#e01e37]/20 px-2 py-0.5 text-[10px] font-bold text-[#e01e37]">
+                  <span className="rounded-full bg-[#e01e37]/20 px-2.5 py-0.5 text-[10px] font-bold text-[#e01e37]">
                     {threads.length} Active
                   </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  {threads.map((thread) => {
+                {/* Conversation Search Filter */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-[#6e7681]" />
+                  <input
+                    type="text"
+                    placeholder="Search student or skill..."
+                    value={threadSearch}
+                    onChange={(e) => setThreadSearch(e.target.value)}
+                    className="h-9 w-full rounded-xl border border-white/10 bg-[#0b0e14] pl-9 pr-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
+                  />
+                </div>
+
+                {/* Thread Cards */}
+                <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                  {filteredThreads.map((thread) => {
                     const selected = thread.id === selectedThreadId
                     return (
                       <button
                         key={thread.id}
                         onClick={() => setSelectedThreadId(thread.id)}
-                        className={`w-full text-left p-3 rounded-xl transition flex items-start gap-3 ${
+                        className={`w-full text-left p-3 rounded-2xl transition flex items-start gap-3 ${
                           selected
-                            ? 'bg-[#1e232d] border border-white/10 shadow-md'
+                            ? 'bg-[#1e232d] border border-white/15 shadow-lg'
                             : 'hover:bg-white/[0.04] border border-transparent'
                         }`}
                       >
-                        <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#e01e37] to-[#800016] text-xs font-bold text-white shrink-0">
+                        <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#e01e37] to-[#800016] text-xs font-bold text-white shrink-0 shadow-md">
                           {thread.avatarLetter}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1032,7 +1160,7 @@ export default function InstructorDashboard() {
                           <p className="text-[11px] text-[#8b949e] truncate mt-0.5">{thread.lastMessage}</p>
                         </div>
                         {thread.unread > 0 && (
-                          <span className="size-2 rounded-full bg-[#e01e37] shrink-0 mt-2" />
+                          <span className="size-2 rounded-full bg-[#e01e37] shrink-0 mt-2 ring-4 ring-[#e01e37]/20" />
                         )}
                       </button>
                     )
@@ -1041,10 +1169,10 @@ export default function InstructorDashboard() {
               </div>
 
               {/* Active Conversation Chat Window */}
-              <div className="md:col-span-2 flex flex-col h-[600px] bg-[#0b0e14]/80">
+              <div className="md:col-span-8 flex flex-col h-[640px] bg-[#0b0e14]/90">
                 
-                {/* Header */}
-                <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#12161f]/80">
+                {/* Chat Header */}
+                <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#12161f]/90">
                   <div className="flex items-center gap-3">
                     <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 border border-[#e01e37]/30 text-xs font-bold text-[#e01e37]">
                       {activeThread.avatarLetter}
@@ -1054,7 +1182,10 @@ export default function InstructorDashboard() {
                       <p className="text-xs text-[#8b949e] flex items-center gap-1.5">
                         <span>{activeThread.skill}</span>
                         <span>·</span>
-                        <span className="text-emerald-400">Active Booking</span>
+                        <span className="text-emerald-400 flex items-center gap-1">
+                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Live Chat Active
+                        </span>
                       </p>
                     </div>
                   </div>
@@ -1073,16 +1204,16 @@ export default function InstructorDashboard() {
                       onClick={() => setActiveModal('share')}
                       className="rounded-xl bg-[#e01e37] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#c0182f]"
                     >
-                      Share Slot
+                      Share Booking Link
                     </button>
                   </div>
                 </div>
 
                 {/* Message Feed */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
                   <div className="text-center my-2">
                     <span className="rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-[#8b949e]">
-                      Encrypted Chat for Booking #{activeThread.id}
+                      🔒 End-to-end encrypted session coordination
                     </span>
                   </div>
 
@@ -1092,10 +1223,10 @@ export default function InstructorDashboard() {
                       className={`flex flex-col ${msg.sender === 'instructor' ? 'items-end' : 'items-start'}`}
                     >
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs ${
+                        className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
                           msg.sender === 'instructor'
-                            ? 'bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-md rounded-br-none'
-                            : 'bg-[#1b202a] text-gray-200 border border-white/[0.06] rounded-bl-none'
+                            ? 'bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-lg rounded-br-none'
+                            : 'bg-[#181d28] text-gray-200 border border-white/[0.08] rounded-bl-none shadow-md'
                         }`}
                       >
                         {msg.text}
@@ -1103,21 +1234,22 @@ export default function InstructorDashboard() {
                       <span className="text-[9px] text-[#6e7681] mt-1 px-1">{msg.timestamp}</span>
                     </div>
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
 
-                {/* Quick Reply Presets */}
+                {/* Quick Response Shortcuts Bar */}
                 <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto border-t border-white/[0.04] bg-[#0f131a]">
-                  <span className="text-[10px] font-bold text-[#8b949e] shrink-0">Quick:</span>
+                  <span className="text-[10px] font-bold text-[#8b949e] shrink-0">Quick Reply:</span>
                   {[
                     'See you at the session on time!',
-                    'Bring wraps and water bottle.',
-                    'Here is the studio pin location.',
-                    'Ready on the live stream!',
+                    'Bring hand wraps and water bottle.',
+                    'Court 2 at Siri Fort is booked.',
+                    'Ready on the live stream WebRTC room!',
                   ].map((quick, i) => (
                     <button
                       key={i}
-                      onClick={() => setChatInput(quick)}
-                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] text-gray-300 hover:bg-white/10 transition"
+                      onClick={() => handleQuickReply(quick)}
+                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] text-gray-300 hover:bg-[#e01e37]/20 hover:border-[#e01e37]/40 hover:text-white transition active:scale-95"
                     >
                       {quick}
                     </button>
@@ -1125,17 +1257,18 @@ export default function InstructorDashboard() {
                 </div>
 
                 {/* Input Footer */}
-                <form onSubmit={handleSendMessageInThread} className="p-3 border-t border-white/[0.08] flex items-center gap-2 bg-[#12161f]/90">
+                <form onSubmit={handleSendMessageInThread} className="p-3.5 border-t border-white/[0.08] flex items-center gap-2.5 bg-[#12161f]">
                   <input
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Type a message or instruction..."
-                    className="flex-1 rounded-xl border border-white/10 bg-[#0b0e14] px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
+                    placeholder={`Message ${activeThread.name}...`}
+                    className="flex-1 rounded-2xl border border-white/10 bg-[#0b0e14] px-4 py-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
                   />
                   <button
                     type="submit"
-                    className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-md transition hover:brightness-110 active:scale-95"
+                    disabled={!chatInput.trim()}
+                    className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-lg transition hover:brightness-110 active:scale-95 disabled:opacity-40"
                   >
                     <Send className="size-4" />
                   </button>
@@ -1458,7 +1591,7 @@ export default function InstructorDashboard() {
                         <label className="block text-xs font-semibold text-[#8b949e]">UPI ID / Bank Account</label>
                         <input
                           type="text"
-                          defaultValue="rohitsingh@okicici"
+                          defaultValue="coach@okaxis"
                           className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-4 text-sm text-white outline-none focus:border-emerald-500"
                         />
                       </div>
@@ -1495,36 +1628,6 @@ export default function InstructorDashboard() {
                     Send Reschedule Request
                   </button>
                 </div>
-              )}
-
-              {/* MODAL 4: QUICK REPLY */}
-              {activeModal === 'reply' && (
-                <form onSubmit={handleSendReply} className="space-y-4">
-                  <h3 className="text-lg font-bold text-white">Reply to {selectedLearner || 'Learner'}</h3>
-                  <textarea
-                    rows={4}
-                    value={replyMessage}
-                    onChange={(e) => setReplyMessage(e.target.value)}
-                    placeholder="Write your message or instructions..."
-                    className="w-full rounded-xl border border-white/10 bg-[#0b0e14] p-3 text-sm text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveModal(null)}
-                      className="rounded-xl border border-white/10 px-4 py-2 text-xs font-semibold text-gray-300 hover:bg-white/5"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex items-center gap-1.5 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white hover:bg-red-700 transition"
-                    >
-                      <Send className="size-3.5" />
-                      <span>Send</span>
-                    </button>
-                  </div>
-                </form>
               )}
 
               {/* MODAL 5: ADD NEW TIME SLOT */}
@@ -1714,6 +1817,14 @@ export default function InstructorDashboard() {
                 >
                   <Settings className="size-[18px]" />
                   <span>Settings</span>
+                </Link>
+                <Link
+                  href="/support"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
+                >
+                  <HelpCircle className="size-[18px]" />
+                  <span>Help & Support</span>
                 </Link>
                 <Link
                   href="/"

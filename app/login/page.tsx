@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ArrowLeft, ArrowRight, User, Phone, Calendar, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, User, Mail, Sparkles, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -13,18 +13,12 @@ function AuthContent() {
   const router = useRouter()
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'details'>(initialMode)
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode)
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
-  // Profile Details
-  const [fullName, setFullName] = useState('')
-  const [age, setAge] = useState('')
-  const [sex, setSex] = useState('')
-  const [phone, setPhone] = useState('')
-
   const [checkingAuth, setCheckingAuth] = useState(true)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -93,17 +87,23 @@ function AuthContent() {
     }
   }, [router, searchParams, supabase])
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleAuth = async () => {
     setLoading(true)
     setMessage(null)
     
+    // For new signups, take to onboarding flow; for signins, take to next or home
     const explicitNext = searchParams.get('next')
-    const targetUrl = `${window.location.origin}/auth/callback${explicitNext ? `?next=${encodeURIComponent(explicitNext)}` : ''}`
+    const targetNext = explicitNext || (mode === 'signup' ? '/onboarding' : '/')
+    const targetUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: targetUrl,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     })
     
@@ -113,37 +113,22 @@ function AuthContent() {
     }
   }
 
-  const handleInitialSubmit = (e: React.FormEvent) => {
+  const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
 
-    if (mode === 'signup') {
-      setMode('details')
-      setMessage(null)
-    } else {
-      finalizeAuth()
-    }
-  }
-
-  const finalizeAuth = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
     setLoading(true)
     setMessage(null)
 
     const explicitNext = searchParams.get('next')
-    const redirectUrl = `${window.location.origin}/auth/callback${explicitNext ? `?next=${encodeURIComponent(explicitNext)}` : ''}`
+    const targetNext = explicitNext || (mode === 'signup' ? '/onboarding' : '/')
+    const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
 
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: email.trim().toLowerCase(),
       options: {
         emailRedirectTo: redirectUrl,
-        shouldCreateUser: mode !== 'signin',
-        data: mode === 'details' ? {
-          full_name: fullName,
-          age: age ? parseInt(age) : null,
-          sex: sex,
-          phone: phone,
-        } : undefined
+        shouldCreateUser: mode === 'signup',
       },
     })
 
@@ -154,9 +139,9 @@ function AuthContent() {
     } else {
       setMessage({
         type: 'success',
-        text: mode === 'details'
-          ? 'A confirmation link has been sent to your email to create your account!'
-          : 'A one-time login link has been sent to your email!',
+        text: mode === 'signup'
+          ? 'Verification email sent! Click the secure link in your inbox to verify your email and personalize your Mastrive profile.'
+          : 'A one-time login link has been sent to your email. Check your inbox to sign in!',
       })
     }
   }
@@ -167,18 +152,25 @@ function AuthContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0f12] px-4 py-12 text-[#f0f6fc]">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-[#080a0f] px-4 py-12 text-[#f0f6fc] selection:bg-[#e01e37] selection:text-white overflow-hidden">
+      
+      {/* Background Ambient Glow */}
+      <div 
+        aria-hidden 
+        className="pointer-events-none absolute -top-40 left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#e01e37]/20 via-[#e01e37]/5 to-transparent blur-[140px] transform-gpu"
+      />
+
       {/* Dynamic Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 py-5 sm:px-6 lg:px-8">
+      <header className="fixed top-0 left-0 right-0 z-40 flex justify-center px-4 py-6 sm:px-8">
         <div className="flex w-full max-w-7xl items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Image
               src="/logo.svg"
               alt="MASTRIVE"
-              width={120}
-              height={30}
+              width={130}
+              height={32}
               priority
-              className="h-7 w-auto object-contain"
+              className="h-8 w-auto object-contain"
             />
           </Link>
           <div className="flex items-center gap-4">
@@ -206,7 +198,7 @@ function AuthContent() {
                 setMode('signup')
                 setMessage(null)
               }}
-              className="rounded-full bg-[#e01e37] px-5 py-2 text-xs font-bold text-white transition hover:bg-[#c0182f]"
+              className="rounded-full bg-[#e01e37] px-5 py-2 text-xs font-bold text-white shadow-lg shadow-[#e01e37]/25 transition hover:bg-[#c0182f]"
             >
               Get Started
             </button>
@@ -215,252 +207,126 @@ function AuthContent() {
       </header>
 
       {/* Main Form Container */}
-      <main className="w-full max-w-[420px] rounded-2xl border border-white/10 bg-[#14171d] p-8 shadow-2xl backdrop-blur-md overflow-hidden relative">
+      <main className="relative z-10 w-full max-w-[440px] rounded-3xl border border-white/10 bg-[#12161f]/90 p-8 sm:p-9 shadow-2xl backdrop-blur-2xl">
         <AnimatePresence mode="wait">
-          
-          {/* STEP 1: LOGIN / SIGNUP BASE FORM */}
-          {mode !== 'details' && (
-            <motion.div
-              key="auth-base"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.25 }}
+          >
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-xs font-medium text-[#8b949e] transition hover:text-white"
             >
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 text-xs font-medium text-[#8b949e] transition hover:text-white"
-              >
-                <ArrowLeft className="size-3.5" />
-                Back
-              </Link>
+              <ArrowLeft className="size-3.5" />
+              Back to Explore
+            </Link>
 
-              <div className="mt-6 flex flex-col items-center text-center">
-                <Image
-                  src="/logo.svg"
-                  alt="MASTRIVE"
-                  width={130}
-                  height={32}
-                  className="h-8 w-auto object-contain"
-                />
-                <h1 className="mt-4 text-2xl font-bold tracking-tight text-white">
-                  {mode === 'signin' ? 'Sign In' : 'Create Account'}
-                </h1>
-                <p className="mt-1 text-xs text-[#8b949e]">
-                  {mode === 'signin'
-                    ? 'Welcome back to MASTRIVE'
-                    : 'Join MASTRIVE and start booking sessions'}
-                </p>
+            <div className="mt-6 flex flex-col items-center text-center">
+              <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[#e01e37]/15 border border-[#e01e37]/30 text-[#e01e37] mb-3">
+                <Sparkles className="size-6" />
               </div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                {mode === 'signin' ? 'Welcome Back' : 'Join MASTRIVE'}
+              </h1>
+              <p className="mt-1.5 text-xs text-[#8b949e]">
+                {mode === 'signin'
+                  ? 'Sign in to access your sessions and bookings'
+                  : 'Start learning directly with top-tier verified coaches'}
+              </p>
+            </div>
 
-              {message && (
-                <div
-                  className={`mt-4 rounded-xl p-3 text-xs font-medium ${
-                    message.type === 'success'
-                      ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-400'
-                      : 'border border-red-500/20 bg-red-500/10 text-red-400'
-                  }`}
-                >
-                  {message.text}
-                </div>
-              )}
-
-              <button
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                type="button"
-                className="mt-6 flex h-11 w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-[#1c2128] text-sm font-semibold text-white transition hover:bg-[#252b35] disabled:opacity-50"
+            {message && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-5 rounded-2xl p-4 text-xs font-medium leading-relaxed ${
+                  message.type === 'success'
+                    ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                    : 'border border-red-500/30 bg-red-500/10 text-red-300'
+                }`}
               >
-                <svg className="size-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                {mode === 'signin' ? 'Continue with Google' : 'Sign up with Google'}
-              </button>
+                {message.text}
+              </motion.div>
+            )}
 
-              <div className="relative my-6 flex items-center justify-center">
-                <div className="w-full border-t border-white/10" />
-                <span className="absolute bg-[#14171d] px-3 text-[10px] font-bold uppercase tracking-widest text-[#6e7681]">
-                  OR CONTINUE WITH EMAIL
-                </span>
-              </div>
+            {/* Google OAuth Button */}
+            <button
+              onClick={handleGoogleAuth}
+              disabled={loading}
+              type="button"
+              className="mt-6 flex h-12 w-full items-center justify-center gap-3 rounded-2xl border border-white/15 bg-[#181d26] text-sm font-bold text-white shadow-md transition hover:bg-[#202733] hover:border-white/25 active:scale-[0.98] disabled:opacity-50"
+            >
+              <svg className="size-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+              </svg>
+              <span>{mode === 'signin' ? 'Continue with Google' : 'Sign up with Google'}</span>
+            </button>
 
-              <form onSubmit={handleInitialSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#8b949e]">Email</label>
+            <div className="relative my-6 flex items-center justify-center">
+              <div className="w-full border-t border-white/10" />
+              <span className="absolute bg-[#12161f] px-3 text-[10px] font-bold uppercase tracking-widest text-[#6e7681]">
+                OR WITH EMAIL LINK
+              </span>
+            </div>
+
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#8b949e] mb-1.5">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#6e7681]" />
                   <input
                     type="email"
                     required
-                    placeholder="m@example.com"
+                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0d0f12] px-4 text-sm text-white outline-none transition focus:border-[#e01e37]"
+                    className="h-12 w-full rounded-2xl border border-white/10 bg-[#0b0e14] pl-11 pr-4 text-sm font-medium text-white placeholder-gray-600 outline-none transition focus:border-[#e01e37] focus:ring-1 focus:ring-[#e01e37]"
                   />
                 </div>
-
-                <p className="text-[11px] text-[#6e7681]">
-                  We'll send you a one-time code or magic link to {mode === 'signin' ? 'sign in' : 'sign up'}.
-                </p>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-sm font-bold text-white shadow-lg shadow-[#e01e37]/25 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-                >
-                  {loading
-                    ? 'Sending Code...'
-                    : mode === 'signin'
-                    ? 'Get My Code'
-                    : 'Create Account'}
-                  <ArrowRight className="size-4" />
-                </button>
-              </form>
-
-              <div className="mt-8 flex items-center justify-center gap-2">
-                <div className="flex -space-x-2">
-                  <span className="size-5 rounded-full border border-[#14171d] bg-[#e01e37]" />
-                  <span className="size-5 rounded-full border border-[#14171d] bg-[#3b82f6]" />
-                  <span className="size-5 rounded-full border border-[#14171d] bg-[#10b981]" />
-                </div>
-                <span className="text-xs text-[#8b949e]">
-                  <strong className="font-semibold text-white">10,000+</strong> people booked this month
-                </span>
               </div>
 
-              <div className="mt-4 text-center">
-                <button
-                  type="button"
-                  onClick={toggleMode}
-                  className="text-[11px] text-[#6e7681] transition hover:text-white"
-                >
-                  {mode === 'signin' ? (
-                    <>
-                      New here? <span className="font-semibold text-[#e01e37] underline">Sign up in seconds.</span>
-                    </>
-                  ) : (
-                    <>
-                      Already have an account? <span className="font-semibold text-[#e01e37] underline">Sign in instead.</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          )}
+              <p className="text-[11px] text-[#6e7681] leading-relaxed">
+                {mode === 'signup'
+                  ? 'We will send you a verification link which will open the onboarding questions page.'
+                  : 'We will send you a passwordless magic sign-in link to your inbox.'}
+              </p>
 
-          {/* STEP 2: PROFILE DETAILS FORM */}
-          {mode === 'details' && (
-            <motion.div
-              key="auth-details"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.2 }}
-            >
               <button
-                onClick={() => setMode('signup')}
-                className="inline-flex items-center gap-2 text-xs font-medium text-[#8b949e] transition hover:text-white mb-2"
+                type="submit"
+                disabled={loading}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-sm font-bold text-white shadow-xl shadow-[#e01e37]/30 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
               >
-                <ArrowLeft className="size-3.5" />
-                Back to Email
+                <span>{loading ? 'Sending Link...' : mode === 'signin' ? 'Send Sign-In Link' : 'Send Verification Email'}</span>
+                <ArrowRight className="size-4" />
               </button>
+            </form>
 
-              <div className="mt-4 flex flex-col items-center text-center">
-                <div className="inline-flex size-12 items-center justify-center rounded-full bg-[#e01e37]/10 text-[#e01e37] mb-3">
-                  <User className="size-6" />
-                </div>
-                <h1 className="text-2xl font-bold tracking-tight text-white">
-                  Complete Profile
-                </h1>
-                <p className="mt-1 text-xs text-[#8b949e] max-w-[280px]">
-                  You're almost in. We just need a few details to personalize your experience.
-                </p>
-              </div>
-
-              {message && (
-                <div className="mt-4 rounded-xl p-3 text-xs font-medium border border-red-500/20 bg-red-500/10 text-red-400">
-                  {message.text}
-                </div>
-              )}
-
-              <form onSubmit={finalizeAuth} className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#8b949e]">Full Name</label>
-                  <div className="relative mt-1.5">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#6e7681]" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. John Doe"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-white/10 bg-[#0d0f12] pl-10 pr-4 text-sm text-white outline-none transition focus:border-[#e01e37]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#8b949e]">Age</label>
-                    <div className="relative mt-1.5">
-                      <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#6e7681]" />
-                      <input
-                        type="number"
-                        required
-                        placeholder="24"
-                        min="13"
-                        max="100"
-                        value={age}
-                        onChange={(e) => setAge(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-white/10 bg-[#0d0f12] pl-10 pr-4 text-sm text-white outline-none transition focus:border-[#e01e37]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-[#8b949e]">Sex</label>
-                    <select
-                      required
-                      value={sex}
-                      onChange={(e) => setSex(e.target.value)}
-                      className="mt-1.5 h-11 w-full appearance-none rounded-xl border border-white/10 bg-[#0d0f12] px-4 text-sm text-white outline-none transition focus:border-[#e01e37] cursor-pointer"
-                    >
-                      <option value="" disabled>Select...</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#8b949e]">Phone Number</label>
-                  <div className="relative mt-1.5">
-                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-[#6e7681]" />
-                    <input
-                      type="tel"
-                      required
-                      placeholder="+91 98765 43210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="h-11 w-full rounded-xl border border-white/10 bg-[#0d0f12] pl-10 pr-4 text-sm text-white outline-none transition focus:border-[#e01e37]"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-sm font-bold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-                >
-                  {loading ? 'Processing...' : 'Save & Send Magic Link'}
-                  <ChevronRight className="size-4" />
-                </button>
-              </form>
-            </motion.div>
-          )}
-
+            <div className="mt-8 border-t border-white/5 pt-5 text-center">
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="text-xs text-[#8b949e] transition hover:text-white"
+              >
+                {mode === 'signin' ? (
+                  <>
+                    New to MASTRIVE? <span className="font-bold text-[#e01e37] underline ml-1">Create an account.</span>
+                  </>
+                ) : (
+                  <>
+                    Already have an account? <span className="font-bold text-[#e01e37] underline ml-1">Sign in instead.</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
         </AnimatePresence>
       </main>
     </div>
@@ -469,7 +335,7 @@ function AuthContent() {
 
 export default function AuthPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0d0f12] flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#080a0f] flex items-center justify-center text-white">Loading...</div>}>
       <AuthContent />
     </Suspense>
   )
