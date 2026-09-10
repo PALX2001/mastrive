@@ -2,6 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+function authErrorRedirect(origin: string, reason: string) {
+  const errorUrl = new URL('/auth/auth-code-error', origin)
+  errorUrl.searchParams.set('reason', reason)
+  return NextResponse.redirect(errorUrl)
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
@@ -162,7 +168,10 @@ export async function GET(request: Request) {
         }
       }
     }
+
+    console.error('[auth/callback] Failed to exchange auth code:', error.code)
+    return authErrorRedirect(origin, error.code || 'code_exchange_failed')
   }
 
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  return authErrorRedirect(origin, 'missing_code')
 }
