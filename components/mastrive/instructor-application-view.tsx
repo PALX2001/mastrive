@@ -86,12 +86,18 @@ export default function InstructorApplicationView() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [confirmationEmail, setConfirmationEmail] = useState('')
+  const [photos, setPhotos] = useState<File[]>([])
 
   const toggleArray = (arr: string[], value: string) =>
     arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (photos.length < 3) {
+      setErrorMessage('Please add at least 3 instructor photos.')
+      return
+    }
+
     setLoading(true)
     setErrorMessage('')
 
@@ -149,6 +155,37 @@ export default function InstructorApplicationView() {
 
       const appId = data?.id
       const appEmail = data?.email || formData.email.trim()
+
+      if (!appId) {
+        throw new Error('Your application was saved without an identifier. Please try again.')
+      }
+
+      const imageUrls: string[] = []
+      for (const [index, photo] of photos.entries()) {
+        if (!photo.type.startsWith('image/') || photo.size > 5 * 1024 * 1024) {
+          throw new Error('Each photo must be an image smaller than 5 MB.')
+        }
+
+        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const path = `applications/${appId}/${index}-${crypto.randomUUID()}.${extension}`
+        const { error: uploadError } = await supabase.storage
+          .from('instructor-images')
+          .upload(path, photo, { contentType: photo.type, upsert: false })
+
+        if (uploadError) throw uploadError
+
+        const { data: publicUrl } = supabase.storage
+          .from('instructor-images')
+          .getPublicUrl(path)
+        imageUrls.push(publicUrl.publicUrl)
+      }
+
+      const { error: imageUpdateError } = await supabase
+        .from('instructor_applications')
+        .update({ image_urls: imageUrls })
+        .eq('id', appId)
+
+      if (imageUpdateError) throw imageUpdateError
 
       const redirectBase =
         typeof window !== 'undefined' ? window.location.origin : ''
@@ -731,7 +768,32 @@ export default function InstructorApplicationView() {
                 </div>
               </div>
 
-              {/* SECTION 6 — Short Bio */}
+              {/* SECTION 6 — Instructor Photos */}
+              <div className="space-y-4 rounded-xl border border-white/10 bg-[#0d1117]/50 p-5">
+                <h3 className={sectionTitleBase}>Instructor Photos</h3>
+                <div>
+                  <label className={labelBase}>
+                    Add at least 3 photos <span className="text-[#e52e42]">*</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    required
+                    onChange={(event) => {
+                      const selected = Array.from(event.target.files || [])
+                      setPhotos(selected)
+                      setErrorMessage('')
+                    }}
+                    className="mt-1.5 block w-full cursor-pointer rounded-lg border border-dashed border-white/20 bg-[#0d1117] px-4 py-3 text-xs text-[#8b949e] file:mr-4 file:rounded-md file:border-0 file:bg-[#e52e42] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:border-white/35"
+                  />
+                  <p className="mt-2 text-[11.5px] text-[#8b949e]">
+                    {photos.length} selected · JPEG, PNG, or WebP · up to 5 MB each · minimum 3 photos
+                  </p>
+                </div>
+              </div>
+
+              {/* SECTION 7 — Short Bio */}
               <div className="space-y-4 rounded-xl border border-white/10 bg-[#0d1117]/50 p-5">
                 <h3 className={sectionTitleBase}>
                   About You

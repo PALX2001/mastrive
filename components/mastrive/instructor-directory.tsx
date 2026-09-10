@@ -89,6 +89,7 @@ type PublishedInstructorRow = {
   languages_spoken: string[] | null
   education: string | null
   certifications: string | null
+  image_urls: string[] | null
 }
 
 const categoryIdFor = (category: string): Exclude<CategoryId, 'all'> => {
@@ -117,7 +118,8 @@ const toInstructor = (row: PublishedInstructorRow): Instructor => {
     reviews: 0,
     price: row.price_per_hour || 0,
     tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(row.city || area).toUpperCase()}`,
-    icon: '🎓',
+    image: row.image_urls?.[0],
+    images: row.image_urls || [],
     description: row.bio || `Verified ${row.skill} instructor available for personalised sessions.`,
     experienceYears: Number.isFinite(experience) ? experience : undefined,
     languages: row.languages_spoken || [],
@@ -166,7 +168,7 @@ export function InstructorDirectory({
     const loadPublishedInstructors = async () => {
       const { data, error } = await supabase
         .from('instructors')
-        .select('id, display_name, skill, category, teaching_modes, locality, city, price_per_hour, bio, experience_years, languages_spoken, education, certifications')
+        .select('id, display_name, skill, category, teaching_modes, locality, city, price_per_hour, bio, experience_years, languages_spoken, education, certifications, image_urls')
         .eq('is_published', true)
         .order('published_at', { ascending: false })
 
