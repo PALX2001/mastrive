@@ -211,15 +211,14 @@ export function TournamentsView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="max-w-2xl">
           <h2 className="flex items-center gap-2 text-2xl font-black tracking-tight text-[#f0f6fc] sm:text-3xl">
-            The Supply Flywheel & Tournaments
+            Showdowns, Leagues & Tournaments
             <Flame className="size-6 text-[#e01e37]" aria-hidden />
           </h2>
           <p className="mt-2 text-pretty leading-relaxed text-[#8b949e]">
-            Compete, climb the verified leaderboard, and unlock certified{' '}
+            Test your skills in real competitions, log verified training hours, and earn your shot at becoming a certified{' '}
             <span className="font-serif italic text-[#f0f6fc]">
-              paid-instructor
-            </span>{' '}
-            status.
+              paid instructor
+            </span>.
           </p>
         </div>
       </div>
@@ -406,8 +405,8 @@ export function TournamentsView() {
             </h3>
             <p className="mt-1 text-xs text-[#8b949e]">
               {selectedState === 'Global'
-                ? 'Showing top verified performers across all regions.'
-                : `Showing verified rankings and talent in ${selectedState}.`}
+                ? 'Real learners, athletes, and creators putting in the work. Ranked by verified practice hours & tournament wins.'
+                : `Verified practitioners and local talent training in ${selectedState}.`}
             </p>
           </div>
 

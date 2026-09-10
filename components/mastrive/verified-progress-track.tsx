@@ -33,19 +33,19 @@ const TIER_THRESHOLDS: TierThreshold[] = [
     id: 'foundation',
     name: 'Foundation',
     hours: 100,
-    subtitle: 'Core Mechanics & Form',
+    subtitle: '100 hrs of solid technique & sparring drills',
   },
   {
     id: 'practitioner',
     name: 'Practitioner',
     hours: 250,
-    subtitle: 'Advanced Live Drills',
+    subtitle: '250 hrs of live matches, stage time & deep practice',
   },
   {
     id: 'mastery',
     name: 'Mastery',
     hours: 500,
-    subtitle: 'Certified Paid Instructor',
+    subtitle: '500 hrs mastery — unlock paid coaching on Mastrive',
   },
 ]
 
@@ -91,13 +91,13 @@ export function VerifiedProgressTrack({
 
         // Header Title
         ctx.fillStyle = '#ffffff'
-        ctx.font = 'bold 38px sans-serif'
+        ctx.font = 'bold 36px sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText('MASTRIVE VERIFIED CERTIFICATION', 600, 140)
+        ctx.fillText('MASTRIVE SKILL CERTIFICATE', 600, 140)
 
         ctx.fillStyle = '#8b949e'
-        ctx.font = '18px sans-serif'
-        ctx.fillText('OFFICIAL SKILL MASTERY & VERIFIED HOURS ACCREDITATION', 600, 180)
+        ctx.font = '16px sans-serif'
+        ctx.fillText('OFFICIAL VERIFIED PRACTICE HOURS & MASTERY RECORD', 600, 180)
 
         // Recipient
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
@@ -105,18 +105,18 @@ export function VerifiedProgressTrack({
         ctx.fillText('This certifies that', 600, 280)
 
         ctx.fillStyle = '#ffffff'
-        ctx.font = 'bold 54px sans-serif'
+        ctx.font = 'bold 52px sans-serif'
         ctx.fillText(userName, 600, 350)
 
         // Discipline & Tier
         ctx.fillStyle = '#e01e37'
-        ctx.font = 'bold 28px sans-serif'
-        ctx.fillText(`Has successfully completed the ${tierName.toUpperCase()} TIER in ${userSkill.toUpperCase()}`, 600, 420)
+        ctx.font = 'bold 26px sans-serif'
+        ctx.fillText(`Has completed the ${tierName.toUpperCase()} TIER in ${userSkill.toUpperCase()}`, 600, 420)
 
         // Hours & Stats
         ctx.fillStyle = '#06b6d4'
-        ctx.font = '22px sans-serif'
-        ctx.fillText(`${verifiedHrs} VERIFIED TRAINING HOURS · ON-CHAIN REPUTATION RECORD`, 600, 480)
+        ctx.font = '20px sans-serif'
+        ctx.fillText(`${verifiedHrs} VERIFIED TRAINING HOURS WITH CERTIFIED COACHES`, 600, 480)
 
         // Signature / Seal
         ctx.strokeStyle = '#e01e37'
@@ -204,7 +204,7 @@ export function VerifiedProgressTrack({
         <div>
           <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#8b949e] flex items-center gap-1.5">
             <Sparkles className="size-3.5 text-cyan-400" />
-            Mastery & Instructor Certification Track
+            Your Verified Training &amp; Coaching Journey
           </span>
         </div>
         <div className="text-xs font-mono font-bold text-cyan-400">

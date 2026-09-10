@@ -277,15 +277,15 @@ export default function InstructorApplicationView() {
     <section className="min-h-screen bg-[#0b0b0b] px-4 py-16 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-3xl text-center">
         <p className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
-          FOR INSTRUCTORS
+          BECOME A COACH
         </p>
 
         <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
-          Teach on <span className="font-serif italic text-[#e52e42]">Mastrive.</span>
+          Teach what you love on <span className="font-serif italic text-[#e52e42]">Mastrive.</span>
         </h1>
 
-        <p className="mt-4 text-base text-[#8b949e] sm:text-lg">
-          Connect with students near you. Set your own price per session.
+        <p className="mt-4 text-base text-[#8b949e] sm:text-lg max-w-xl mx-auto">
+          Connect with driven students in your city or online. Set your own rates, keep your calendar flexible, and get paid directly after every session.
         </p>
       </div>
 

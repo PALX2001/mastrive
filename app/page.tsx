@@ -115,19 +115,19 @@ function MainApp() {
               Live Demo Preview
             </span>
             <h2 className="text-balance text-3xl font-extrabold tracking-tight text-[#f0f6fc] sm:text-4xl">
-              Experience a{' '}
+              Experience a real{' '}
               <span className="font-serif italic text-[#e01e37]">
-                live 1-on-1 session.
+                1-on-1 session.
               </span>
             </h2>
             <p className="mt-3 max-w-md text-pretty leading-relaxed text-[#8b949e]">
-              Encrypted HD WebRTC streaming rooms for martial arts, music, chess, and coding coaching. Direct pay-per-session with zero subscriptions.
+              Crystal-clear video rooms built specifically for technique breakdowns, music close-ups, chess analysis, and coding reviews. Pay per lesson with zero recurring subscriptions.
             </p>
             <button
-              onClick={() => setTab('explore')}
+              onClick={() => handleTabChange('explore')}
               className="mt-6 rounded-full bg-[#e01e37] px-6 py-2.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(224,30,55,0.4)] transition-all hover:bg-[#c0182f] active:scale-95"
             >
-              Explore Instructors
+              Browse Instructors
             </button>
           </section>
         )}
