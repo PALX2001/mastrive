@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+import { VerifiedProgressTrack } from '@/components/mastrive/verified-progress-track'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -197,36 +198,47 @@ export default function ProfilePage() {
         </div>
 
         {/* Tab Content Panels */}
-        <div className="mt-8">
+        <div className="mt-8 space-y-6">
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
-                <div className="flex items-center justify-between text-[#8b949e] mb-4">
-                  <span className="text-sm font-medium">Active Bookings</span>
-                  <Calendar className="size-5 text-[#e01e37]" />
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
+                  <div className="flex items-center justify-between text-[#8b949e] mb-4">
+                    <span className="text-sm font-medium">Active Bookings</span>
+                    <Calendar className="size-5 text-[#e01e37]" />
+                  </div>
+                  <div className="text-3xl font-bold text-white">0</div>
+                  <p className="text-xs text-[#8b949e] mt-1">No upcoming sessions booked yet.</p>
                 </div>
-                <div className="text-3xl font-bold text-white">0</div>
-                <p className="text-xs text-[#8b949e] mt-1">No upcoming sessions booked yet.</p>
+
+                <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
+                  <div className="flex items-center justify-between text-[#8b949e] mb-4">
+                    <span className="text-sm font-medium">Wallet Balance</span>
+                    <Wallet className="size-5 text-[#e01e37]" />
+                  </div>
+                  <div className="text-3xl font-bold text-white">₹4,500</div>
+                  <p className="text-xs text-[#8b949e] mt-1">Available for instant instructor booking.</p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
+                  <div className="flex items-center justify-between text-[#8b949e] mb-4">
+                    <span className="text-sm font-medium">Tournament Rank</span>
+                    <Shield className="size-5 text-[#e01e37]" />
+                  </div>
+                  <div className="text-3xl font-bold text-white">#5 Gold</div>
+                  <p className="text-xs text-[#8b949e] mt-1">176 verified training hours recorded.</p>
+                </div>
               </div>
 
-              <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
-                <div className="flex items-center justify-between text-[#8b949e] mb-4">
-                  <span className="text-sm font-medium">Wallet Balance</span>
-                  <Wallet className="size-5 text-[#e01e37]" />
-                </div>
-                <div className="text-3xl font-bold text-white">₹4,500</div>
-                <p className="text-xs text-[#8b949e] mt-1">Available for instant instructor booking.</p>
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
-                <div className="flex items-center justify-between text-[#8b949e] mb-4">
-                  <span className="text-sm font-medium">Tournament Rank</span>
-                  <Shield className="size-5 text-[#e01e37]" />
-                </div>
-                <div className="text-3xl font-bold text-white">Unranked</div>
-                <p className="text-xs text-[#8b949e] mt-1">Join a leaderboard challenge to compete.</p>
-              </div>
-            </div>
+              {/* Progress & Certification Track */}
+              <VerifiedProgressTrack
+                verifiedHrs={176}
+                userName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Palash B.'}
+                userSkill="Muay Thai Striking"
+                rank={5}
+                xp={3640}
+              />
+            </>
           )}
 
           {activeTab === 'bookings' && (

@@ -5,6 +5,7 @@ import { Flame, X, ShieldCheck, Trophy, Filter, Check } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry } from '@/lib/data'
 import { TierBadge, XPMetric } from './leaderboard-tiers'
+import { VerifiedProgressTrack } from './verified-progress-track'
 
 interface Tournament {
   id: string
@@ -186,6 +187,22 @@ export function TournamentsView() {
     const razorpayWindow = new (window as any).Razorpay(options)
     razorpayWindow.open()
   }, [selectedTournament, participant])
+
+  const currentUser = useMemo(() => {
+    return (
+      liveLeaderboard.find((item) => item.isUser) || {
+        rank: 5,
+        name: 'You (Palash B.)',
+        category: 'Fitness & Combat',
+        skill: 'Muay Thai Striking',
+        state: 'Delhi',
+        xp: 3640,
+        verifiedHrs: 176,
+        status: 'rising' as const,
+        isUser: true,
+      }
+    )
+  }, [liveLeaderboard])
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 selection:bg-[#e01e37] selection:text-white">
@@ -427,6 +444,17 @@ export function TournamentsView() {
               </select>
             </div>
           </div>
+        </div>
+
+        {/* User Verified Hours & Mastery Progress Track */}
+        <div className="mt-6">
+          <VerifiedProgressTrack
+            verifiedHrs={currentUser.verifiedHrs}
+            userName={currentUser.name}
+            userSkill={currentUser.skill}
+            rank={currentUser.rank}
+            xp={currentUser.xp}
+          />
         </div>
 
         {/* Leaderboard Table Container */}
