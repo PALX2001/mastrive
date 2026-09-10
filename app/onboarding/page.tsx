@@ -148,19 +148,19 @@ export default function OnboardingPage() {
       />
 
       {/* Top Header Logo */}
-      <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 py-6 max-w-6xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/logo.svg"
-            alt="MASTRIVE"
-            width={130}
-            height={32}
-            priority
-            className="h-8 w-auto object-contain"
-          />
-        </div>
-        
-        {step !== 3 && (
+      {step !== 3 && (
+        <header className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 py-6 max-w-6xl mx-auto">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo.svg"
+              alt="MASTRIVE"
+              width={130}
+              height={32}
+              priority
+              className="h-8 w-auto object-contain"
+            />
+          </div>
+          
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-[#8b949e]">Step {step} of 2</span>
             <div className="flex gap-1.5">
@@ -168,8 +168,8 @@ export default function OnboardingPage() {
               <span className={`h-1.5 w-6 rounded-full transition-all duration-300 ${step >= 2 ? 'bg-[#e01e37]' : 'bg-white/10'}`} />
             </div>
           </div>
-        )}
-      </header>
+        </header>
+      )}
 
       {/* Main Multi-Step Box */}
       <div className="relative z-10 w-full max-w-xl">
@@ -392,84 +392,56 @@ export default function OnboardingPage() {
           )}
 
           {/* ========================================================================= */}
-          {/* STEP 3: CINEMATIC "WELCOME TO MASTRIVE" REVEAL ANIMATION */}
+          {/* STEP 3: CINEMATIC WELCOME SCREEN */}
           {/* ========================================================================= */}
           {step === 3 && (
             <motion.div
-              key="step-3-cinematic"
-              initial={{ opacity: 0, scale: 0.9 }}
+              key="step-3-clean"
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="relative flex flex-col items-center justify-center text-center p-8 sm:p-12"
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="relative flex flex-col items-center justify-center text-center py-12 px-4"
             >
-              {/* Pulsing Energy Core */}
+              {/* 1. Account Verified & Ready Badge */}
               <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: animStage === 'glow' ? 1.15 : 1, opacity: 1 }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
-                className="relative flex size-28 sm:size-36 items-center justify-center mb-8"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
               >
-                <motion.div
-                  animate={{
-                    scale: [1, 1.4, 1],
-                    opacity: [0.3, 0.7, 0.3],
-                  }}
-                  transition={{
-                    duration: 2.5,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                  }}
-                  className="absolute inset-0 rounded-full bg-[#e01e37]/30 blur-2xl"
-                />
-                <div className="relative flex size-full items-center justify-center rounded-3xl border border-[#e01e37]/50 bg-gradient-to-br from-[#e01e37]/40 via-[#1b0b0e] to-black p-6 shadow-[0_0_50px_rgba(224,30,55,0.4)] backdrop-blur-xl">
-                  <Image
-                    src="/logo.svg"
-                    alt="MASTRIVE"
-                    width={100}
-                    height={30}
-                    priority
-                    className="size-full object-contain"
-                  />
-                </div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                  <ShieldCheck className="size-4" />
+                  Account Verified & Ready
+                </span>
               </motion.div>
 
-              {/* Staggered Text Reveal */}
+              {/* 2. Welcome to [MASTRIVE Logo] */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3, duration: 0.6 }}
+                transition={{ delay: 0.15, duration: 0.5 }}
+                className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
               >
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400 mb-4">
-                  <ShieldCheck className="size-3.5" />
-                  Account Verified & Ready
+                <span className="text-3xl sm:text-5xl font-black tracking-tight text-white">
+                  Welcome to
                 </span>
-                
-                <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
-                  Welcome to <span className="bg-gradient-to-r from-white via-gray-100 to-[#e01e37] bg-clip-text text-transparent">MASTRIVE</span>
-                </h1>
-                
-                <p className="mt-3 text-sm sm:text-base text-[#8b949e] font-medium max-w-md mx-auto">
-                  {fullName ? `Welcome aboard, ${fullName}. ` : ''}Your personalized gateway to elite 1-on-1 coaching is now primed.
-                </p>
+                <Image
+                  src="/logo.svg"
+                  alt="MASTRIVE"
+                  width={220}
+                  height={50}
+                  priority
+                  className="h-10 sm:h-14 w-auto object-contain inline-block"
+                />
               </motion.div>
 
-              {/* Ambient Fade-Out Bar */}
+              {/* 3. Sleek Glowing Red Bar */}
               <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ delay: 0.8, duration: 2.2, ease: 'easeInOut' }}
-                className="mt-8 h-1 max-w-xs rounded-full bg-gradient-to-r from-transparent via-[#e01e37] to-transparent shadow-[0_0_12px_rgba(224,30,55,0.8)]"
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: '100%', opacity: 1 }}
+                transition={{ delay: 0.3, duration: 2.2, ease: 'easeInOut' }}
+                className="mt-8 h-1 max-w-sm rounded-full bg-gradient-to-r from-transparent via-[#e01e37] to-transparent shadow-[0_0_18px_rgba(224,30,55,0.9)]"
               />
-
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.8 }}
-                transition={{ delay: 1.5, duration: 0.5 }}
-                className="mt-4 text-xs font-semibold text-[#8b949e]"
-              >
-                Entering Explore Skills...
-              </motion.p>
             </motion.div>
           )}
 
