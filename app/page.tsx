@@ -8,7 +8,6 @@ import { Sparkles, X, CheckCircle2 } from 'lucide-react'
 import { Header, type MainTab } from '@/components/mastrive/header'
 import { Hero } from '@/components/mastrive/hero'
 import { InstructorDirectory } from '@/components/mastrive/instructor-directory'
-import { Footer } from '@/components/mastrive/footer'
 import type { CategoryId } from '@/lib/data'
 
 // Lazy-load secondary views only when their respective tabs are activated
@@ -126,8 +125,6 @@ function MainApp() {
           </section>
         )}
       </div>
-
-      <Footer />
     </main>
   )
 }
