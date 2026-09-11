@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Wallet, User, Menu, X, LayoutDashboard } from 'lucide-react'
+import { Wallet, User, Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -240,18 +240,7 @@ export function Header({
               {/* Desktop Auth Controls */}
               <div className="hidden xl:flex items-center gap-2.5">
                 {user ? (
-                  <>
-                    {isInstructor && (
-                      <Link
-                        href="/dashboard/instructor"
-                        className="gloss-pill flex h-[50px] items-center gap-2 rounded-full px-4 text-xs font-bold text-white transition-all hover:border-[#e01e37]/50 hover:bg-[#e01e37]/15 hover:shadow-[0_0_20px_rgba(224,30,55,0.3)] active:scale-95"
-                      >
-                        <LayoutDashboard className="size-4 text-[#e01e37]" />
-                        <span>Dashboard</span>
-                      </Link>
-                    )}
-
-                    <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
+                  <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
                       <Link
                         href="/profile"
                         className="flex items-center gap-2 text-xs font-semibold text-[#f5f5f5] hover:text-white transition-colors"
@@ -281,7 +270,6 @@ export function Header({
                         )}
                       </Link>
                     </div>
-                  </>
                 ) : (
                   <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
                     <Link
@@ -300,18 +288,8 @@ export function Header({
                 )}
               </div>
 
-              {/* Mobile & Tablet Profile / Dashboard Buttons (< 1280px) */}
+              {/* Mobile & Tablet Profile Button (< 1280px) */}
               <div className="flex items-center gap-2 xl:hidden">
-                {user && isInstructor && (
-                  <Link
-                    href="/dashboard/instructor"
-                    aria-label="Instructor Dashboard"
-                    className="gloss-pill flex size-10 items-center justify-center rounded-full text-[#e01e37] transition-all hover:border-[#e01e37]/50 active:scale-95"
-                    title="Instructor Dashboard"
-                  >
-                    <LayoutDashboard className="size-4" />
-                  </Link>
-                )}
 
                 <Link
                   href={user ? '/profile' : '/login'}
@@ -406,16 +384,6 @@ export function Header({
 
               {user ? (
                 <div className="mt-auto space-y-2">
-                  {isInstructor && (
-                    <Link
-                      href="/dashboard/instructor"
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-[#e01e37]/25 to-[#e01e37]/10 border border-[#e01e37]/40 p-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#e01e37]/30"
-                    >
-                      <LayoutDashboard className="size-4 text-[#e01e37]" />
-                      <span>Instructor Dashboard</span>
-                    </Link>
-                  )}
 
                   <Link
                     href="/profile"
