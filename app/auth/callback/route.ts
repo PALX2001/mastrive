@@ -52,11 +52,22 @@ export async function GET(request: Request) {
 
       if (user) {
         // ——— Ensure base profile exists in Supabase profiles table for complete transparency ———
+        let finalFullName: string | null = null
         try {
-          const profileName =
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          const metaName =
             user.user_metadata?.full_name ||
             user.user_metadata?.name ||
-            (user.email ? user.email.split('@')[0] : 'Member')
+            null
+
+          // Only assign full_name if real name is provided; never dump raw email usernames like 2001palash into database
+          finalFullName = existingProfile?.full_name || metaName || null
+
           const avatarUrl =
             user.user_metadata?.avatar_url ||
             user.user_metadata?.picture ||
@@ -67,7 +78,7 @@ export async function GET(request: Request) {
             .upsert(
               {
                 id: user.id,
-                full_name: profileName,
+                full_name: finalFullName,
                 email: user.email,
                 avatar_url: avatarUrl,
                 updated_at: new Date().toISOString(),
@@ -99,7 +110,8 @@ export async function GET(request: Request) {
             // Upsert profile with instructor role
             const profileName =
               user.user_metadata?.full_name ||
-              (user.email ? user.email.split('@')[0] : 'Instructor')
+              finalFullName ||
+              'Instructor'
 
             await supabase
               .from('profiles')
@@ -161,15 +173,9 @@ export async function GET(request: Request) {
 
         if (isInstructor) {
           targetPath = '/dashboard/instructor'
-        } else if (!targetPath || targetPath === '/dashboard' || targetPath === '/profile') {
-          // Check if user has completed onboarding profile
-          const { data: userProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .maybeSingle()
-
-          if (!userProfile?.full_name && !user.user_metadata?.full_name) {
+        } else if (!targetPath || targetPath === '/dashboard' || targetPath === '/profile' || targetPath === '/') {
+          // If the user has no verified full_name, direct them to /onboarding so they can set their real name
+          if (!finalFullName) {
             targetPath = '/onboarding'
           } else {
             targetPath = targetPath || '/profile'

@@ -146,6 +146,13 @@
     inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
+/* Ensure native select option popups have dark backgrounds and readable text */
+select option {
+  background-color: #12161f !important;
+  color: #f5f5f5 !important;
+  padding: 8px 12px;
+}
+
 /* Crimson CTA button — gradient + glow */
 .gloss-btn-primary {
   background: linear-gradient(135deg, #e01e37 0%, #b8162e 100%);

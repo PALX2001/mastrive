@@ -648,11 +648,11 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                           onChange={(e) => setFormData({ ...formData, country_code: e.target.value })}
                           className={selectBase + ' !mt-0'}
                         >
-                          <option value="+91">🇮🇳 +91</option>
-                          <option value="+1">🇺🇸 +1</option>
-                          <option value="+44">🇬🇧 +44</option>
-                          <option value="+971">🇦🇪 +971</option>
-                          <option value="+61">🇦🇺 +61</option>
+                          <option value="+91" className="bg-[#12161f] text-white">🇮🇳 +91</option>
+                          <option value="+1" className="bg-[#12161f] text-white">🇺🇸 +1</option>
+                          <option value="+44" className="bg-[#12161f] text-white">🇬🇧 +44</option>
+                          <option value="+971" className="bg-[#12161f] text-white">🇦🇪 +971</option>
+                          <option value="+61" className="bg-[#12161f] text-white">🇦🇺 +61</option>
                         </select>
                         <ChevronDown className={chevron + ' !mt-0'} />
                       </div>
@@ -677,8 +677,12 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                         onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                         className={selectBase}
                       >
-                        <option value="">-- Select Gender --</option>
-                        {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
+                        <option value="" className="bg-[#12161f] text-white">-- Select Gender --</option>
+                        {GENDERS.map((g) => (
+                          <option key={g} value={g} className="bg-[#12161f] text-white">
+                            {g}
+                          </option>
+                        ))}
                       </select>
                       <ChevronDown className={chevron} />
                     </div>
@@ -702,8 +706,12 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                             onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                             className={selectBase}
                           >
-                            <option value="">-- Select Category --</option>
-                            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                            <option value="" className="bg-[#12161f] text-white">-- Select Category --</option>
+                            {CATEGORIES.map((c) => (
+                              <option key={c} value={c} className="bg-[#12161f] text-white">
+                                {c}
+                              </option>
+                            ))}
                           </select>
                           <ChevronDown className={chevron} />
                         </div>
@@ -774,7 +782,11 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                             onChange={(e) => setFormData({ ...formData, experience_years: e.target.value })}
                             className={selectBase}
                           >
-                            {EXPERIENCE_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                            {EXPERIENCE_OPTIONS.map((opt) => (
+                              <option key={opt} value={opt} className="bg-[#12161f] text-white">
+                                {opt}
+                              </option>
+                            ))}
                           </select>
                           <ChevronDown className={chevron} />
                         </div>
@@ -787,8 +799,12 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                             onChange={(e) => setFormData({ ...formData, education: e.target.value })}
                             className={selectBase}
                           >
-                            <option value="">-- Select --</option>
-                            {EDUCATION_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                            <option value="" className="bg-[#12161f] text-white">-- Select --</option>
+                            {EDUCATION_OPTIONS.map((opt) => (
+                              <option key={opt} value={opt} className="bg-[#12161f] text-white">
+                                {opt}
+                              </option>
+                            ))}
                           </select>
                           <ChevronDown className={chevron} />
                         </div>

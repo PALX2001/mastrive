@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -37,6 +37,21 @@ export default function ProfilePage() {
   const [bookings, setBookings] = useState<any[]>([])
   const [loadingBookings, setLoadingBookings] = useState(false)
   const router = useRouter()
+
+  const resolvedName = useMemo(() => {
+    if (profileData?.full_name?.trim()) return profileData.full_name.trim()
+    if (user?.user_metadata?.full_name?.trim()) return user.user_metadata.full_name.trim()
+    if (user?.user_metadata?.name?.trim()) return user.user_metadata.name.trim()
+
+    if (user?.email) {
+      const raw = user.email.split('@')[0]
+      const cleaned = raw.replace(/^[0-9_]+|[0-9_]+$/g, '').replace(/[._-]/g, ' ').trim()
+      if (cleaned.length >= 2) {
+        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+      }
+    }
+    return 'Learner'
+  }, [profileData, user])
 
   useEffect(() => {
     const supabase = createClient()
@@ -198,13 +213,13 @@ export default function ProfilePage() {
                     className="size-full object-cover"
                   />
                 ) : (
-                  (profileData?.full_name || user?.user_metadata?.full_name || user?.email || 'MS').substring(0, 2).toUpperCase()
+                  resolvedName.substring(0, 2).toUpperCase()
                 )}
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-bold tracking-tight text-white">
-                    {profileData?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Mastrive Member'}
+                    {resolvedName}
                   </h1>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
                     isInstructor
@@ -317,7 +332,7 @@ export default function ProfilePage() {
               {/* Progress & Certification Track */}
               <VerifiedProgressTrack
                 verifiedHrs={0}
-                userName={profileData?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Learner'}
+                userName={resolvedName}
                 userSkill={isInstructor ? 'Verified Instructor' : 'Active Learner'}
                 rank={1}
                 xp={100}

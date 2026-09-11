@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ArrowRight, Mail, MessageCircle, KeyRound, UserPlus, Sparkles } from 'lucide-react'
+import { ArrowRight, Mail, MessageCircle, KeyRound, UserPlus, Sparkles, User } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -14,6 +14,7 @@ function AuthContent() {
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
 
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode)
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -128,6 +129,7 @@ function AuthContent() {
       options: {
         emailRedirectTo: redirectUrl,
         shouldCreateUser: mode === 'signup',
+        data: fullName.trim() ? { full_name: fullName.trim() } : undefined,
       },
     })
 
@@ -411,6 +413,25 @@ function AuthContent() {
 
                   {/* Email form */}
                   <form onSubmit={handleEmailAuth} className="space-y-4">
+                    {mode === 'signup' && (
+                      <div>
+                        <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#666]">
+                          Your Full Name <span className="text-[#e01e37]">*</span>
+                        </label>
+                        <div className="relative">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-[#555]" />
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Rahul Sharma"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            className="gloss-input h-12 w-full pl-11 pr-4 text-sm font-medium text-white placeholder-[#444] outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#666]">
                         Email Address

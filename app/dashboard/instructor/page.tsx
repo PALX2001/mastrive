@@ -417,9 +417,17 @@ export default function InstructorDashboard() {
 
         setUser(user)
 
-        const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Instructor'
-        setProfileName(name)
-        const slug = (user.user_metadata?.full_name || user.email?.split('@')[0] || 'instructor')
+        const rawMetaName = user.user_metadata?.full_name || user.user_metadata?.name
+        let initialName = rawMetaName
+        if (!initialName && user.email) {
+          const raw = user.email.split('@')[0]
+          const cleaned = raw.replace(/^[0-9_]+|[0-9_]+$/g, '').replace(/[._-]/g, ' ').trim()
+          if (cleaned.length >= 2) {
+            initialName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+          }
+        }
+        setProfileName(initialName || 'Instructor')
+        const slug = (initialName || 'coach')
           .toLowerCase()
           .replace(/[^a-z0-9]/g, '')
         setBookingSlug(slug)

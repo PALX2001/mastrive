@@ -81,11 +81,23 @@ export function TournamentsView() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data }) => {
-      if (data?.user?.user_metadata?.full_name) {
-        setUserName(data.user.user_metadata.full_name)
-      } else if (data?.user?.email) {
-        setUserName(data.user.email.split('@')[0])
+    supabase.auth.getUser().then(async ({ data }) => {
+      if (data?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', data.user.id)
+          .maybeSingle()
+
+        if (profile?.full_name?.trim()) {
+          setUserName(profile.full_name.trim())
+        } else if (data.user.user_metadata?.full_name?.trim()) {
+          setUserName(data.user.user_metadata.full_name.trim())
+        } else if (data.user.email) {
+          const raw = data.user.email.split('@')[0]
+          const cleaned = raw.replace(/^[0-9_]+|[0-9_]+$/g, '').replace(/[._-]/g, ' ').trim()
+          setUserName(cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'Your Profile')
+        }
       }
     })
   }, [])

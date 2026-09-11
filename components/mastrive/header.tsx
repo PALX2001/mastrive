@@ -38,8 +38,26 @@ export function Header({
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  const [profileName, setProfileName] = useState<string | null>(null)
+
   useEffect(() => {
     const supabase = createClient()
+
+    const fetchUserProfile = async (userId: string) => {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle()
+
+        if (profile?.full_name) {
+          setProfileName(profile.full_name)
+        }
+      } catch {
+        // ignore error
+      }
+    }
 
     // Check initial auth state
     const getUser = async () => {
@@ -48,6 +66,9 @@ export function Header({
           data: { user },
         } = await supabase.auth.getUser()
         setUser(user)
+        if (user) {
+          fetchUserProfile(user.id)
+        }
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           console.warn('Error fetching user:', err)
@@ -64,11 +85,33 @@ export function Header({
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) {
+        fetchUserProfile(session.user.id)
+      } else {
+        setProfileName(null)
+      }
       setLoading(false)
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const displayName = useMemo(() => {
+    if (!user) return 'My Account'
+    if (profileName && profileName.trim()) return profileName.trim()
+    if (user.user_metadata?.full_name?.trim()) return user.user_metadata.full_name.trim()
+    if (user.user_metadata?.name?.trim()) return user.user_metadata.name.trim()
+
+    if (user.email) {
+      const raw = user.email.split('@')[0]
+      // Format cleanly: strip leading/trailing numbers and symbols (e.g. 2001palash -> Palash, rahul.sharma -> Rahul Sharma)
+      const cleaned = raw.replace(/^[0-9_]+|[0-9_]+$/g, '').replace(/[._-]/g, ' ').trim()
+      if (cleaned.length >= 2) {
+        return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+      }
+    }
+    return 'Learner'
+  }, [user, profileName])
 
   const userAvatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture
 
@@ -153,7 +196,7 @@ export function Header({
                       className="flex items-center gap-2 text-xs font-semibold text-[#f5f5f5] hover:text-white transition-colors"
                     >
                       <span className="max-w-[130px] truncate">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'My Account'}
+                        {displayName}
                       </span>
                     </Link>
 
@@ -308,7 +351,7 @@ export function Header({
                     </div>
                     <div>
                       <div className="text-sm font-bold text-white max-w-[150px] truncate">
-                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'My Account'}
+                        {displayName}
                       </div>
                       <div className="text-[11px] text-[#8b949e]">View profile & bookings</div>
                     </div>
