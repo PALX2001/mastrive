@@ -17,14 +17,12 @@ create policy "Anyone can read instructor applications"
   to anon, authenticated
   using (true);
 
--- 3. Policy: Allow updating applications (e.g. attaching uploaded image URLs or user updates)
+-- 3. Policy: Allow authenticated users to update their own application
 drop policy if exists "Users can update own application" on public.instructor_applications;
-drop policy if exists "Anyone can update application" on public.instructor_applications;
-create policy "Anyone can update application"
+create policy "Users can update own application"
   on public.instructor_applications for update
-  to anon, authenticated
-  using (true)
-  with check (true);
+  to authenticated
+  using (auth.uid() = user_id);
 
 -- 4. Storage Bucket permissions for instructor image uploads
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -51,3 +49,4 @@ create policy "Anyone can view instructor images"
   on storage.objects for select
   to anon, authenticated
   using (bucket_id = 'instructor-images');
+

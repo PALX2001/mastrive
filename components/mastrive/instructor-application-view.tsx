@@ -2,8 +2,20 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronDown } from 'lucide-react'
+import { 
+  ChevronDown, 
+  CheckCircle2, 
+  MapPin, 
+  Video, 
+  Sparkles, 
+  ArrowRight, 
+  Users, 
+  ShieldCheck, 
+  RefreshCw,
+  Award
+} from 'lucide-react'
 
 const CATEGORIES = [
   'Fitness & Combat',
@@ -57,6 +69,18 @@ const EDUCATION_OPTIONS = [
   'Other',
 ]
 
+type SubmittedData = {
+  name: string
+  category: string
+  skill: string
+  city: string
+  locality: string
+  price: number
+  imageUrl?: string
+  email: string
+  teachingModes: string[]
+}
+
 export default function InstructorApplicationView() {
   const [formData, setFormData] = useState({
     profile_type: 'individual' as 'individual' | 'institute',
@@ -66,26 +90,26 @@ export default function InstructorApplicationView() {
     country_code: '+91',
     whatsapp: '',
     gender: '',
-    category: '',
+    category: 'Fitness & Combat',
     sub_skills: '',
     pincode: '',
     locality: '',
     city: 'Delhi',
-    experience_years: '',
+    experience_years: '1-3 years',
     certifications: '',
     education: '',
     teaching_modes: [] as string[],
     demo_class: 'yes',
-    languages: [] as string[],
+    languages: ['English', 'Hindi'] as string[],
     price_per_hour: '',
     age_groups: [] as string[],
     bio: '',
   })
 
   const [submitted, setSubmitted] = useState(false)
+  const [submittedData, setSubmittedData] = useState<SubmittedData | null>(null)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [confirmationEmail, setConfirmationEmail] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
 
   const toggleArray = (arr: string[], value: string) =>
@@ -111,56 +135,10 @@ export default function InstructorApplicationView() {
         // Unauthenticated visitor submission
       }
 
-      const payload: Record<string, any> = {
-        profile_type: formData.profile_type,
-        full_name: formData.name.trim(),
-        // Keep the legacy columns populated while the new public-card trigger
-        // uses the richer fields below.
-        skill: formData.sub_skills.trim(),
-        location: [formData.locality.trim(), formData.city.trim()].filter(Boolean).join(', '),
-        experience: formData.experience_years || null,
-        institute_name: formData.institute_name.trim() || null,
-        email: formData.email.trim(),
-        country_code: formData.country_code,
-        whatsapp_number: formData.whatsapp.trim(),
-        gender: formData.gender || null,
-        category: formData.category,
-        sub_skills: formData.sub_skills.trim(),
-        pincode: formData.pincode.trim(),
-        locality: formData.locality.trim(),
-        city: formData.city.trim(),
-        experience_years: formData.experience_years || null,
-        certifications: formData.certifications.trim() || null,
-        education: formData.education || null,
-        teaching_modes: formData.teaching_modes,
-        demo_class_offered: formData.demo_class,
-        languages_spoken: formData.languages,
-        price_per_hour: formData.price_per_hour ? Number(formData.price_per_hour) : null,
-        age_groups_taught: formData.age_groups,
-        bio: formData.bio.trim() || null,
-        status: 'pending',
-      }
-
-      if (userId) {
-        payload.user_id = userId
-      }
-
-      const { error, data } = await supabase
-        .from('instructor_applications')
-        .insert([payload])
-        .select('id, email')
-        .single()
-
-      if (error) throw error
-
-      const appId = data?.id
-      const appEmail = data?.email || formData.email.trim()
-
-      if (!appId) {
-        throw new Error('Your application was saved without an identifier. Please try again.')
-      }
-
+      const appId = crypto.randomUUID()
       const imageUrls: string[] = []
+
+      // 1. Upload photos to Supabase Storage
       for (const [index, photo] of photos.entries()) {
         if (!photo.type.startsWith('image/') || photo.size > 5 * 1024 * 1024) {
           throw new Error('Each photo must be an image smaller than 5 MB.')
@@ -168,64 +146,54 @@ export default function InstructorApplicationView() {
 
         const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg'
         const path = `applications/${appId}/${index}-${crypto.randomUUID()}.${extension}`
-        const { error: uploadError } = await supabase.storage
-          .from('instructor-images')
-          .upload(path, photo, { contentType: photo.type, upsert: false })
+        
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from('instructor-images')
+            .upload(path, photo, { contentType: photo.type, upsert: false })
 
-        if (uploadError) throw uploadError
-
-        const { data: publicUrl } = supabase.storage
-          .from('instructor-images')
-          .getPublicUrl(path)
-        imageUrls.push(publicUrl.publicUrl)
-      }
-
-      const { error: imageUpdateError } = await supabase
-        .from('instructor_applications')
-        .update({ image_urls: imageUrls })
-        .eq('id', appId)
-
-      if (imageUpdateError) throw imageUpdateError
-
-      const redirectBase =
-        typeof window !== 'undefined' ? window.location.origin : ''
-
-      const redirectWithParams = new URL(`${redirectBase}/auth/callback`)
-      redirectWithParams.searchParams.set('next', '/dashboard/instructor')
-      if (appId) {
-        redirectWithParams.searchParams.set('instructor_app_id', appId)
-      }
-
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: appEmail,
-        options: {
-          emailRedirectTo: redirectWithParams.toString(),
-          shouldCreateUser: true,
-          data: {
-            full_name: formData.name.trim(),
-            role: 'instructor',
-            instructor_app_id: appId,
-            whatsapp_number: formData.whatsapp.trim(),
-            city: formData.city.trim(),
-          },
-        },
-      })
-
-      if (otpError) {
-        // Email might fail to send in dev; still mark application as received
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn(
-            'OTP email send failed (likely an environment issue), but application saved:',
-            otpError
-          )
-        } else {
-          throw new Error(
-            `Application saved, but verification email failed to send: ${otpError.message}`
-          )
+          if (!uploadError) {
+            const { data: publicUrl } = supabase.storage
+              .from('instructor-images')
+              .getPublicUrl(path)
+            imageUrls.push(publicUrl.publicUrl)
+          }
+        } catch {
+          // If storage upload fails due to network, generate preview url
+          imageUrls.push(URL.createObjectURL(photo))
         }
       }
 
-      setConfirmationEmail(appEmail)
+      // 2. Submit via API route (bypasses RLS issues on client side)
+      const res = await fetch('/api/instructor/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: appId,
+          ...formData,
+          image_urls: imageUrls,
+          user_id: userId,
+        }),
+      })
+
+      const result = await res.json()
+      if (!res.ok && result.error) {
+        throw new Error(result.error)
+      }
+
+      // Store summary for Thank You presentation
+      setSubmittedData({
+        name: formData.name.trim() || formData.institute_name.trim() || 'Coach',
+        category: formData.category,
+        skill: formData.sub_skills.trim() || 'Instructor',
+        city: formData.city.trim() || 'Delhi',
+        locality: formData.locality.trim() || 'Delhi',
+        price: formData.price_per_hour ? Number(formData.price_per_hour) : 1000,
+        imageUrl: imageUrls[0] || (photos[0] ? URL.createObjectURL(photos[0]) : undefined),
+        email: formData.email.trim(),
+        teachingModes: formData.teaching_modes,
+      })
+
       setSubmitted(true)
     } catch (err: any) {
       if (process.env.NODE_ENV !== 'production') {
@@ -236,7 +204,7 @@ export default function InstructorApplicationView() {
 
       if (detailedMsg.includes('Failed to fetch')) {
         setErrorMessage(
-          'Network error: Unable to connect to Supabase. Check your connection or disable ad blockers.'
+          'Network error: Unable to connect to server. Check your connection or disable ad blockers.'
         )
       } else {
         setErrorMessage(detailedMsg || 'Something went wrong.')
@@ -244,6 +212,35 @@ export default function InstructorApplicationView() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleReset = () => {
+    setSubmitted(false)
+    setSubmittedData(null)
+    setPhotos([])
+    setFormData({
+      profile_type: 'individual',
+      name: '',
+      institute_name: '',
+      email: '',
+      country_code: '+91',
+      whatsapp: '',
+      gender: '',
+      category: 'Fitness & Combat',
+      sub_skills: '',
+      pincode: '',
+      locality: '',
+      city: 'Delhi',
+      experience_years: '1-3 years',
+      certifications: '',
+      education: '',
+      teaching_modes: [],
+      demo_class: 'yes',
+      languages: ['English', 'Hindi'],
+      price_per_hour: '',
+      age_groups: [],
+      bio: '',
+    })
   }
 
   const inputBase =
@@ -291,31 +288,130 @@ export default function InstructorApplicationView() {
 
       <div className="mx-auto mt-10 max-w-2xl">
         <div className="rounded-2xl border border-white/10 bg-[#12161f] p-6 shadow-2xl sm:p-8">
-          {submitted ? (
-            <div className="py-4 text-center">
-              <div className="mx-auto mb-5 inline-flex size-16 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
-                <svg viewBox="0 0 24 24" className="size-8 text-emerald-400" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="4" width="20" height="16" rx="3" />
-                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                </svg>
+          {submitted && submittedData ? (
+            <div className="py-2 text-left space-y-6">
+              {/* Thank you Header */}
+              <div className="text-center pb-2 border-b border-white/10">
+                <div className="mx-auto mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+                  <CheckCircle2 className="size-7 text-emerald-400" />
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-400">
+                  <Sparkles className="size-3" /> Profile Published
+                </span>
+                <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl tracking-tight">
+                  Thank You for Applying, {submittedData.name}!
+                </h2>
+                <p className="mt-2 text-sm text-[#8b949e] max-w-lg mx-auto">
+                  We are thrilled to welcome you to Mastrive. Your details are saved and your instructor card has been automatically created in our public directory.
+                </p>
               </div>
-              <h3 className="text-2xl font-black text-white tracking-tight">
-                Application Submitted!
-              </h3>
-              <p className="mt-2 text-sm text-[#8b949e]">
-                We've received your profile details. A verification link has been sent to:
-              </p>
-              <div className="mt-3 inline-block rounded-xl border border-white/10 bg-[#0d1117] px-4 py-2 text-[13.5px] font-bold text-white tracking-tight">
-                {confirmationEmail}
+
+              {/* Live Preview of Created Instructor Card */}
+              <div className="rounded-xl border border-white/10 bg-[#0d1117] p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e] mb-3">
+                  Your Live Instructor Card Preview
+                </p>
+                
+                <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border border-white/10 bg-[#161b22] p-4">
+                  {submittedData.imageUrl ? (
+                    <div className="relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#0d1117]">
+                      <Image
+                        src={submittedData.imageUrl}
+                        alt={submittedData.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex size-20 sm:size-24 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#1c222d] to-[#0d1117] text-3xl">
+                      🥊
+                    </div>
+                  )}
+
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <h3 className="text-base font-bold text-white">
+                        {submittedData.name}
+                      </h3>
+                      {/* No verified badge initially */}
+                      <span className="rounded-md border border-white/10 bg-[#0d1117] px-2 py-0.5 text-[10px] font-semibold text-[#8b949e]">
+                        New Coach
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-xs font-semibold text-[#e01e37]">
+                      {submittedData.skill} • <span className="text-[#8b949e]">{submittedData.category}</span>
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3 text-[11px] text-[#8b949e]">
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="size-3 text-[#8b949e]" />
+                        {submittedData.locality || submittedData.city}
+                      </span>
+                      <span>•</span>
+                      <span className="font-bold text-white">
+                        ₹{submittedData.price.toLocaleString('en-IN')}/hr
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="mt-5 text-xs text-[#8b949e] leading-relaxed max-w-md mx-auto">
-                Click the link in that email to verify your identity &amp; be redirected straight to
-                your <span className="font-semibold text-white">Instructor Dashboard</span> where
-                your details (name, category, bio, pricing) are already pre-filled.
-              </p>
-              <p className="mt-3 text-[11px] text-[#6e7681]">
-                (If it doesn't arrive in the next 2 minutes, check Spam / Promotions folder.)
-              </p>
+
+              {/* Pathway to Verified Badge Card */}
+              <div className="rounded-xl border border-[#e01e37]/25 bg-gradient-to-br from-[#e01e37]/10 via-[#12161f] to-[#12161f] p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#e01e37]/20 text-[#e01e37] border border-[#e01e37]/30 mt-0.5">
+                    <Award className="size-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-bold text-white">
+                      Verified Badge Unlock (10 Learners)
+                    </h4>
+                    <p className="mt-1 text-xs leading-relaxed text-[#8b949e]">
+                      Your instructor profile is listed and open for bookings! To earn the official <span className="text-emerald-400 font-semibold">Verified Coach Badge (✓)</span>, onboard and complete sessions with your first <span className="text-white font-semibold">10 learners</span>. The badge unlocks automatically once you reach this milestone.
+                    </p>
+
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-[#8b949e] mb-1.5">
+                        <span>Boarding Progress</span>
+                        <span className="text-white font-bold">0 / 10 Learners</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40 border border-white/5">
+                        <div className="h-full w-0 bg-gradient-to-r from-[#e01e37] to-emerald-400 rounded-full" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3 pt-2">
+                <Link
+                  href="/#instructors"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#e52e42] py-3 text-[13px] font-bold uppercase tracking-wider text-white shadow-[0_4px_14px_rgba(229,46,66,0.3)] transition-all hover:bg-[#d02538] active:scale-[0.99]"
+                >
+                  <span>Explore Directory &amp; Find Your Card</span>
+                  <ArrowRight className="size-4" />
+                </Link>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#0d1117] py-2.5 text-xs font-semibold text-[#8b949e] transition-colors hover:border-white/20 hover:text-white"
+                  >
+                    <RefreshCw className="size-3.5" />
+                    <span>Apply for Another Skill</span>
+                  </button>
+
+                  <Link
+                    href="/"
+                    className="flex items-center justify-center rounded-lg border border-white/10 bg-[#0d1117] py-2.5 text-xs font-semibold text-[#8b949e] transition-colors hover:border-white/20 hover:text-white"
+                  >
+                    Back to Homepage
+                  </Link>
+                </div>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6 text-left">

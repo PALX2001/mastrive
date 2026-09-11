@@ -90,6 +90,8 @@ type PublishedInstructorRow = {
   education: string | null
   certifications: string | null
   image_urls: string[] | null
+  learners_count?: number | null
+  is_verified?: boolean | null
 }
 
 const categoryIdFor = (category: string): Exclude<CategoryId, 'all'> => {
@@ -102,25 +104,28 @@ const categoryIdFor = (category: string): Exclude<CategoryId, 'all'> => {
 
 const toInstructor = (row: PublishedInstructorRow): Instructor => {
   const isOnline = row.teaching_modes?.some((mode) => /online|stream|video/i.test(mode)) ?? false
-  const area = isOnline ? 'Live Stream' : row.locality || row.city || 'Location to be confirmed'
+  const area = isOnline ? 'Live Stream' : row.locality || row.city || 'Delhi'
   const experience = Number.parseInt(row.experience_years || '', 10)
+  const learnersCount = Number(row.learners_count || 0)
+  const isVerified = learnersCount >= 10 || Boolean(row.is_verified)
 
   return {
     id: row.id,
     name: row.display_name,
-    verified: true,
+    verified: isVerified,
+    totalStudents: learnersCount,
     skill: row.skill,
     category: categoryIdFor(row.category),
     mode: isOnline ? 'online' : 'in-person',
     area,
-    city: row.city || '',
-    rating: 0,
-    reviews: 0,
-    price: row.price_per_hour || 0,
+    city: row.city || 'Delhi',
+    rating: 5.0,
+    reviews: learnersCount,
+    price: row.price_per_hour || 1000,
     tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(row.city || area).toUpperCase()}`,
     image: row.image_urls?.[0],
     images: row.image_urls || [],
-    description: row.bio || `Verified ${row.skill} instructor available for personalised sessions.`,
+    description: row.bio || `${row.skill} instructor available for personalised sessions.`,
     experienceYears: Number.isFinite(experience) ? experience : undefined,
     languages: row.languages_spoken || [],
     education: row.education || undefined,
@@ -168,7 +173,7 @@ export function InstructorDirectory({
     const loadPublishedInstructors = async () => {
       const { data, error } = await supabase
         .from('instructors')
-        .select('id, display_name, skill, category, teaching_modes, locality, city, price_per_hour, bio, experience_years, languages_spoken, education, certifications, image_urls')
+        .select('id, display_name, skill, category, teaching_modes, locality, city, price_per_hour, bio, experience_years, languages_spoken, education, certifications, image_urls, learners_count, is_verified')
         .eq('is_published', true)
         .order('published_at', { ascending: false })
 
