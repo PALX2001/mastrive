@@ -204,16 +204,7 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
         modes: formData.teaching_modes,
       }
 
-      if (typeof window !== 'undefined') {
-        try {
-          const existing = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
-          const filtered = Array.isArray(existing) ? existing.filter((c: any) => c.id !== appId) : []
-          localStorage.setItem('mastrive_custom_instructors', JSON.stringify([customCard, ...filtered]))
-          window.dispatchEvent(new Event('mastrive_instructors_updated'))
-        } catch {}
-      }
-
-      // 3. Submit via Server API route (bypasses client RLS issues)
+      // 2. Submit via Server API route (persists to Supabase instructors and instructor_applications)
       try {
         await fetch('/api/instructor/apply', {
           method: 'POST',
@@ -451,7 +442,7 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                   }}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#e52e42] py-3 text-[13px] font-bold uppercase tracking-wider text-white shadow-[0_4px_14px_rgba(229,46,66,0.3)] transition-all hover:bg-[#d02538] active:scale-[0.99] cursor-pointer"
                 >
-                  <span>Explore Directory &amp; Find Your Card</span>
+                  <span>Explore Directory & Find Your Card</span>
                   <ArrowRight className="size-4" />
                 </button>
 

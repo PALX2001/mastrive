@@ -51,6 +51,35 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
+        // ——— Ensure base profile exists in Supabase profiles table for complete transparency ———
+        try {
+          const profileName =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            (user.email ? user.email.split('@')[0] : 'Member')
+          const avatarUrl =
+            user.user_metadata?.avatar_url ||
+            user.user_metadata?.picture ||
+            null
+
+          await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: user.id,
+                full_name: profileName,
+                email: user.email,
+                avatar_url: avatarUrl,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'id' }
+            )
+        } catch (profErr) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[auth/callback] Base profile upsert notice:', profErr)
+          }
+        }
+
         // ——— POST VERIFICATION HOOK: Link instructor application + set role ———
         try {
           // Prefer explicit app_id from magic-link params, then fall back to user metadata
@@ -67,7 +96,7 @@ export async function GET(request: Request) {
               })
               .eq('id', appId)
 
-            // Upsert a profile row so dashboard lookups find the role instantly
+            // Upsert profile with instructor role
             const profileName =
               user.user_metadata?.full_name ||
               (user.email ? user.email.split('@')[0] : 'Instructor')
@@ -161,8 +190,11 @@ export async function GET(request: Request) {
       }
     }
 
-    console.error('[auth/callback] Failed to exchange auth code:', error.code)
-    return authErrorRedirect(origin, error.code || 'code_exchange_failed')
+    const errorCode = error?.code || 'code_exchange_failed'
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[auth/callback] Failed to exchange auth code:', errorCode)
+    }
+    return authErrorRedirect(origin, errorCode)
   }
 
   return authErrorRedirect(origin, 'missing_code')

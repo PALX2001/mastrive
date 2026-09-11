@@ -17,14 +17,19 @@ import {
   MapPin
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import Image from 'next/image'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { VerifiedProgressTrack } from '@/components/mastrive/verified-progress-track'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
+  const [profileData, setProfileData] = useState<{ full_name?: string; city?: string; phone?: string } | null>(null)
   const [isInstructor, setIsInstructor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'settings'>('overview')
+  const [nameInput, setNameInput] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -41,29 +46,34 @@ export default function ProfilePage() {
         }
         
         setUser(user)
+        setNameInput(user.user_metadata?.full_name || '')
+
+        // Fetch profile from profiles table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, full_name, city, phone')
+          .eq('id', user.id)
+          .maybeSingle()
+
+        if (profile) {
+          setProfileData(profile)
+          if (profile.full_name && !user.user_metadata?.full_name) {
+            setNameInput(profile.full_name)
+          }
+        }
 
         // Check instructor role
-        if (user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor') {
+        if (user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor' || profile?.role === 'instructor') {
           setIsInstructor(true)
         } else {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
+          const { data: application } = await supabase
+            .from('instructor_applications')
+            .select('status')
+            .eq('user_id', user.id)
+            .eq('status', 'approved')
             .maybeSingle()
 
-          if (profile?.role === 'instructor') {
-            setIsInstructor(true)
-          } else {
-            const { data: application } = await supabase
-              .from('instructor_applications')
-              .select('status')
-              .eq('user_id', user.id)
-              .eq('status', 'approved')
-              .maybeSingle()
-
-            if (application) setIsInstructor(true)
-          }
+          if (application) setIsInstructor(true)
         }
       } catch {
         if (isMounted) router.push('/login')
@@ -78,6 +88,43 @@ export default function ProfilePage() {
       isMounted = false
     }
   }, [router])
+
+  const handleSaveProfile = async () => {
+    if (!user) return
+    setSaving(true)
+    setSaveStatus(null)
+    const supabase = createClient()
+
+    try {
+      const trimmedName = nameInput.trim()
+
+      // 1. Update Supabase Auth user metadata
+      await supabase.auth.updateUser({
+        data: { full_name: trimmedName }
+      })
+
+      // 2. Update profiles table in Supabase
+      const { error: profErr } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: trimmedName,
+          updated_at: new Date().toISOString()
+        })
+
+      if (profErr) {
+        setSaveStatus({ type: 'error', text: profErr.message })
+      } else {
+        setSaveStatus({ type: 'success', text: 'Profile updated successfully!' })
+        setProfileData((prev) => ({ ...prev, full_name: trimmedName }))
+      }
+    } catch (err: any) {
+      setSaveStatus({ type: 'error', text: err?.message || 'Failed to update profile' })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -96,7 +143,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#0d0f12] text-[#f0f6fc] selection:bg-[#e01e37] selection:text-white">
       {/* Top Header Navigation Link */}
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-6">
         <Link 
           href="/"
           className="inline-flex items-center gap-2 text-sm font-medium text-[#8b949e] transition-colors hover:text-white"
@@ -104,41 +151,49 @@ export default function ProfilePage() {
           <ArrowLeft className="size-4" />
           Back to Explore
         </Link>
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#161b22]/70 px-4 py-2 backdrop-blur-xl">
-          <Wallet className="size-4 text-[#e01e37]" />
-          <span className="text-sm font-semibold tabular-nums">
-            <span className="text-[#8b949e]">Wallet:</span> ₹4,500
-          </span>
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22]/70 px-3.5 py-1.5 backdrop-blur-xl">
+          <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+          <span className="text-xs font-semibold text-[#f0f6fc]">Account Active</span>
         </div>
       </div>
 
       {/* Main Container */}
-      <main className="mx-auto max-w-6xl px-6 pb-20">
+      <main className="mx-auto max-w-6xl px-4 sm:px-6 pb-20">
         {/* Profile Header Banner */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#161b22]/50 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#161b22]/50 p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
           <div className="absolute -right-20 -top-20 size-64 rounded-full bg-[#e01e37]/10 blur-3xl" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="flex size-20 items-center justify-center rounded-2xl bg-[#e01e37]/20 border border-[#e01e37]/30 text-2xl font-bold text-[#e01e37]">
-                {user?.email?.substring(0, 2).toUpperCase() || 'MS'}
+              <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#e01e37]/20 border border-[#e01e37]/30 text-2xl font-bold text-[#e01e37]">
+                {(user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
+                  <Image
+                    src={user.user_metadata.avatar_url || user.user_metadata.picture}
+                    alt="Profile"
+                    width={80}
+                    height={80}
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  (profileData?.full_name || user?.user_metadata?.full_name || user?.email || 'MS').substring(0, 2).toUpperCase()
+                )}
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-bold tracking-tight text-white">
-                    {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Mastrive User'}
+                    {profileData?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Mastrive Member'}
                   </h1>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
                     isInstructor
                       ? 'bg-[#e01e37]/10 text-[#e01e37] border-[#e01e37]/30'
                       : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                   }`}>
-                    <CheckCircle2 className="size-3" /> {isInstructor ? 'Verified Instructor' : 'Verified Student'}
+                    <CheckCircle2 className="size-3" /> {isInstructor ? 'Verified Instructor' : 'Member'}
                   </span>
                 </div>
                 <p className="text-sm text-[#8b949e] mt-1">{user?.email}</p>
-                <div className="flex items-center gap-4 mt-3 text-xs text-[#8b949e]">
-                  <span className="flex items-center gap-1"><MapPin className="size-3 text-[#e01e37]" /> New Delhi, India</span>
-                  <span className="flex items-center gap-1"><Calendar className="size-3 text-[#e01e37]" /> Member since 2026</span>
+                <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-[#8b949e]">
+                  <span className="flex items-center gap-1"><MapPin className="size-3 text-[#e01e37]" /> {profileData?.city || 'Delhi NCR, India'}</span>
+                  <span className="flex items-center gap-1"><Calendar className="size-3 text-[#e01e37]" /> Member since {user?.created_at ? new Date(user.created_at).getFullYear() : '2026'}</span>
                 </div>
               </div>
             </div>
@@ -164,10 +219,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="mt-8 flex gap-2 border-b border-white/10 pb-4">
+        <div className="mt-8 flex gap-2 border-b border-white/10 pb-4 overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
               activeTab === 'overview'
                 ? 'bg-[#e01e37] text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)]'
                 : 'text-[#8b949e] hover:bg-white/5 hover:text-white'
@@ -177,7 +232,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setActiveTab('bookings')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
               activeTab === 'bookings'
                 ? 'bg-[#e01e37] text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)]'
                 : 'text-[#8b949e] hover:bg-white/5 hover:text-white'
@@ -187,7 +242,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
               activeTab === 'settings'
                 ? 'bg-[#e01e37] text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)]'
                 : 'text-[#8b949e] hover:bg-white/5 hover:text-white'
@@ -208,7 +263,7 @@ export default function ProfilePage() {
                     <Calendar className="size-5 text-[#e01e37]" />
                   </div>
                   <div className="text-3xl font-bold text-white">0</div>
-                  <p className="text-xs text-[#8b949e] mt-1">No upcoming sessions booked yet.</p>
+                  <p className="text-xs text-[#8b949e] mt-1">No upcoming sessions scheduled yet.</p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
@@ -216,27 +271,27 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium">Wallet Balance</span>
                     <Wallet className="size-5 text-[#e01e37]" />
                   </div>
-                  <div className="text-3xl font-bold text-white">₹4,500</div>
-                  <p className="text-xs text-[#8b949e] mt-1">Available for instant instructor booking.</p>
+                  <div className="text-3xl font-bold text-white">₹0</div>
+                  <p className="text-xs text-[#8b949e] mt-1">Instant per-session checkout active.</p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
                   <div className="flex items-center justify-between text-[#8b949e] mb-4">
-                    <span className="text-sm font-medium">Tournament Rank</span>
+                    <span className="text-sm font-medium">Verified Hours</span>
                     <Shield className="size-5 text-[#e01e37]" />
                   </div>
-                  <div className="text-3xl font-bold text-white">#5 Gold</div>
-                  <p className="text-xs text-[#8b949e] mt-1">176 verified training hours recorded.</p>
+                  <div className="text-3xl font-bold text-white">0 hrs</div>
+                  <p className="text-xs text-[#8b949e] mt-1">Logged from completed 1-on-1 sessions.</p>
                 </div>
               </div>
 
               {/* Progress & Certification Track */}
               <VerifiedProgressTrack
-                verifiedHrs={176}
-                userName={user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Palash B.'}
-                userSkill="Muay Thai Striking"
-                rank={5}
-                xp={3640}
+                verifiedHrs={0}
+                userName={profileData?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Learner'}
+                userSkill={isInstructor ? 'Verified Instructor' : 'Active Learner'}
+                rank={1}
+                xp={100}
               />
             </>
           )}
@@ -246,7 +301,7 @@ export default function ProfilePage() {
               <Calendar className="mx-auto size-12 text-[#8b949e]/40 mb-4" />
               <h3 className="text-lg font-semibold text-white">No session history found</h3>
               <p className="text-sm text-[#8b949e] mt-1 max-w-sm mx-auto">
-                Explore local skills or 1-on-1 streams and book your first session to see it listed here.
+                Explore local coaches or 1-on-1 live streams and book your first session to see it listed here.
               </p>
               <Link
                 href="/"
@@ -261,6 +316,17 @@ export default function ProfilePage() {
             <div className="space-y-6 max-w-2xl">
               <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
                 <h3 className="text-base font-semibold text-white mb-4">Account Information</h3>
+                
+                {saveStatus && (
+                  <div className={`mb-4 rounded-xl p-3 text-xs font-medium ${
+                    saveStatus.type === 'success' 
+                      ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300' 
+                      : 'border border-red-500/30 bg-red-500/10 text-red-300'
+                  }`}>
+                    {saveStatus.text}
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-[#8b949e] mb-1">Email Address</label>
@@ -276,12 +342,17 @@ export default function ProfilePage() {
                     <input 
                       type="text" 
                       placeholder="Enter your name" 
-                      defaultValue={user?.user_metadata?.full_name || ''}
-                      className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm text-white focus:border-[#e01e37] focus:outline-none"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm text-white focus:border-[#e01e37] focus:outline-none transition-colors"
                     />
                   </div>
-                  <button className="rounded-xl bg-[#e01e37] px-5 py-2 text-xs font-bold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]">
-                    Save Changes
+                  <button 
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    className="rounded-xl bg-[#e01e37] px-5 py-2 text-xs font-bold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f] disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -289,10 +360,10 @@ export default function ProfilePage() {
               <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
                 <h3 className="text-base font-semibold text-white mb-4">Preferences & Notifications</h3>
                 <div className="space-y-3">
-                  <label className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-black/20 cursor-pointer hover:bg-white/5">
+                  <label className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-black/20 cursor-pointer hover:bg-white/5 transition-colors">
                     <div className="flex items-center gap-3">
                       <Bell className="size-4 text-[#e01e37]" />
-                      <span className="text-sm font-medium text-white">Email alerts for booking updates</span>
+                      <span className="text-sm font-medium text-white">Email alerts for session confirmations & updates</span>
                     </div>
                     <input type="checkbox" defaultChecked className="accent-[#e01e37] size-4" />
                   </label>

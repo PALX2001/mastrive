@@ -1,11 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, ShieldAlert } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function AdminApplicationsPage() {
   const [apps, setApps] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     let isMounted = true
@@ -13,6 +18,17 @@ export default function AdminApplicationsPage() {
 
     const fetchApplications = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!isMounted) return
+
+        if (!user) {
+          setAuthorized(false)
+          setLoading(false)
+          return
+        }
+
+        setAuthorized(true)
+
         const { data } = await supabase
           .from('instructor_applications')
           .select('*')
@@ -52,9 +68,32 @@ export default function AdminApplicationsPage() {
     if (data) setApps(data)
   }
 
+  if (authorized === false) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0f12] p-8 text-center text-white">
+        <ShieldAlert className="size-12 text-[#e01e37] mb-3" />
+        <h1 className="text-xl font-bold">Admin Authentication Required</h1>
+        <p className="mt-2 max-w-sm text-xs text-[#8b949e]">
+          Please sign in with your authorized administrator account to view submissions.
+        </p>
+        <Link
+          href="/login"
+          className="mt-5 rounded-full bg-[#e01e37] px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-[#e01e37]/30 hover:bg-[#c0182f]"
+        >
+          Sign In
+        </Link>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#0d0f12] p-8 text-white">
-      <h1 className="text-2xl font-bold">Instructor Applications</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Instructor Applications</h1>
+        <Link href="/" className="text-xs text-[#8b949e] hover:text-white flex items-center gap-1.5">
+          <ArrowLeft className="size-3.5" /> Back to Explore
+        </Link>
+      </div>
       {loading ? (
         <p className="mt-4 text-xs text-[#8b949e]">Loading applications...</p>
       ) : (

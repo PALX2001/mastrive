@@ -148,12 +148,14 @@ export function Header({
               <div className="hidden xl:flex">
                 {user ? (
                   <div className="flex h-[50px] items-center gap-3 rounded-full border border-white/10 bg-[#161b22]/70 px-4 shadow-2xl backdrop-blur-xl">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="size-4 text-[#e01e37]" aria-hidden />
-                      <span className="text-sm font-semibold tabular-nums text-[#f0f6fc]">
-                        <span className="text-[#8b949e]">Wallet:</span> ₹4,500
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-2 text-xs font-semibold text-[#f0f6fc] hover:text-white transition-colors"
+                    >
+                      <span className="max-w-[130px] truncate">
+                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'My Account'}
                       </span>
-                    </div>
+                    </Link>
 
                     <div className="h-4 w-px bg-white/10" />
 
@@ -283,13 +285,50 @@ export function Header({
                 })}
               </nav>
 
-              {user && (
-                <div className="mt-auto rounded-xl border border-white/10 bg-[#161b22] p-4">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#8b949e]">
-                    <Wallet className="size-4 text-[#e01e37]" />
-                    <span>Wallet Balance</span>
+              {user ? (
+                <Link
+                  href="/profile"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="mt-auto flex items-center justify-between rounded-xl border border-white/10 bg-[#161b22] p-3.5 hover:border-white/20 transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/20 text-[#e01e37] overflow-hidden">
+                      {userAvatarUrl ? (
+                        <Image
+                          src={userAvatarUrl}
+                          alt="Profile"
+                          width={36}
+                          height={36}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <User className="size-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white max-w-[150px] truncate">
+                        {user.user_metadata?.full_name || user.email?.split('@')[0] || 'My Account'}
+                      </div>
+                      <div className="text-[11px] text-[#8b949e]">View profile & bookings</div>
+                    </div>
                   </div>
-                  <div className="mt-1 text-lg font-bold text-white">₹4,500</div>
+                </Link>
+              ) : (
+                <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-white/10">
+                  <Link
+                    href="/login?mode=signin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex h-11 items-center justify-center rounded-xl border border-white/10 text-sm font-semibold text-white hover:bg-white/5"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/login?mode=signup"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex h-11 items-center justify-center rounded-xl bg-[#e01e37] text-sm font-bold text-white shadow-lg shadow-[#e01e37]/30 hover:bg-[#c0182f]"
+                  >
+                    Get Started
+                  </Link>
                 </div>
               )}
             </motion.aside>

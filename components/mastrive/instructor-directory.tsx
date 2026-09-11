@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
 import { Star, Quote } from 'lucide-react'
-import { type CategoryId, type Instructor } from '@/lib/data'
+import { instructors as fallbackInstructors, type CategoryId, type Instructor } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
 import type { BookingInstructor } from './booking-modal'
@@ -25,55 +25,43 @@ const REVIEWS = [
   {
     id: '1',
     name: 'Aarav Sharma',
-    role: 'Learner (Delhi)',
-    skill: 'Fingerstyle Guitar',
-    instructor: 'Meera Nair',
+    role: 'Learner (South Delhi)',
+    skill: 'Strength & Conditioning',
+    instructor: 'Ikjot Singh',
     rating: 5,
     comment:
-      'Booked a 1-on-1 session before my college fest showcase. Meera spotted key finger-picking flaws in 20 minutes that I had been struggling with for months.',
+      'Ikjot completely transformed my lifts and posture in 4 weeks. Super patient, technical, and genuinely invested in progressive overload.',
     avatar:
       'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
   },
   {
     id: '2',
-    name: 'Priya Verma',
-    role: 'Learner (Saket)',
-    skill: 'Competitive Coding',
-    instructor: 'Nisha Verma',
+    name: 'Tanya Mehra',
+    role: 'Learner (Delhi)',
+    skill: 'Body Transformation',
+    instructor: 'Ikjot Singh',
     rating: 5,
     comment:
-      'The live streaming setup and instant code debugging made the session worth way more than ₹1,400. High-octane teaching!',
+      'Best fitness coach I have worked with. The personalized progressive overload plan and form cues are on point, and I saw real transformation.',
     avatar:
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
   },
   {
     id: '3',
-    name: 'Rohan Gupta',
-    role: 'Tournament Player',
-    skill: 'Chess Strategy',
-    instructor: 'Kabir Chawla',
+    name: 'Karan Joshi',
+    role: 'Strength Athlete',
+    skill: 'Powerlifting & Form',
+    instructor: 'Ikjot Singh',
     rating: 5,
     comment:
-      'Climbed into the top 3 on the State Leaderboard after analyzing my middle-game tactics with Kabir. Insanely structured feedback.',
+      'Great eye for technique corrections. Helped me break plateaus in my bench press and squat safely without injuries.',
     avatar:
       'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
-  },
-  {
-    id: '4',
-    name: 'Ananya Roy',
-    role: 'Learner (Hauz Khas)',
-    skill: 'Watercolour Landscapes',
-    instructor: 'Arjun Mehta',
-    rating: 5,
-    comment:
-      'The in-person session in Hauz Khas was incredibly grounding. Learned color blending techniques in under two hours.',
-    avatar:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
   },
 ]
 
 // Duplicate reviews list to create seamless infinite marquee loop
-const MARQUEE_REVIEWS = [...REVIEWS, ...REVIEWS]
+const MARQUEE_REVIEWS = [...REVIEWS, ...REVIEWS, ...REVIEWS]
 
 type PublishedInstructorRow = {
   id: string
@@ -142,6 +130,26 @@ const toInstructor = (row: PublishedInstructorRow): Instructor => {
   }
 }
 
+function InstructorCardSkeleton() {
+  return (
+    <div className="flex h-full min-h-[420px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] animate-pulse">
+      <div className="h-48 w-full bg-white/5" />
+      <div className="p-4 space-y-3 flex-1">
+        <div className="h-4 w-3/4 bg-white/10 rounded-md" />
+        <div className="h-3 w-1/2 bg-white/5 rounded-md" />
+        <div className="space-y-2 pt-3">
+          <div className="h-3 w-full bg-white/5 rounded-md" />
+          <div className="h-3 w-4/5 bg-white/5 rounded-md" />
+        </div>
+      </div>
+      <div className="p-4 border-t border-white/10 flex justify-between items-center">
+        <div className="h-4 w-16 bg-white/10 rounded-md" />
+        <div className="h-7 w-24 bg-white/10 rounded-full" />
+      </div>
+    </div>
+  )
+}
+
 export function InstructorDirectory({
   activeCategory,
   query,
@@ -152,6 +160,7 @@ export function InstructorDirectory({
   const [selectedInstructor, setSelectedInstructor] = useState<BookingInstructor | null>(null)
   const [activeProfileInstructor, setActiveProfileInstructor] = useState<Instructor | null>(null)
   const [publishedInstructors, setPublishedInstructors] = useState<Instructor[]>([])
+  const [loading, setLoading] = useState(true)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Track scroll position right as section enters viewport
@@ -257,8 +266,14 @@ export function InstructorDirectory({
         if (process.env.NODE_ENV !== 'production') console.warn('Applications table fallback notice:', e)
       }
 
+      // Safe fallback to seed instructors if network or DB returned 0 rows
+      if (mergedList.length === 0 && fallbackInstructors.length > 0) {
+        mergedList.push(...fallbackInstructors)
+      }
+
       if (mounted) {
         setPublishedInstructors(mergedList)
+        setLoading(false)
       }
     }
 
@@ -368,12 +383,18 @@ export function InstructorDirectory({
         {/* Results count */}
         <div className="mb-6 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wider text-[#8b949e]">
-            {filtered.length} instructor{filtered.length === 1 ? '' : 's'} available
+            {loading ? 'Finding top coaches...' : `${filtered.length} instructor${filtered.length === 1 ? '' : 's'} available`}
           </p>
         </div>
 
-        {/* Parallax Grid */}
-        {filtered.length > 0 ? (
+        {/* Loading Skeletons or Parallax Grid */}
+        {loading ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <InstructorCardSkeleton />
+            <InstructorCardSkeleton />
+            <InstructorCardSkeleton />
+          </div>
+        ) : filtered.length > 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((instructor, index) => {
               const colTransforms = [col1Y, col2Y, col3Y]
@@ -416,7 +437,7 @@ export function InstructorDirectory({
             </div>
             <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22] px-4 py-2 text-xs text-[#8b949e]">
               <Star className="size-4 fill-amber-400 text-amber-400" />
-              <span className="font-bold text-[#f0f6fc]">4.9 / 5.0</span> across 1,200+ verified sessions
+              <span className="font-bold text-[#f0f6fc]">4.9 / 5.0</span> across verified learners
             </div>
           </div>
 

@@ -12,6 +12,15 @@ type InstructorWithMedia = Instructor & {
   description?: string
 }
 
+const getCategoryIcon = (category?: string, skill?: string) => {
+  const norm = `${category || ''} ${skill || ''}`.toLowerCase()
+  if (norm.includes('music') || norm.includes('guitar') || norm.includes('vocal') || norm.includes('piano')) return '🎸'
+  if (norm.includes('chess') || norm.includes('code') || norm.includes('strategy') || norm.includes('tech')) return '♟️'
+  if (norm.includes('yoga') || norm.includes('lifestyle') || norm.includes('wellness')) return '🧘'
+  if (norm.includes('art') || norm.includes('watercolour') || norm.includes('paint')) return '🎨'
+  return '🥊'
+}
+
 export const InstructorCard = memo(function InstructorCard({
   instructor,
   onBook,
@@ -62,7 +71,7 @@ export const InstructorCard = memo(function InstructorCard({
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#12161f] to-[#0b0e14]">
               <span className="select-none text-4xl transition-transform duration-500 ease-out group-hover:scale-110 filter drop-shadow-md">
-                {instructor.icon || '🥊'}
+                {instructor.icon || getCategoryIcon(instructor.category, instructor.skill)}
               </span>
             </div>
           )}

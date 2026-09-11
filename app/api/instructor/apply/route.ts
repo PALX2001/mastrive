@@ -84,14 +84,12 @@ export async function POST(req: Request) {
       .from('instructor_applications')
       .upsert(applicationPayload, { onConflict: 'id' })
 
-    if (appError) {
-      console.error('Error inserting instructor_applications:', appError)
-      // If error is specific, still attempt direct instructor insert or throw
+    if (appError && process.env.NODE_ENV !== 'production') {
+      console.warn('Note on instructor_applications insert:', appError.message)
     }
 
     // 2. Direct insert/upsert into instructors table (Ensures instant card creation with 0 learners & unverified status)
     const instructorPayload: Record<string, any> = {
-      application_id: appId,
       display_name: fullName,
       profile_type,
       institute_name: institute_name.trim() || null,
@@ -114,18 +112,22 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     }
 
+    if (!appError) {
+      instructorPayload.application_id = appId
+    }
+
     if (user_id) {
       instructorPayload.user_id = user_id
     }
 
     const { data: instData, error: instError } = await supabase
       .from('instructors')
-      .upsert(instructorPayload, { onConflict: 'application_id' })
+      .insert(instructorPayload)
       .select('id')
       .single()
 
-    if (instError) {
-      console.warn('Direct upsert to instructors table notice:', instError.message)
+    if (instError && process.env.NODE_ENV !== 'production') {
+      console.warn('Direct insert to instructors table notice:', instError.message)
     }
 
     return NextResponse.json({

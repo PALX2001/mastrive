@@ -60,7 +60,7 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState('male')
 
   // Step 2: Interests
-  const [selectedInterests, setSelectedInterests] = useState<string[]>(['boxing', 'guitar'])
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([])
 
   // Step 3 animation progression
   const [animStage, setAnimStage] = useState<'reveal' | 'glow' | 'transition'>('reveal')
@@ -101,20 +101,38 @@ export default function OnboardingPage() {
     const supabase = createClient()
 
     try {
-      if (userId) {
-        // Upsert user profile
+      let activeUserId = userId
+      if (!activeUserId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) activeUserId = user.id
+      }
+
+      if (activeUserId) {
+        // 1. Update Auth metadata
+        await supabase.auth.updateUser({
+          data: {
+            full_name: fullName.trim(),
+            phone: phone.trim() || null,
+            city: city,
+            interests: selectedInterests,
+          }
+        })
+
+        // 2. Upsert user profile in Supabase
         await supabase
           .from('profiles')
           .upsert({
-            id: userId,
-            full_name: fullName,
-            phone: phone || null,
+            id: activeUserId,
+            full_name: fullName.trim(),
+            phone: phone.trim() || null,
             city: city,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'id' })
       }
     } catch (err) {
-      console.warn('Profile save note:', err)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('Profile save note:', err)
+      }
     }
 
     setLoading(false)

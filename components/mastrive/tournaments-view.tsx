@@ -194,13 +194,13 @@ export function TournamentsView() {
   const currentUser = useMemo(() => {
     return (
       liveLeaderboard.find((item) => item.isUser) || {
-        rank: 5,
-        name: 'You (Palash B.)',
+        rank: 2,
+        name: 'You (Learner)',
         category: 'Fitness & Combat',
-        skill: 'Muay Thai Striking',
+        skill: 'Fitness & Strength',
         state: 'Delhi',
-        xp: 3640,
-        verifiedHrs: 176,
+        xp: 1200,
+        verifiedHrs: 18,
         status: 'rising' as const,
         isUser: true,
       }

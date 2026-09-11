@@ -175,7 +175,7 @@ function AuthContent() {
           </Link>
           <div className="flex items-center gap-4">
             <Link
-              href="/instructor"
+              href="/?tab=instructor"
               className="hidden rounded-full border border-white/10 bg-[#161b22] px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10 sm:inline-flex"
             >
               Become an Instructor
@@ -207,22 +207,28 @@ function AuthContent() {
       </header>
 
       {/* Main Form Container */}
-      <main className="relative z-10 w-full max-w-[440px] rounded-3xl border border-white/10 bg-[#12161f]/90 p-8 sm:p-9 shadow-2xl backdrop-blur-2xl">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={mode}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25 }}
-          >
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-xs font-medium text-[#8b949e] transition hover:text-white"
+      <main className="relative z-10 w-full max-w-[440px] rounded-3xl border border-white/10 bg-[#12161f]/90 p-8 sm:p-9 shadow-2xl backdrop-blur-2xl min-h-[460px] flex flex-col justify-center">
+        {checkingAuth ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <div className="size-8 animate-spin rounded-full border-2 border-[#e01e37] border-t-transparent" />
+            <p className="text-xs text-[#8b949e]">Verifying session...</p>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.25 }}
             >
-              <ArrowLeft className="size-3.5" />
-              Back to Explore
-            </Link>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-xs font-medium text-[#8b949e] transition hover:text-white"
+              >
+                <ArrowLeft className="size-3.5" />
+                Back to Explore
+              </Link>
 
             <div className="mt-6 flex flex-col items-center text-center">
               <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-[#e01e37]/15 border border-[#e01e37]/30 text-[#e01e37] mb-3">
@@ -285,6 +291,7 @@ function AuthContent() {
                   <input
                     type="email"
                     required
+                    autoComplete="email"
                     placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -328,6 +335,7 @@ function AuthContent() {
             </div>
           </motion.div>
         </AnimatePresence>
+        )}
       </main>
     </div>
   )
