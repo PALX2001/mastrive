@@ -190,7 +190,7 @@ export const leaderboard: LeaderboardEntry[] = [
   },
   {
     rank: 2,
-    name: 'You (Learner)',
+    name: 'Your Profile',
     category: 'Fitness & Combat',
     skill: 'Strength Training',
     state: 'Delhi',

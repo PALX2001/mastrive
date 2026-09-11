@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry } from '@/lib/data'
 import { TierBadge, XPMetric } from './leaderboard-tiers'
 import { VerifiedProgressTrack } from './verified-progress-track'
+import { createClient } from '@/lib/supabase/client'
 
 interface Tournament {
   id: string
@@ -76,6 +77,18 @@ export function TournamentsView() {
   const [selectedState, setSelectedState] = useState<string>('Global')
   const [selectedSkill, setSelectedSkill] = useState<string>('All Skills')
   const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard)
+  const [userName, setUserName] = useState<string>('')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.user_metadata?.full_name) {
+        setUserName(data.user.user_metadata.full_name)
+      } else if (data?.user?.email) {
+        setUserName(data.user.email.split('@')[0])
+      }
+    })
+  }, [])
 
   // Real-time live pulse XP simulation (simulating live session completions across India)
   useEffect(() => {
@@ -192,20 +205,19 @@ export function TournamentsView() {
   }, [selectedTournament, participant])
 
   const currentUser = useMemo(() => {
-    return (
-      liveLeaderboard.find((item) => item.isUser) || {
-        rank: 2,
-        name: 'You (Learner)',
-        category: 'Fitness & Combat',
-        skill: 'Fitness & Strength',
-        state: 'Delhi',
-        xp: 1200,
-        verifiedHrs: 18,
-        status: 'rising' as const,
-        isUser: true,
-      }
-    )
-  }, [liveLeaderboard])
+    const userEntry = liveLeaderboard.find((item) => item.isUser)
+    return {
+      rank: userEntry?.rank || 2,
+      name: userName || userEntry?.name || 'Your Profile',
+      category: userEntry?.category || 'Fitness & Combat',
+      skill: userEntry?.skill || 'Strength Training',
+      state: userEntry?.state || 'Delhi',
+      xp: userEntry?.xp || 1200,
+      verifiedHrs: userEntry?.verifiedHrs || 18,
+      status: 'rising' as const,
+      isUser: true,
+    }
+  }, [liveLeaderboard, userName])
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 selection:bg-[#e01e37] selection:text-white">
@@ -501,7 +513,7 @@ export function TournamentsView() {
                       </td>
                       <td className="px-4 py-4 font-bold text-[#f0f6fc]">
                         <div className="flex items-center gap-2">
-                          <span>{row.name}</span>
+                          <span>{row.isUser && userName ? userName : row.name}</span>
                           {row.isUser && (
                             <span className="rounded-full bg-[#e01e37] px-2 py-0.5 text-[9px] font-extrabold text-white">
                               YOU
