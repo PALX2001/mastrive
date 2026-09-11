@@ -321,29 +321,6 @@ export function InstructorDirectory({
     setActiveProfileInstructor(null)
   }, [])
 
-  const handleRemoveInstructor = useCallback(async (id: string) => {
-    // 1. Remove from localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        const cached = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
-        const filtered = Array.isArray(cached) ? cached.filter((c: any) => c.id !== id) : []
-        localStorage.setItem('mastrive_custom_instructors', JSON.stringify(filtered))
-        window.dispatchEvent(new Event('mastrive_instructors_updated'))
-      } catch {}
-    }
-
-    // 2. Remove from Supabase
-    try {
-      const supabase = createClient()
-      await supabase.from('instructors').delete().eq('id', id)
-      await supabase.from('instructors').delete().eq('application_id', id)
-      await supabase.from('instructor_applications').delete().eq('id', id)
-    } catch {}
-
-    // 3. Update local state immediately
-    setPublishedInstructors((prev) => prev.filter((inst) => inst.id !== id))
-  }, [])
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return allInstructors.filter((i) => {
@@ -387,7 +364,6 @@ export function InstructorDirectory({
                     instructor={instructor}
                     onBook={handleBookClick}
                     onCardClick={handleCardClick}
-                    onRemove={handleRemoveInstructor}
                     booked={false}
                   />
                 </motion.div>
