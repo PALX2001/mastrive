@@ -74,9 +74,9 @@ export function Header({
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full px-4 py-3 sm:px-8 transition-all duration-300 ${
+      className={`sticky top-0 z-50 w-full px-4 py-3 sm:px-8 transition-all duration-500 ${
         scrolled
-          ? 'bg-[#0d1117]/85 backdrop-blur-xl border-b border-white/5 py-2.5 shadow-2xl'
+          ? 'bg-[#0a0a0a]/80 backdrop-blur-2xl border-b border-white/[0.06] py-2.5 shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_32px_rgba(0,0,0,0.5)]'
           : 'bg-transparent'
       }`}
     >
@@ -87,7 +87,7 @@ export function Header({
           <button
             onClick={() => setIsMenuOpen(true)}
             aria-label="Open Navigation Menu"
-            className="flex size-10 items-center justify-center rounded-full border border-white/10 bg-[#161b22]/70 text-[#f0f6fc] backdrop-blur-xl transition-colors hover:border-white/20 active:scale-95"
+            className="gloss-pill flex size-10 items-center justify-center rounded-full text-[#f5f5f5] transition-all hover:border-white/15 active:scale-95"
           >
             <Menu className="size-5" />
           </button>
@@ -112,7 +112,7 @@ export function Header({
         </div>
 
         {/* Center: Desktop Navigation Pills (≥ 1280px) */}
-        <nav className="hidden h-[50px] items-center gap-1.5 rounded-full border border-white/10 bg-[#161b22]/90 p-1.5 shadow-2xl backdrop-blur-xl xl:flex">
+        <nav className="gloss-pill hidden h-[50px] items-center gap-1 rounded-full p-1.5 xl:flex">
           {navItems.map((item) => {
             const active = activeTab === item.id
             return (
@@ -122,13 +122,13 @@ export function Header({
                 className={`relative flex h-full items-center justify-center rounded-full px-5 text-sm font-medium transition-colors ${
                   active
                     ? 'text-white'
-                    : 'text-[#8b949e] hover:text-[#f0f6fc]'
+                    : 'text-[#777] hover:text-[#f5f5f5]'
                 }`}
               >
                 {active && (
                   <motion.span
                     layoutId="header-active-pill"
-                    className="absolute inset-0 rounded-full bg-[#e01e37] shadow-[0_4px_12px_rgba(224,30,55,0.4)]"
+                    className="absolute inset-0 rounded-full bg-[#e01e37] shadow-[0_4px_20px_rgba(224,30,55,0.5),inset_0_1px_0_rgba(255,255,255,0.15)]"
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
                 )}
@@ -141,28 +141,28 @@ export function Header({
         {/* Right: User Profile Action Button */}
         <div className="flex items-center z-10 min-w-[40px] justify-end">
           {loading ? (
-            <div className="size-10 xl:h-[50px] xl:w-36 animate-pulse rounded-full bg-white/5" />
+            <div className="size-10 xl:h-[50px] xl:w-36 animate-pulse rounded-full bg-white/[0.05]" />
           ) : (
             <>
               {/* Desktop Auth Controls */}
               <div className="hidden xl:flex">
                 {user ? (
-                  <div className="flex h-[50px] items-center gap-3 rounded-full border border-white/10 bg-[#161b22]/70 px-4 shadow-2xl backdrop-blur-xl">
+                  <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
                     <Link
                       href="/profile"
-                      className="flex items-center gap-2 text-xs font-semibold text-[#f0f6fc] hover:text-white transition-colors"
+                      className="flex items-center gap-2 text-xs font-semibold text-[#f5f5f5] hover:text-white transition-colors"
                     >
                       <span className="max-w-[130px] truncate">
                         {user.user_metadata?.full_name || user.email?.split('@')[0] || 'My Account'}
                       </span>
                     </Link>
 
-                    <div className="h-4 w-px bg-white/10" />
+                    <div className="h-4 w-px bg-white/[0.08]" />
 
                     <Link
                       href="/profile"
                       aria-label="User Profile"
-                      className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#e01e37]/10 text-white transition-colors hover:bg-[#e01e37]"
+                      className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#e01e37]/10 text-white transition-all hover:bg-[#e01e37] hover:shadow-[0_2px_12px_rgba(224,30,55,0.4)]"
                     >
                       {userAvatarUrl ? (
                         <Image
@@ -178,16 +178,16 @@ export function Header({
                     </Link>
                   </div>
                 ) : (
-                  <div className="flex h-[50px] items-center gap-3 rounded-full border border-white/10 bg-[#161b22]/70 px-4 shadow-2xl backdrop-blur-xl">
+                  <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
                     <Link
                       href="/login?mode=signin"
-                      className="px-2 text-xs font-semibold text-[#8b949e] transition-colors hover:text-white"
+                      className="px-2 text-xs font-semibold text-[#777] transition-colors hover:text-white"
                     >
                       Sign In
                     </Link>
                     <Link
                       href="/login?mode=signup"
-                      className="rounded-full bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]"
+                      className="gloss-btn-primary rounded-full px-4 py-2 text-xs font-bold text-white"
                     >
                       Get Started
                     </Link>
@@ -199,9 +199,9 @@ export function Header({
               <Link
                 href={user ? '/profile' : '/login'}
                 aria-label={user ? 'Profile' : 'Sign in'}
-                className="relative flex size-10 items-center justify-center rounded-full border border-white/15 bg-gradient-to-tr from-[#161b22] via-[#21262d] to-[#161b22] p-0.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-xl active:scale-95 xl:hidden"
+                className="gloss-pill relative flex size-10 items-center justify-center rounded-full p-0.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)] active:scale-95 xl:hidden"
               >
-                <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-[#0d1117]">
+                <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-[#0a0a0a]">
                   {userAvatarUrl ? (
                     <Image
                       src={userAvatarUrl}
@@ -215,8 +215,8 @@ export function Header({
                       <User className="size-5" />
                     </div>
                   ) : (
-                    <div className="flex size-full items-center justify-center bg-[#161b22] text-[#8b949e] transition-colors hover:text-white">
-                      <User className="size-5 text-[#e01e37]" />
+                    <div className="flex size-full items-center justify-center bg-[#111] text-[#e01e37]">
+                      <User className="size-5" />
                     </div>
                   )}
                 </div>
@@ -243,7 +243,8 @@ export function Header({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 250 }}
-              className="fixed bottom-0 left-0 top-0 z-50 flex w-[300px] flex-col border-r border-white/10 bg-[#0d1117] p-6 shadow-2xl xl:hidden"
+              className="fixed bottom-0 left-0 top-0 z-50 flex w-[300px] flex-col border-r border-white/[0.06] bg-[#0a0a0a] p-6 shadow-[4px_0_40px_rgba(0,0,0,0.7)] xl:hidden"
+              style={{ backdropFilter: 'blur(24px)' }}
             >
               <div className="flex items-center justify-between pb-6">
                 <Image

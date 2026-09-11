@@ -42,17 +42,18 @@ export const InstructorCard = memo(function InstructorCard({
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3 }}
       onClick={() => onCardClick?.(instructor)}
-      className="group flex h-full min-h-[420px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all duration-300 hover:border-white/25 hover:shadow-2xl will-change-transform transform-gpu cursor-pointer"
+      className="group gloss-card gloss-card-hover flex h-full min-h-[420px] flex-col justify-between overflow-hidden rounded-2xl will-change-transform transform-gpu cursor-pointer"
     >
       <div className="flex flex-col flex-1">
-        {/* Media / Image Container with Fixed Proportion & Perfect Ratio Fit */}
-        <div className="relative h-48 w-full shrink-0 overflow-hidden bg-[#0d1117]/80">
+        {/* Media / Image Container */}
+        <div className="relative h-48 w-full shrink-0 overflow-hidden bg-[#0a0a0a]">
+          {/* Tag badge */}
           <div className="absolute left-3 top-3 z-10">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e01e37]/30 bg-[#e01e37]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#e01e37] backdrop-blur-md">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-black/50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
               {isOnline ? (
-                <Video className="size-3" aria-hidden />
+                <Video className="size-3 text-[#e01e37]" aria-hidden />
               ) : (
-                <MapPin className="size-3" aria-hidden />
+                <MapPin className="size-3 text-[#e01e37]" aria-hidden />
               )}
               {instructor.tag}
             </span>
@@ -69,18 +70,21 @@ export const InstructorCard = memo(function InstructorCard({
               className="object-cover object-[50%_32%] transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#12161f] to-[#0b0e14]">
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#111] to-[#0a0a0a]">
               <span className="select-none text-4xl transition-transform duration-500 ease-out group-hover:scale-110 filter drop-shadow-md">
                 {instructor.icon || getCategoryIcon(instructor.category, instructor.skill)}
               </span>
             </div>
           )}
+
+          {/* Bottom gradient overlay for readability */}
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
         </div>
 
         <div className="flex flex-col flex-1 justify-between p-4">
           <div>
             <div className="flex items-center gap-1.5 min-h-[22px]">
-              <h3 className="text-sm font-bold text-[#f0f6fc] group-hover:text-white transition-colors truncate">
+              <h3 className="text-sm font-bold text-[#f5f5f5] group-hover:text-white transition-colors truncate">
                 {instructor.name}
               </h3>
               {instructor.verified && (
@@ -91,36 +95,37 @@ export const InstructorCard = memo(function InstructorCard({
               )}
             </div>
 
-            <p className="mt-0.5 text-xs font-medium text-[#e01e37] truncate">
+            <p className="mt-0.5 text-xs font-semibold text-[#e01e37] truncate">
               {instructor.skill}
             </p>
 
-            <p className="mt-2.5 text-xs leading-relaxed text-[#8b949e] line-clamp-3 min-h-[3.35rem]">
+            <p className="mt-2.5 text-xs leading-relaxed text-[#777] line-clamp-3 min-h-[3.35rem]">
               {instructor.description || 'Experienced professional focused on practical mastery, technical training, and helping students achieve high performance goals.'}
             </p>
           </div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b949e] pt-1">
-            <span className="inline-flex items-center gap-1 font-semibold text-[#f0f6fc]">
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#666] pt-1">
+            <span className="inline-flex items-center gap-1 font-semibold text-[#f5f5f5]">
               <Star className="size-3 fill-[#e01e37] text-[#e01e37]" aria-hidden />
               {instructor.rating.toFixed(1)}
-              <span className="font-normal text-[#8b949e]">
+              <span className="font-normal text-[#666]">
                 ({instructor.reviews})
               </span>
             </span>
-            <span>•</span>
+            <span className="text-[#444]">•</span>
             <span className="inline-flex items-center gap-1 truncate max-w-[150px]">
-              <MapPin className="size-3 shrink-0 text-[#8b949e]" aria-hidden />
-              <span className="truncate">{instructor.area}</span>
+              <MapPin className="size-3 shrink-0 text-[#555]" aria-hidden />
+              <span className="truncate text-[#777]">{instructor.area}</span>
             </span>
           </div>
         </div>
       </div>
 
-      <div className="mx-4 mb-4 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
-        <p className="text-sm font-extrabold text-[#f0f6fc]">
+      {/* Price + CTA */}
+      <div className="mx-4 mb-4 flex shrink-0 items-center justify-between border-t border-white/[0.06] pt-3">
+        <p className="text-sm font-extrabold text-[#f5f5f5]">
           ₹{instructor.price.toLocaleString('en-IN')}
-          <span className="text-[10px] font-normal text-[#8b949e]">/hr</span>
+          <span className="text-[10px] font-normal text-[#666]">/hr</span>
         </p>
         <button
           type="button"
@@ -130,8 +135,8 @@ export const InstructorCard = memo(function InstructorCard({
           }}
           className={`rounded-full px-4 py-1.5 text-[11px] font-bold text-white transition-all active:scale-95 ${
             booked
-              ? 'bg-[#3fb950] text-white shadow-[0_2px_8px_rgba(63,185,80,0.3)]'
-              : 'bg-[#e01e37] text-white shadow-[0_2px_8px_rgba(224,30,55,0.35)] hover:bg-[#c0182f]'
+              ? 'bg-[#3fb950] shadow-[0_2px_12px_rgba(63,185,80,0.35)]'
+              : 'gloss-btn-primary'
           }`}
         >
           {booked ? 'Booked ✓' : 'Book Session'}

@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="content-auto relative mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
       {/* Main Rounded Footer Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0d1117] p-8 sm:p-12">
+      <div className="gloss-card relative overflow-hidden rounded-3xl p-8 sm:p-12">
         <div className="grid grid-cols-1 gap-10 md:grid-cols-12 md:gap-8">
           
           {/* Brand & Description */}
@@ -30,7 +30,7 @@ export function Footer() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-[#161b22] text-[#8b949e] transition-colors hover:text-white"
+                className="gloss-btn-secondary flex size-9 items-center justify-center rounded-full text-[#888] transition-colors hover:text-white"
               >
                 <svg
                   className="size-4 fill-current"
