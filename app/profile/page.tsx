@@ -20,7 +20,9 @@ import {
   Clock,
   Sparkles,
   Camera,
-  Upload
+  Upload,
+  LayoutDashboard,
+  ArrowRight
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
@@ -74,12 +76,36 @@ export default function ProfilePage() {
         setUser(user)
         setNameInput(user.user_metadata?.full_name || '')
 
-        // Fetch profile from profiles table
-        const { data: profile } = await supabase
+        // Fetch profile from profiles table (using valid columns only)
+        let { data: profile } = await supabase
           .from('profiles')
-          .select('role, full_name, city, phone, avatar_url')
+          .select('id, email, role, full_name, city, phone, skill')
           .eq('id', user.id)
           .maybeSingle()
+
+        if (!profile && user.email) {
+          const { data: profileByEmail } = await supabase
+            .from('profiles')
+            .select('id, email, role, full_name, city, phone, skill')
+            .eq('email', user.email)
+            .maybeSingle()
+
+          if (profileByEmail) {
+            profile = profileByEmail
+            // Keep user row in sync with current auth user id
+            await supabase
+              .from('profiles')
+              .upsert({
+                id: user.id,
+                email: user.email,
+                role: profileByEmail.role || 'user',
+                full_name: profileByEmail.full_name || user.user_metadata?.full_name || null,
+                city: profileByEmail.city || null,
+                phone: profileByEmail.phone || null,
+                updated_at: new Date().toISOString()
+              })
+          }
+        }
 
         if (profile) {
           setProfileData(profile)
@@ -88,7 +114,7 @@ export default function ProfilePage() {
           }
         }
 
-        const resolvedAvatar = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+        const resolvedAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
         setAvatarUrl(resolvedAvatar)
 
         // Fetch user's bookings from bookings table
@@ -109,18 +135,63 @@ export default function ProfilePage() {
           if (isMounted) setLoadingBookings(false)
         }
 
-        // Check instructor role
-        if (user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor' || profile?.role === 'instructor') {
-          setIsInstructor(true)
-        } else {
-          const { data: application } = await supabase
-            .from('instructor_applications')
-            .select('status')
-            .eq('user_id', user.id)
-            .eq('status', 'approved')
+        // Comprehensive instructor role check
+        let isInst = false
+
+        // 1. Metadata check
+        if (user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor') {
+          isInst = true
+        }
+
+        // 2. Profile role check
+        if (profile?.role === 'instructor') {
+          isInst = true
+        }
+
+        // 3. Fallback for Palash or application record
+        if (!isInst && user.email) {
+          if (user.email.toLowerCase() === '2001palash@gmail.com') {
+            isInst = true
+          } else {
+            const { data: application } = await supabase
+              .from('instructor_applications')
+              .select('id, status')
+              .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+              .maybeSingle()
+
+            if (application) isInst = true
+          }
+        }
+
+        // 4. Instructors table check by id or user_id
+        if (!isInst) {
+          const { data: instData } = await supabase
+            .from('instructors')
+            .select('id')
+            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
             .maybeSingle()
 
-          if (application) setIsInstructor(true)
+          if (instData) isInst = true
+        }
+
+        if (isInst && isMounted) {
+          setIsInstructor(true)
+          // Ensure profile role and user metadata stay permanently updated
+          if (profile?.role !== 'instructor') {
+            await supabase
+              .from('profiles')
+              .upsert({
+                id: user.id,
+                email: user.email,
+                role: 'instructor',
+                updated_at: new Date().toISOString()
+              })
+          }
+          if (user.user_metadata?.role !== 'instructor') {
+            await supabase.auth.updateUser({
+              data: { role: 'instructor' }
+            })
+          }
         }
       } catch {
         if (isMounted) router.push('/login')
@@ -230,22 +301,16 @@ export default function ProfilePage() {
         data: { avatar_url: publicUrl }
       })
 
-      // 4. Persist to profiles table
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          avatar_url: publicUrl,
-          email: user.email,
-          updated_at: new Date().toISOString()
-        })
-
-      // 5. If user is an instructor, also update instructors table
+      // 4. If user is an instructor, also update instructors table image_urls
       if (isInstructor) {
-        await supabase
-          .from('instructors')
-          .update({ image: publicUrl })
-          .eq('id', user.id)
+        try {
+          await supabase
+            .from('instructors')
+            .update({ image_urls: [publicUrl] })
+            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+        } catch {
+          // Non-critical
+        }
       }
 
       setSaveStatus({ type: 'success', text: 'Profile picture updated successfully!' })
@@ -281,9 +346,20 @@ export default function ProfilePage() {
           <ArrowLeft className="size-4" />
           Back to Explore
         </Link>
-        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22]/70 px-3.5 py-1.5 backdrop-blur-xl">
-          <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-          <span className="text-xs font-semibold text-[#f0f6fc]">Account Active</span>
+        <div className="flex items-center gap-3">
+          {isInstructor && (
+            <Link
+              href="/dashboard/instructor"
+              className="inline-flex items-center gap-2 rounded-full border border-[#e01e37]/40 bg-[#e01e37]/15 px-3.5 py-1.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(224,30,55,0.3)] transition-all hover:bg-[#e01e37] hover:border-[#e01e37] active:scale-95"
+            >
+              <LayoutDashboard className="size-3.5 text-[#e01e37]" />
+              <span>Instructor Dashboard</span>
+            </Link>
+          )}
+          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22]/70 px-3.5 py-1.5 backdrop-blur-xl">
+            <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            <span className="text-xs font-semibold text-[#f0f6fc]">Account Active</span>
+          </div>
         </div>
       </div>
 
@@ -355,9 +431,10 @@ export default function ProfilePage() {
               {isInstructor && (
                 <Link
                   href="/dashboard/instructor"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] px-4 py-2.5 text-sm font-bold text-white shadow-[0_4px_16px_rgba(224,30,55,0.4)] transition-all hover:brightness-110 active:scale-95"
                 >
-                  Instructor Dashboard
+                  <LayoutDashboard className="size-4" />
+                  <span>Instructor Dashboard</span>
                 </Link>
               )}
               <button
@@ -414,6 +491,35 @@ export default function ProfilePage() {
         <div className="mt-8 space-y-6">
           {activeTab === 'overview' && (
             <>
+              {/* Instructor Hub Quick-Launch Banner */}
+              {isInstructor && (
+                <div className="relative overflow-hidden rounded-2xl border border-[#e01e37]/40 bg-gradient-to-r from-[#e01e37]/20 via-[#161b22] to-[#161b22] p-5 sm:p-6 shadow-xl backdrop-blur-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                    <div className="flex items-start gap-4">
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-[#e01e37] text-white shadow-lg shadow-[#e01e37]/40">
+                        <LayoutDashboard className="size-6" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base sm:text-lg font-bold text-white">Instructor Hub Active</h3>
+                          <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">Live</span>
+                        </div>
+                        <p className="text-xs text-[#8b949e] mt-1 max-w-xl">
+                          Manage your incoming student requests, schedule calendar slots, track earnings and customize training packages in your Instructor Dashboard.
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href="/dashboard/instructor"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-[#e01e37]/30 transition hover:bg-[#c0182f] active:scale-95 shrink-0"
+                    >
+                      <span>Open Dashboard</span>
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
                   <div className="flex items-center justify-between text-[#8b949e] mb-4">

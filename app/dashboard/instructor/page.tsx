@@ -307,27 +307,35 @@ export default function InstructorDashboard() {
           .replace(/[^a-z0-9]/g, '')
         setBookingSlug(slug)
 
-        // 1. Fetch profile for skill and avatar
-        const { data: profile } = await supabase
+        // 1. Fetch profile for skill and name (valid columns only)
+        let { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, skill, avatar_url')
+          .select('full_name, skill, role')
           .eq('id', user.id)
           .maybeSingle()
+
+        if (!profile && user.email) {
+          const { data: pEmail } = await supabase
+            .from('profiles')
+            .select('full_name, skill, role')
+            .eq('email', user.email)
+            .maybeSingle()
+          if (pEmail) profile = pEmail
+        }
 
         if (profile) {
           if (profile.full_name) setProfileName(profile.full_name)
           if (profile.skill) setProfileSkill(profile.skill)
         }
 
-        const profilePic = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+        const profilePic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
         setAvatarUrl(profilePic)
 
         // 2. Fetch instructor application if available
-        const { data: appData } = await supabase
-          .from('instructor_applications')
-          .select('full_name, skill, hourly_rate')
-          .eq('user_id', user.id)
-          .maybeSingle()
+        let appQuery = supabase.from('instructor_applications').select('full_name, skill, price_per_hour')
+        const { data: appData } = user.email
+          ? await appQuery.or(`user_id.eq.${user.id},email.eq.${user.email}`).maybeSingle()
+          : await appQuery.eq('user_id', user.id).maybeSingle()
 
         if (appData) {
           if (appData.full_name && !profile?.full_name) setProfileName(appData.full_name)
@@ -583,19 +591,14 @@ export default function InstructorDashboard() {
         data: { avatar_url: publicUrl }
       })
 
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          avatar_url: publicUrl,
-          email: user.email,
-          updated_at: new Date().toISOString()
-        })
-
-      await supabase
-        .from('instructors')
-        .update({ image: publicUrl })
-        .eq('id', user.id)
+      try {
+        await supabase
+          .from('instructors')
+          .update({ image_urls: [publicUrl] })
+          .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+      } catch {
+        // Non-critical
+      }
     } catch (err) {
       console.warn('Avatar upload notice:', err)
     } finally {
@@ -706,20 +709,24 @@ export default function InstructorDashboard() {
             })}
           </nav>
 
-          {/* General Section */}
-          <p className="px-3 mt-8 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">General</p>
+          {/* Navigation & Account Section */}
+          <p className="px-3 mt-8 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">Navigation</p>
           <nav className="space-y-1">
             <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+              <UserIcon className="size-[18px] text-[#e01e37]" />
+              <span>Learner Profile</span>
+            </Link>
+            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+              <ArrowLeft className="size-[18px]" />
+              <span>Back to Explore</span>
+            </Link>
+            <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
               <Settings className="size-[18px]" />
-              <span>Settings</span>
+              <span>Account Settings</span>
             </Link>
             <Link href="/support" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
               <HelpCircle className="size-[18px]" />
               <span>Help & Support</span>
-            </Link>
-            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
-              <LogOut className="size-[18px]" />
-              <span>Back to Explore</span>
             </Link>
           </nav>
         </div>
@@ -812,6 +819,26 @@ export default function InstructorDashboard() {
 
           {/* Right: Actions + Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick Toggle: Learner Profile */}
+            <Link
+              href="/profile"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#12161f]/80 px-3 py-1.5 text-xs font-semibold text-[#f0f6fc] backdrop-blur-md transition hover:border-[#e01e37]/40 hover:bg-[#e01e37]/10 active:scale-95"
+              title="Switch to Learner Profile"
+            >
+              <UserIcon className="size-3.5 text-[#e01e37]" />
+              <span className="hidden sm:inline">Learner Profile</span>
+            </Link>
+
+            {/* Quick Toggle: Explore Skills */}
+            <Link
+              href="/"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#12161f]/80 px-3 py-1.5 text-xs font-semibold text-[#8b949e] backdrop-blur-md transition hover:border-white/20 hover:text-white active:scale-95"
+              title="Explore Skills"
+            >
+              <ArrowLeft className="size-3.5" />
+              <span>Explore</span>
+            </Link>
+
             <button 
               onClick={() => setActiveTab('inbox')}
               className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white"
@@ -2127,7 +2154,23 @@ export default function InstructorDashboard() {
                   )
                 })}
 
-                <p className="px-3 mt-6 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">General</p>
+                <p className="px-3 mt-6 mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6e7681]">Navigation & Account</p>
+                <Link
+                  href="/profile"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
+                >
+                  <UserIcon className="size-[18px] text-[#e01e37]" />
+                  <span>Learner Profile</span>
+                </Link>
+                <Link
+                  href="/"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
+                >
+                  <ArrowLeft className="size-[18px]" />
+                  <span>Back to Explore</span>
+                </Link>
                 <Link
                   href="/profile"
                   onClick={() => setIsMobileMenuOpen(false)}

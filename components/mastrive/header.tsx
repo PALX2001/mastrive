@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Wallet, User, Menu, X } from 'lucide-react'
+import { Wallet, User, Menu, X, LayoutDashboard } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -28,6 +28,7 @@ export function Header({
   const [loading, setLoading] = useState(true)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [isInstructor, setIsInstructor] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,20 +45,63 @@ export function Header({
   useEffect(() => {
     const supabase = createClient()
 
-    const fetchUserProfile = async (userId: string) => {
+    const fetchUserProfile = async (userId: string, userEmail?: string) => {
       try {
-        const { data: profile } = await supabase
+        let isInst = false
+
+        // 1. Check user metadata first
+        if (user?.user_metadata?.role === 'instructor' || user?.app_metadata?.role === 'instructor') {
+          isInst = true
+        }
+
+        // 2. Fetch profile by id OR email (valid columns only)
+        let { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('full_name, role')
           .eq('id', userId)
           .maybeSingle()
+
+        if (!profile && userEmail) {
+          const { data: pEmail } = await supabase
+            .from('profiles')
+            .select('full_name, role')
+            .eq('email', userEmail)
+            .maybeSingle()
+          if (pEmail) profile = pEmail
+        }
 
         if (profile?.full_name) {
           setProfileName(profile.full_name)
         }
-        if (profile?.avatar_url) {
-          setProfileAvatarUrl(profile.avatar_url)
+        if (profile?.role === 'instructor') {
+          isInst = true
         }
+
+        // 3. Fallback for Palash or application check
+        if (!isInst && userEmail) {
+          if (userEmail.toLowerCase() === '2001palash@gmail.com') {
+            isInst = true
+          } else {
+            const { data: appData } = await supabase
+              .from('instructor_applications')
+              .select('id')
+              .or(`user_id.eq.${userId},email.eq.${userEmail}`)
+              .maybeSingle()
+            if (appData) isInst = true
+          }
+        }
+
+        // 4. Check instructors table by id or user_id
+        if (!isInst) {
+          const { data: inst } = await supabase
+            .from('instructors')
+            .select('id')
+            .or(`id.eq.${userId},user_id.eq.${userId}`)
+            .maybeSingle()
+          if (inst) isInst = true
+        }
+
+        setIsInstructor(isInst)
       } catch {
         // ignore error
       }
@@ -71,7 +115,7 @@ export function Header({
         } = await supabase.auth.getUser()
         setUser(user)
         if (user) {
-          fetchUserProfile(user.id)
+          fetchUserProfile(user.id, user.email)
         }
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
@@ -90,9 +134,11 @@ export function Header({
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {
-        fetchUserProfile(session.user.id)
+        fetchUserProfile(session.user.id, session.user.email)
       } else {
         setProfileName(null)
+        setProfileAvatarUrl(null)
+        setIsInstructor(false)
       }
       setLoading(false)
     })
@@ -192,38 +238,50 @@ export function Header({
           ) : (
             <>
               {/* Desktop Auth Controls */}
-              <div className="hidden xl:flex">
+              <div className="hidden xl:flex items-center gap-2.5">
                 {user ? (
-                  <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
-                    <Link
-                      href="/profile"
-                      className="flex items-center gap-2 text-xs font-semibold text-[#f5f5f5] hover:text-white transition-colors"
-                    >
-                      <span className="max-w-[130px] truncate">
-                        {displayName}
-                      </span>
-                    </Link>
+                  <>
+                    {isInstructor && (
+                      <Link
+                        href="/dashboard/instructor"
+                        className="gloss-pill flex h-[50px] items-center gap-2 rounded-full px-4 text-xs font-bold text-white transition-all hover:border-[#e01e37]/50 hover:bg-[#e01e37]/15 hover:shadow-[0_0_20px_rgba(224,30,55,0.3)] active:scale-95"
+                      >
+                        <LayoutDashboard className="size-4 text-[#e01e37]" />
+                        <span>Dashboard</span>
+                      </Link>
+                    )}
 
-                    <div className="h-4 w-px bg-white/[0.08]" />
+                    <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-2 text-xs font-semibold text-[#f5f5f5] hover:text-white transition-colors"
+                      >
+                        <span className="max-w-[130px] truncate">
+                          {displayName}
+                        </span>
+                      </Link>
 
-                    <Link
-                      href="/profile"
-                      aria-label="User Profile"
-                      className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#e01e37]/10 text-white transition-all hover:bg-[#e01e37] hover:shadow-[0_2px_12px_rgba(224,30,55,0.4)]"
-                    >
-                      {userAvatarUrl ? (
-                        <Image
-                          src={userAvatarUrl}
-                          alt="Profile"
-                          width={28}
-                          height={28}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <User className="size-4" />
-                      )}
-                    </Link>
-                  </div>
+                      <div className="h-4 w-px bg-white/[0.08]" />
+
+                      <Link
+                        href="/profile"
+                        aria-label="User Profile"
+                        className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#e01e37]/10 text-white transition-all hover:bg-[#e01e37] hover:shadow-[0_2px_12px_rgba(224,30,55,0.4)]"
+                      >
+                        {userAvatarUrl ? (
+                          <Image
+                            src={userAvatarUrl}
+                            alt="Profile"
+                            width={28}
+                            height={28}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <User className="size-4" />
+                        )}
+                      </Link>
+                    </div>
+                  </>
                 ) : (
                   <div className="gloss-pill flex h-[50px] items-center gap-3 rounded-full px-4">
                     <Link
@@ -242,32 +300,45 @@ export function Header({
                 )}
               </div>
 
-              {/* Mobile & Tablet Profile Button (< 1280px) */}
-              <Link
-                href={user ? '/profile' : '/login'}
-                aria-label={user ? 'Profile' : 'Sign in'}
-                className="gloss-pill relative flex size-10 items-center justify-center rounded-full p-0.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)] active:scale-95 xl:hidden"
-              >
-                <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-[#0a0a0a]">
-                  {userAvatarUrl ? (
-                    <Image
-                      src={userAvatarUrl}
-                      alt="Profile Avatar"
-                      width={36}
-                      height={36}
-                      className="size-full object-cover"
-                    />
-                  ) : user ? (
-                    <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e01e37] to-[#800016] text-white">
-                      <User className="size-5" />
-                    </div>
-                  ) : (
-                    <div className="flex size-full items-center justify-center bg-[#111] text-[#e01e37]">
-                      <User className="size-5" />
-                    </div>
-                  )}
-                </div>
-              </Link>
+              {/* Mobile & Tablet Profile / Dashboard Buttons (< 1280px) */}
+              <div className="flex items-center gap-2 xl:hidden">
+                {user && isInstructor && (
+                  <Link
+                    href="/dashboard/instructor"
+                    aria-label="Instructor Dashboard"
+                    className="gloss-pill flex size-10 items-center justify-center rounded-full text-[#e01e37] transition-all hover:border-[#e01e37]/50 active:scale-95"
+                    title="Instructor Dashboard"
+                  >
+                    <LayoutDashboard className="size-4" />
+                  </Link>
+                )}
+
+                <Link
+                  href={user ? '/profile' : '/login'}
+                  aria-label={user ? 'Profile' : 'Sign in'}
+                  className="gloss-pill relative flex size-10 items-center justify-center rounded-full p-0.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)] active:scale-95"
+                >
+                  <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-[#0a0a0a]">
+                    {userAvatarUrl ? (
+                      <Image
+                        src={userAvatarUrl}
+                        alt="Profile Avatar"
+                        width={36}
+                        height={36}
+                        className="size-full object-cover"
+                      />
+                    ) : user ? (
+                      <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e01e37] to-[#800016] text-white">
+                        <User className="size-5" />
+                      </div>
+                    ) : (
+                      <div className="flex size-full items-center justify-center bg-[#111] text-[#e01e37]">
+                        <User className="size-5" />
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </div>
             </>
           )}
         </div>
@@ -334,33 +405,46 @@ export function Header({
               </nav>
 
               {user ? (
-                <Link
-                  href="/profile"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="mt-auto flex items-center justify-between rounded-xl border border-white/10 bg-[#161b22] p-3.5 hover:border-white/20 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/20 text-[#e01e37] overflow-hidden">
-                      {userAvatarUrl ? (
-                        <Image
-                          src={userAvatarUrl}
-                          alt="Profile"
-                          width={36}
-                          height={36}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <User className="size-4" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white max-w-[150px] truncate">
-                        {displayName}
+                <div className="mt-auto space-y-2">
+                  {isInstructor && (
+                    <Link
+                      href="/dashboard/instructor"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex w-full items-center gap-3 rounded-xl bg-gradient-to-r from-[#e01e37]/25 to-[#e01e37]/10 border border-[#e01e37]/40 p-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#e01e37]/30"
+                    >
+                      <LayoutDashboard className="size-4 text-[#e01e37]" />
+                      <span>Instructor Dashboard</span>
+                    </Link>
+                  )}
+
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-between rounded-xl border border-white/10 bg-[#161b22] p-3.5 hover:border-white/20 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/20 text-[#e01e37] overflow-hidden">
+                        {userAvatarUrl ? (
+                          <Image
+                            src={userAvatarUrl}
+                            alt="Profile"
+                            width={36}
+                            height={36}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <User className="size-4" />
+                        )}
                       </div>
-                      <div className="text-[11px] text-[#8b949e]">View profile & bookings</div>
+                      <div>
+                        <div className="text-sm font-bold text-white max-w-[150px] truncate">
+                          {displayName}
+                        </div>
+                        <div className="text-[11px] text-[#8b949e]">View profile & bookings</div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               ) : (
                 <div className="mt-auto flex flex-col gap-2 pt-4 border-t border-white/10">
                   <Link
