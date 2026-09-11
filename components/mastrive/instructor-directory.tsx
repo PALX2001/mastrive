@@ -257,30 +257,19 @@ export function InstructorDirectory({
         if (process.env.NODE_ENV !== 'production') console.warn('Applications table fallback notice:', e)
       }
 
-      // 3. Load from localStorage for instant offline/optimistic appearance
-      if (typeof window !== 'undefined') {
-        try {
-          const cached = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
-          if (Array.isArray(cached)) {
-            for (const item of cached) {
-              if (item?.id && !seenIds.has(item.id)) {
-                seenIds.add(item.id)
-                seenNames.add(item.name?.toLowerCase().trim())
-                mergedList.push(item)
-              }
-            }
-          }
-        } catch {}
-      }
-
       if (mounted) {
         setPublishedInstructors(mergedList)
       }
     }
 
+    // Clear any stale localStorage instructor data — Supabase is the single source of truth now
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mastrive_custom_instructors')
+    }
+
     loadAllInstructors()
 
-    // 4. Subscribe to Supabase Realtime for live changes in the instructors table
+    // Subscribe to Supabase Realtime for live changes in the instructors table
     const channel = supabase
       .channel('instructors-realtime-sync')
       .on(
@@ -321,18 +310,9 @@ export function InstructorDirectory({
       )
       .subscribe()
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('mastrive_instructors_updated', loadAllInstructors)
-      window.addEventListener('storage', loadAllInstructors)
-    }
-
     return () => {
       mounted = false
       supabase.removeChannel(channel)
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('mastrive_instructors_updated', loadAllInstructors)
-        window.removeEventListener('storage', loadAllInstructors)
-      }
     }
   }, [])
 
