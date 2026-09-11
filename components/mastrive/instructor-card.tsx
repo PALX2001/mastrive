@@ -33,11 +33,11 @@ export const InstructorCard = memo(function InstructorCard({
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.3 }}
       onClick={() => onCardClick?.(instructor)}
-      className="group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all duration-300 hover:border-white/25 hover:shadow-2xl will-change-transform transform-gpu cursor-pointer"
+      className="group flex h-full min-h-[420px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 bg-[#161b22] transition-all duration-300 hover:border-white/25 hover:shadow-2xl will-change-transform transform-gpu cursor-pointer"
     >
-      <div>
+      <div className="flex flex-col flex-1">
         {/* Media / Image Container with Fixed Proportion & Perfect Ratio Fit */}
-        <div className="relative h-48 w-full overflow-hidden bg-[#0d1117]/80">
+        <div className="relative h-48 w-full shrink-0 overflow-hidden bg-[#0d1117]/80">
           <div className="absolute left-3 top-3 z-10">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e01e37]/30 bg-[#e01e37]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#e01e37] backdrop-blur-md">
               {isOnline ? (
@@ -68,28 +68,30 @@ export const InstructorCard = memo(function InstructorCard({
           )}
         </div>
 
-        <div className="p-4">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-bold text-[#f0f6fc] group-hover:text-white transition-colors">
-              {instructor.name}
-            </h3>
-            {instructor.verified && (
-              <BadgeCheck
-                className="size-4 text-[#3fb950]"
-                aria-label="Verified instructor"
-              />
-            )}
+        <div className="flex flex-col flex-1 justify-between p-4">
+          <div>
+            <div className="flex items-center gap-1.5 min-h-[22px]">
+              <h3 className="text-sm font-bold text-[#f0f6fc] group-hover:text-white transition-colors truncate">
+                {instructor.name}
+              </h3>
+              {instructor.verified && (
+                <BadgeCheck
+                  className="size-4 shrink-0 text-[#3fb950]"
+                  aria-label="Verified instructor"
+                />
+              )}
+            </div>
+
+            <p className="mt-0.5 text-xs font-medium text-[#e01e37] truncate">
+              {instructor.skill}
+            </p>
+
+            <p className="mt-2.5 text-xs leading-relaxed text-[#8b949e] line-clamp-3 min-h-[3.35rem]">
+              {instructor.description || 'Experienced professional focused on practical mastery, technical training, and helping students achieve high performance goals.'}
+            </p>
           </div>
 
-          <p className="mt-0.5 text-xs font-medium text-[#e01e37]">
-            {instructor.skill}
-          </p>
-
-          <p className="mt-2.5 text-xs leading-relaxed text-[#8b949e] line-clamp-3">
-            {instructor.description || 'Experienced professional focused on practical mastery, technical training, and helping students achieve high performance goals.'}
-          </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b949e]">
+          <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#8b949e] pt-1">
             <span className="inline-flex items-center gap-1 font-semibold text-[#f0f6fc]">
               <Star className="size-3 fill-[#e01e37] text-[#e01e37]" aria-hidden />
               {instructor.rating.toFixed(1)}
@@ -98,15 +100,15 @@ export const InstructorCard = memo(function InstructorCard({
               </span>
             </span>
             <span>•</span>
-            <span className="inline-flex items-center gap-1">
-              <MapPin className="size-3 text-[#8b949e]" aria-hidden />
-              {instructor.area}
+            <span className="inline-flex items-center gap-1 truncate max-w-[150px]">
+              <MapPin className="size-3 shrink-0 text-[#8b949e]" aria-hidden />
+              <span className="truncate">{instructor.area}</span>
             </span>
           </div>
         </div>
       </div>
 
-      <div className="mx-4 mb-4 flex items-center justify-between border-t border-white/10 pt-3">
+      <div className="mx-4 mb-4 flex shrink-0 items-center justify-between border-t border-white/10 pt-3">
         <p className="text-sm font-extrabold text-[#f0f6fc]">
           ₹{instructor.price.toLocaleString('en-IN')}
           <span className="text-[10px] font-normal text-[#8b949e]">/hr</span>

@@ -304,3 +304,4 @@ select
   now()
 from public.instructor_applications app
 on conflict (application_id) do nothing;
+

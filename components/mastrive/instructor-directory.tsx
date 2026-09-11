@@ -358,7 +358,7 @@ export function InstructorDirectory({
                 <motion.div
                   key={instructor.id}
                   style={{ y: parallaxY }}
-                  className="w-full transform-gpu will-change-transform"
+                  className="w-full h-full flex flex-col transform-gpu will-change-transform"
                 >
                   <InstructorCard
                     instructor={instructor}
