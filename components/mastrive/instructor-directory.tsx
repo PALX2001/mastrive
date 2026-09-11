@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
 import { Star, Quote } from 'lucide-react'
-import { instructors, type CategoryId, type Instructor } from '@/lib/data'
+import { type CategoryId, type Instructor } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
 import type { BookingInstructor } from './booking-modal'
@@ -152,7 +152,6 @@ export function InstructorDirectory({
   const [selectedInstructor, setSelectedInstructor] = useState<BookingInstructor | null>(null)
   const [activeProfileInstructor, setActiveProfileInstructor] = useState<Instructor | null>(null)
   const [publishedInstructors, setPublishedInstructors] = useState<Instructor[]>([])
-  const [isDbActive, setIsDbActive] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Track scroll position right as section enters viewport
@@ -190,7 +189,6 @@ export function InstructorDirectory({
           .order('published_at', { ascending: false })
 
         if (!instErr && dbInstructors && dbInstructors.length > 0) {
-          if (mounted) setIsDbActive(true)
           for (const row of dbInstructors) {
             const mapped = toInstructor(row)
             const normalizedName = mapped.name?.toLowerCase().trim()
@@ -290,7 +288,6 @@ export function InstructorDirectory({
         { event: '*', schema: 'public', table: 'instructors' },
         (payload) => {
           if (!mounted) return
-          setIsDbActive(true)
 
           if (payload.eventType === 'INSERT') {
             const row = payload.new as PublishedInstructorRow
@@ -339,12 +336,7 @@ export function InstructorDirectory({
     }
   }, [])
 
-  const allInstructors = useMemo(() => {
-    if (isDbActive || publishedInstructors.length > 0) {
-      return publishedInstructors
-    }
-    return instructors
-  }, [isDbActive, publishedInstructors])
+  const allInstructors = useMemo(() => publishedInstructors, [publishedInstructors])
 
   // Parallax offsets
   const col1Y = useTransform(smoothProgress, [0, 1], [40, 0])
