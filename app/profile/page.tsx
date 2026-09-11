@@ -14,7 +14,11 @@ import {
   CreditCard, 
   ArrowLeft,
   CheckCircle2,
-  MapPin
+  MapPin,
+  Video,
+  ShieldCheck,
+  Clock,
+  Sparkles
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
@@ -30,6 +34,8 @@ export default function ProfilePage() {
   const [nameInput, setNameInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [bookings, setBookings] = useState<any[]>([])
+  const [loadingBookings, setLoadingBookings] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -60,6 +66,24 @@ export default function ProfilePage() {
           if (profile.full_name && !user.user_metadata?.full_name) {
             setNameInput(profile.full_name)
           }
+        }
+
+        // Fetch user's bookings from bookings table
+        setLoadingBookings(true)
+        try {
+          const { data: userBookings } = await supabase
+            .from('bookings')
+            .select('*')
+            .or(`user_id.eq.${user.id},customer_email.eq.${user.email}`)
+            .order('created_at', { ascending: false })
+
+          if (userBookings && isMounted) {
+            setBookings(userBookings)
+          }
+        } catch {
+          // Table might still be synchronizing
+        } finally {
+          if (isMounted) setLoadingBookings(false)
         }
 
         // Check instructor role
@@ -239,6 +263,11 @@ export default function ProfilePage() {
             }`}
           >
             <Calendar className="size-4" /> My Bookings
+            {bookings.length > 0 && (
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">
+                {bookings.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('settings')}
@@ -297,18 +326,115 @@ export default function ProfilePage() {
           )}
 
           {activeTab === 'bookings' && (
-            <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-12 text-center backdrop-blur-xl">
-              <Calendar className="mx-auto size-12 text-[#8b949e]/40 mb-4" />
-              <h3 className="text-lg font-semibold text-white">No session history found</h3>
-              <p className="text-sm text-[#8b949e] mt-1 max-w-sm mx-auto">
-                Explore local coaches or 1-on-1 live streams and book your first session to see it listed here.
-              </p>
-              <Link
-                href="/"
-                className="mt-6 inline-flex items-center justify-center rounded-full bg-[#e01e37] px-6 py-2.5 text-xs font-bold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]"
-              >
-                Browse Instructors
-              </Link>
+            <div className="space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Your Booked Sessions</h3>
+                  <p className="text-xs text-[#8b949e]">
+                    100% Escrow Protected: Funds are safely held by Mastrive and released to the coach only after the session.
+                  </p>
+                </div>
+                <Link
+                  href="/"
+                  className="self-start sm:self-auto rounded-full border border-white/10 bg-[#161b22] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10"
+                >
+                  + Book Another Coach
+                </Link>
+              </div>
+
+              {loadingBookings ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2].map((n) => (
+                    <div key={n} className="h-44 animate-pulse rounded-2xl border border-white/10 bg-[#161b22]/40" />
+                  ))}
+                </div>
+              ) : bookings.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {bookings.map((b) => {
+                    const isOnline = b.mode === 'online'
+                    return (
+                      <div
+                        key={b.id}
+                        className="rounded-2xl border border-white/10 bg-[#161b22]/70 p-5 shadow-xl backdrop-blur-xl transition hover:border-white/20"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400">
+                              <ShieldCheck className="size-3" /> 100% Escrow Secured
+                            </span>
+                            <h4 className="mt-2 text-base font-bold text-white">
+                              {b.instructor_name}
+                            </h4>
+                            <p className="text-xs font-semibold text-[#e01e37]">
+                              {b.instructor_skill}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-extrabold text-white">
+                              ₹{Number(b.total_amount).toLocaleString('en-IN')}
+                            </span>
+                            <p className="text-[10px] text-[#8b949e] uppercase">
+                              {b.payment_method === 'upi_qr' ? 'UPI Instant' : 'Razorpay Online'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/5 pt-3 text-xs text-[#8b949e]">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="size-3.5 text-[#e01e37]" />
+                            <span className="truncate">{b.session_date}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="size-3.5 text-[#e01e37]" />
+                            <span>{b.session_time}</span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#8b949e]">
+                            {isOnline ? (
+                              <span className="flex items-center gap-1 text-blue-400">
+                                <Video className="size-3" /> 1-on-1 Live Stream
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-amber-400">
+                                <MapPin className="size-3" /> In-Person Studio
+                              </span>
+                            )}
+                          </span>
+
+                          {isOnline ? (
+                            <Link
+                              href="/demo"
+                              className="rounded-xl bg-[#e01e37] px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-[#e01e37]/25 transition hover:bg-[#c0182f]"
+                            >
+                              Join Live Room
+                            </Link>
+                          ) : (
+                            <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white">
+                              Venue Confirmed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-12 text-center backdrop-blur-xl">
+                  <Calendar className="mx-auto size-12 text-[#8b949e]/40 mb-4" />
+                  <h3 className="text-lg font-semibold text-white">No session history found</h3>
+                  <p className="text-sm text-[#8b949e] mt-1 max-w-sm mx-auto">
+                    Explore local coaches or 1-on-1 live streams and book your first session to see it listed here.
+                  </p>
+                  <Link
+                    href="/"
+                    className="mt-6 inline-flex items-center justify-center rounded-full bg-[#e01e37] px-6 py-2.5 text-xs font-bold text-white shadow-[0_4px_12px_rgba(224,30,55,0.35)] transition-all hover:bg-[#c0182f]"
+                  >
+                    Browse Instructors
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 
