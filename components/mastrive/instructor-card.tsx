@@ -2,7 +2,7 @@
 
 import React, { memo } from 'react'
 import Image from 'next/image'
-import { BadgeCheck, MapPin, Star, Video } from 'lucide-react'
+import { BadgeCheck, MapPin, Star, Video, Trash2 } from 'lucide-react'
 import { motion } from 'motion/react'
 import type { Instructor } from '@/lib/data'
 
@@ -16,11 +16,13 @@ export const InstructorCard = memo(function InstructorCard({
   instructor,
   onBook,
   onCardClick,
+  onRemove,
   booked,
 }: {
   instructor: InstructorWithMedia
   onBook: (id: string) => void
   onCardClick?: (instructor: Instructor) => void
+  onRemove?: (id: string) => void
   booked: boolean
 }) {
   const isOnline = instructor.mode === 'online'
@@ -48,6 +50,22 @@ export const InstructorCard = memo(function InstructorCard({
               {instructor.tag}
             </span>
           </div>
+
+          {onRemove && (
+            <button
+              type="button"
+              title="Remove card"
+              onClick={(e) => {
+                e.stopPropagation()
+                if (confirm(`Remove ${instructor.name}'s card?`)) {
+                  onRemove(instructor.id)
+                }
+              }}
+              className="absolute right-3 top-3 z-20 flex size-7 items-center justify-center rounded-full bg-black/60 text-white/70 backdrop-blur transition-all hover:bg-red-600 hover:text-white"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
 
           {instructor.image && !imgError ? (
             <Image
