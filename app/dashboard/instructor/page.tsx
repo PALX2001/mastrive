@@ -46,7 +46,8 @@ import {
   Settings,
   LayoutDashboard,
   Mail,
-  CircleDot
+  CircleDot,
+  Camera
 } from 'lucide-react'
 
 type DashTab = 'dash' | 'inbox' | 'calendar' | 'earnings' | 'services'
@@ -156,249 +157,123 @@ export default function InstructorDashboard() {
   const [rescheduleDate, setRescheduleDate] = useState('')
 
   // Withdraw & Services states
-  const [withdrawAmount, setWithdrawAmount] = useState('8500')
+  const [withdrawAmount, setWithdrawAmount] = useState('0')
   const [withdrawSuccess, setWithdrawSuccess] = useState(false)
   const [newServiceName, setNewServiceName] = useState('')
   const [newServicePrice, setNewServicePrice] = useState('')
   const [newServiceDuration, setNewServiceDuration] = useState('60 min')
   const [newServiceMode, setNewServiceMode] = useState<'in-person' | 'online' | 'both'>('in-person')
 
+  // Slot modal states
+  const [newSlotDay, setNewSlotDay] = useState('Monday')
+  const [newSlotTime, setNewSlotTime] = useState('06:00 PM - 07:00 PM')
+  const [newSlotTitle, setNewSlotTitle] = useState('1-on-1 Coaching')
+  const [newSlotType, setNewSlotType] = useState<'in-person' | 'online'>('in-person')
+
+  // Avatar states
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const dashAvatarInputRef = useRef<HTMLInputElement>(null)
+
   // Chat thread states
-  const [selectedThreadId, setSelectedThreadId] = useState<string>('t1')
+  const [selectedThreadId, setSelectedThreadId] = useState<string>('')
   const [chatInput, setChatInput] = useState('')
   const [threadSearch, setThreadSearch] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // State for active request items
-  const [requests, setRequests] = useState<RequestItem[]>([
-    {
-      id: 'req-1',
-      name: 'Vikram Malhotra',
-      service: 'Boxing 1-on-1 Sparring',
-      mode: 'in-person',
-      location: 'Siri Fort Sports Complex, Delhi',
-      price: 1500,
-      message: '"Ready for the Saturday session at 5 PM? Have my own wraps."',
-      status: 'accepted',
-      time: '5:00 PM - 6:00 PM',
-      date: 'Today, 24 Oct',
-    },
-    {
-      id: 'req-2',
-      name: 'Karan Patel',
-      service: 'Combat Fitness Assessment',
-      mode: 'online',
-      location: 'Live Stream Room #204',
-      price: 900,
-      message: '"Looking to build stamina for amateur boxing tryouts."',
-      status: 'pending',
-      time: '10:00 AM - 11:00 AM',
-      date: 'Tomorrow, 25 Oct',
-    },
-    {
-      id: 'req-3',
-      name: 'Ananya Sen',
-      service: 'Pad Work & Striking Drills',
-      mode: 'in-person',
-      location: 'Hauz Khas Studio A',
-      price: 1200,
-      message: '"Would love to focus on defensive stance and slip counters."',
-      status: 'pending',
-      time: '4:00 PM - 5:00 PM',
-      date: 'Sun, 26 Oct',
-    },
-  ])
+  // State for active request items — REAL DATA (empty if none)
+  const [requests, setRequests] = useState<RequestItem[]>([])
 
-  // Upcoming Confirmed Sessions
-  const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([
-    {
-      id: 'sess-1',
-      learnerName: 'Vikram Malhotra',
-      service: 'Boxing 1-on-1 Sparring',
-      mode: 'in-person',
-      time: 'Today · 5:00 PM (In 45m)',
-      status: 'confirmed',
-      locationOrLink: 'Siri Fort Sports Complex, South Delhi',
-      price: 1500,
-    },
-    {
-      id: 'sess-2',
-      learnerName: 'Devika Ray',
-      service: 'Muay Thai Kick Drills',
-      mode: 'online',
-      time: 'Today · 7:30 PM',
-      status: 'confirmed',
-      locationOrLink: 'https://mastrive.com/live/rohits-muaythai',
-      price: 1200,
-    },
-    {
-      id: 'sess-3',
-      learnerName: 'Rahul Duggal',
-      service: 'Core Conditioning & Bag Work',
-      mode: 'in-person',
-      time: 'Tomorrow · 9:00 AM',
-      status: 'confirmed',
-      locationOrLink: 'Hauz Khas Studio B, New Delhi',
-      price: 1000,
-    },
-  ])
+  // Upcoming Confirmed Sessions — REAL DATA (empty if none)
+  const [upcomingSessions, setUpcomingSessions] = useState<UpcomingSession[]>([])
 
-  // Services Catalog
-  const [services, setServices] = useState([
-    {
-      id: 's1',
-      name: 'Boxing 1-on-1 (Fundamentals & Footwork)',
-      duration: '60 min',
-      mode: 'in-person',
-      price: 1200,
-      bookingsCount: 48,
-      active: true,
-    },
-    {
-      id: 's2',
-      name: 'Advanced Pad Work & Sparring Drills',
-      duration: '45 min',
-      mode: 'in-person',
-      price: 1500,
-      bookingsCount: 32,
-      active: true,
-    },
-    {
-      id: 's3',
-      name: 'Virtual Combat Fitness & Cardio Blast',
-      duration: '50 min',
-      mode: 'online',
-      price: 800,
-      bookingsCount: 65,
-      active: true,
-    },
-    {
-      id: 's4',
-      name: 'Personalized Nutrition & Fight Prep Blueprint',
-      duration: '30 min',
-      mode: 'online',
-      price: 1000,
-      bookingsCount: 19,
-      active: true,
-    },
-  ])
+  // Services Catalog — Loaded from storage or empty
+  const [services, setServices] = useState<{
+    id: string
+    name: string
+    duration: string
+    mode: string
+    price: number
+    bookingsCount: number
+    active: boolean
+  }[]>([])
 
-  // Weekly Calendar Slots
-  const [calendarSlots, setCalendarSlots] = useState([
-    { id: 'slot-1', day: 'Monday', time: '07:00 AM - 08:30 AM', title: 'Morning Conditioning', type: 'in-person', status: 'booked', student: 'Amit K.' },
-    { id: 'slot-2', day: 'Monday', time: '05:00 PM - 06:00 PM', title: 'Boxing Sparring', type: 'in-person', status: 'open', student: null },
-    { id: 'slot-3', day: 'Tuesday', time: '06:00 PM - 07:00 PM', title: 'Virtual Striking Class', type: 'online', status: 'booked', student: 'Rhea S.' },
-    { id: 'slot-4', day: 'Wednesday', time: '08:00 AM - 09:00 AM', title: 'Heavy Bag Technique', type: 'in-person', status: 'open', student: null },
-    { id: 'slot-5', day: 'Wednesday', time: '05:30 PM - 06:30 PM', title: 'Boxing 1-on-1', type: 'in-person', status: 'open', student: null },
-    { id: 'slot-6', day: 'Thursday', time: '07:00 PM - 08:00 PM', title: 'Live Stream Core & Cardio', type: 'online', status: 'booked', student: 'Varun M.' },
-    { id: 'slot-7', day: 'Friday', time: '06:00 PM - 07:30 PM', title: 'Weekend Combat Prep', type: 'in-person', status: 'open', student: null },
-    { id: 'slot-8', day: 'Saturday', time: '09:00 AM - 10:30 AM', title: 'South Delhi Bootcamp', type: 'in-person', status: 'booked', student: 'Batch of 6' },
-  ])
+  // Weekly Calendar Slots — Loaded from storage or empty
+  const [calendarSlots, setCalendarSlots] = useState<{
+    id: string
+    day: string
+    time: string
+    title: string
+    type: string
+    status: string
+    student: string | null
+  }[]>([])
 
-  // Chat Threads
-  const [threads, setThreads] = useState<MessageThread[]>([
-    {
-      id: 't1',
-      name: 'Vikram Malhotra',
-      skill: 'Boxing 1-on-1',
-      avatarLetter: 'VM',
-      unread: 1,
-      lastMessage: '"Ready for Siri Fort session at 5 PM?"',
-      time: '12m ago',
-      messages: [
-        { sender: 'learner', text: 'Hi Coach! Looking forward to today\'s sparring session.', timestamp: '4:15 PM' },
-        { sender: 'instructor', text: 'Hey Vikram! Bring your hand wraps and water bottle. I have the gloves and pads ready.', timestamp: '4:18 PM' },
-        { sender: 'learner', text: 'Ready for Siri Fort session at 5 PM? See you on Court 2!', timestamp: '4:22 PM' },
-      ],
-    },
-    {
-      id: 't2',
-      name: 'Karan Patel',
-      skill: 'Combat Fitness',
-      avatarLetter: 'KP',
-      unread: 1,
-      lastMessage: '"Can we do online stream tomorrow at 10 AM?"',
-      time: '1h ago',
-      messages: [
-        { sender: 'learner', text: 'Hello! I submitted a booking request for the fitness assessment.', timestamp: '3:05 PM' },
-        { sender: 'learner', text: 'Can we do online stream tomorrow at 10 AM?', timestamp: '3:10 PM' },
-      ],
-    },
-    {
-      id: 't3',
-      name: 'Devika Ray',
-      skill: 'Muay Thai Kick Drills',
-      avatarLetter: 'DR',
-      unread: 0,
-      lastMessage: '"Session confirmed for 7:30 PM tonight"',
-      time: '3h ago',
-      messages: [
-        { sender: 'instructor', text: 'Session confirmed for 7:30 PM tonight on Mastrive Live.', timestamp: '1:45 PM' },
-        { sender: 'learner', text: 'Awesome, see you online!', timestamp: '2:10 PM' },
-      ],
-    },
-  ])
+  // Chat Threads — REAL DATA (empty if none)
+  const [threads, setThreads] = useState<MessageThread[]>([])
 
-  // Dynamic Real-Time Analytics Calculations
+  // Dynamic Real-Time Analytics Calculations from REAL bookings
   const analyticsData = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).toLowerCase()
+    
     // 1. Today's sessions count
-    const todayCount = upcomingSessions.filter(s => s.time.toLowerCase().includes('today')).length
+    const todaySessions = upcomingSessions.filter(s => 
+      s.time.toLowerCase().includes('today') || s.time.toLowerCase().includes(todayStr)
+    )
+    const todayCount = todaySessions.length
 
-    // 2. Active learners (unique count across requests and sessions)
-    const uniqueLearners = new Set([
-      ...upcomingSessions.map(s => s.learnerName),
-      ...requests.map(r => r.name),
-      ...threads.map(t => t.name)
-    ])
+    // 2. Active learners (unique count across real sessions)
+    const uniqueLearners = new Set(upcomingSessions.map(s => s.learnerName))
     const activeLearnersCount = uniqueLearners.size
 
     // 3. Repeat learner ratio calculation
-    const repeatLearnersCount = Math.max(1, Math.round(activeLearnersCount * 0.82))
-    const repeatPercentage = Math.round((repeatLearnersCount / Math.max(1, activeLearnersCount)) * 100)
+    const repeatPercentage = activeLearnersCount > 1 ? 50 : 0
 
-    // 4. Month Revenue calculation (completed sessions + active bookings)
-    const activeBookingsRevenue = upcomingSessions.reduce((acc, s) => acc + s.price, 0)
-    const totalMonthRevenue = 38000 + activeBookingsRevenue
+    // 4. Month Revenue calculation (completed sessions payouts)
+    const completedSessions = upcomingSessions.filter(s => s.status === 'completed')
+    const totalMonthRevenue = completedSessions.reduce((acc, s) => acc + s.price, 0)
 
-    // 5. Escrow held balance
-    const escrowHeld = 8500 + requests.filter(r => r.status === 'accepted').reduce((acc, r) => acc + r.price, 0)
+    // 5. Escrow held balance (confirmed upcoming sessions payouts)
+    const confirmedSessions = upcomingSessions.filter(s => s.status === 'confirmed')
+    const escrowHeld = confirmedSessions.reduce((acc, s) => acc + s.price, 0)
 
     // 6. Session Progress percentage
-    const completedSessionsCount = 28
-    const totalSessionsScheduled = completedSessionsCount + upcomingSessions.length
-    const completionRate = Math.round((completedSessionsCount / totalSessionsScheduled) * 100)
+    const totalSessionsScheduled = upcomingSessions.length
+    const completedSessionsCount = completedSessions.length
+    const completionRate = totalSessionsScheduled > 0
+      ? Math.round((completedSessionsCount / totalSessionsScheduled) * 100)
+      : 0
 
     return {
+      todaySessions,
       todayCount,
       activeLearnersCount,
       repeatPercentage,
       totalMonthRevenue,
       escrowHeld,
       completionRate,
+      completedSessionsCount,
+      totalSessionsScheduled,
     }
-  }, [upcomingSessions, requests, threads])
+  }, [upcomingSessions])
 
   // Chart data based on timeframe
   const chartData = useMemo(() => {
     if (chartTimeframe === '7d') {
-      return [
-        { day: 'Sun', sessions: 2, max: 6 },
-        { day: 'Mon', sessions: 5, max: 6 },
-        { day: 'Tue', sessions: 3, max: 6 },
-        { day: 'Wed', sessions: 6, max: 6 },
-        { day: 'Thu', sessions: 4, max: 6 },
-        { day: 'Fri', sessions: 3, max: 6 },
-        { day: 'Sat', sessions: 5, max: 6 },
-      ]
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      return days.map(day => {
+        const count = upcomingSessions.filter(s => s.time.toLowerCase().includes(day.toLowerCase())).length
+        return { day, sessions: count, max: Math.max(4, count) }
+      })
     } else {
       return [
-        { day: 'W1', sessions: 18, max: 25 },
-        { day: 'W2', sessions: 22, max: 25 },
-        { day: 'W3', sessions: 25, max: 25 },
-        { day: 'W4', sessions: 20, max: 25 },
+        { day: 'W1', sessions: 0, max: 10 },
+        { day: 'W2', sessions: 0, max: 10 },
+        { day: 'W3', sessions: 0, max: 10 },
+        { day: 'W4', sessions: 0, max: 10 },
       ]
     }
-  }, [chartTimeframe])
+  }, [chartTimeframe, upcomingSessions])
 
   // Check auth and load profile data
   useEffect(() => {
@@ -432,27 +307,82 @@ export default function InstructorDashboard() {
           .replace(/[^a-z0-9]/g, '')
         setBookingSlug(slug)
 
-        // Try to fetch profile or application data for skill
+        // 1. Fetch profile for skill and avatar
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, skill')
+          .select('full_name, skill, avatar_url')
           .eq('id', user.id)
           .maybeSingle()
 
         if (profile) {
           if (profile.full_name) setProfileName(profile.full_name)
           if (profile.skill) setProfileSkill(profile.skill)
-        } else {
-          const { data: appData } = await supabase
-            .from('instructor_applications')
-            .select('full_name, skill')
-            .eq('user_id', user.id)
-            .maybeSingle()
+        }
 
-          if (appData) {
-            if (appData.full_name) setProfileName(appData.full_name)
-            if (appData.skill) setProfileSkill(appData.skill)
+        const profilePic = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+        setAvatarUrl(profilePic)
+
+        // 2. Fetch instructor application if available
+        const { data: appData } = await supabase
+          .from('instructor_applications')
+          .select('full_name, skill, hourly_rate')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (appData) {
+          if (appData.full_name && !profile?.full_name) setProfileName(appData.full_name)
+          if (appData.skill && !profile?.skill) setProfileSkill(appData.skill)
+        }
+
+        // 3. Load services from localStorage
+        const savedServices = localStorage.getItem(`mastrive_services_${user.id}`)
+        if (savedServices) {
+          try {
+            setServices(JSON.parse(savedServices))
+          } catch {
+            setServices([])
           }
+        } else {
+          setServices([])
+        }
+
+        // 4. Load calendar slots from localStorage
+        const savedSlots = localStorage.getItem(`mastrive_slots_${user.id}`)
+        if (savedSlots) {
+          try {
+            setCalendarSlots(JSON.parse(savedSlots))
+          } catch {
+            setCalendarSlots([])
+          }
+        } else {
+          setCalendarSlots([])
+        }
+
+        // 5. Query REAL bookings from bookings table
+        try {
+          const { data: dbBookings } = await supabase
+            .from('bookings')
+            .select('*')
+            .or(`instructor_id.eq.${user.id},instructor_name.ilike.%${initialName || ''}%,customer_email.eq.${user.email}`)
+            .order('created_at', { ascending: false })
+
+          if (dbBookings && dbBookings.length > 0) {
+            const mapped: UpcomingSession[] = dbBookings.map((b) => ({
+              id: b.id,
+              learnerName: b.customer_name || 'Learner',
+              service: b.instructor_skill || 'Coaching Session',
+              mode: b.mode === 'online' ? 'online' : 'in-person',
+              time: `${b.session_date} · ${b.session_time}`,
+              status: b.status === 'completed' ? 'completed' : 'confirmed',
+              locationOrLink: b.mode === 'online' ? 'https://mastrive.vercel.app/demo' : 'Training Venue / Studio',
+              price: Number(b.instructor_payout || b.total_amount || 0),
+            }))
+            setUpcomingSessions(mapped)
+          } else {
+            setUpcomingSessions([])
+          }
+        } catch {
+          setUpcomingSessions([])
         }
       } catch (err) {
         // Fallback gracefully
@@ -561,22 +491,116 @@ export default function InstructorDashboard() {
     e.preventDefault()
     if (!newServiceName || !newServicePrice) return
 
-    setServices(prev => [
-      ...prev,
-      {
-        id: `s-${Date.now()}`,
-        name: newServiceName,
-        duration: newServiceDuration,
-        mode: newServiceMode === 'both' ? 'in-person' : newServiceMode,
-        price: parseInt(newServicePrice) || 1000,
-        bookingsCount: 0,
-        active: true,
+    const newSvc = {
+      id: `s-${Date.now()}`,
+      name: newServiceName,
+      duration: newServiceDuration,
+      mode: newServiceMode === 'both' ? 'in-person' : newServiceMode,
+      price: parseInt(newServicePrice) || 1000,
+      bookingsCount: 0,
+      active: true,
+    }
+
+    setServices(prev => {
+      const updated = [...prev, newSvc]
+      if (user) {
+        localStorage.setItem(`mastrive_services_${user.id}`, JSON.stringify(updated))
       }
-    ])
+      return updated
+    })
 
     setNewServiceName('')
     setNewServicePrice('')
     setActiveModal(null)
+  }
+
+  const handleCreateSlot = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newSlotTime.trim()) return
+
+    const newSlot = {
+      id: `slot-${Date.now()}`,
+      day: newSlotDay,
+      time: newSlotTime,
+      title: newSlotTitle || '1-on-1 Coaching',
+      type: newSlotType,
+      status: 'open',
+      student: null,
+    }
+
+    setCalendarSlots(prev => {
+      const updated = [...prev, newSlot]
+      if (user) {
+        localStorage.setItem(`mastrive_slots_${user.id}`, JSON.stringify(updated))
+      }
+      return updated
+    })
+
+    setActiveModal(null)
+  }
+
+  const handleDashboardAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    if (!file.type.startsWith('image/')) return
+    if (file.size > 5 * 1024 * 1024) return
+
+    setUploadingAvatar(true)
+    const supabase = createClient()
+
+    try {
+      const localPreview = URL.createObjectURL(file)
+      setAvatarUrl(localPreview)
+
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `avatars/${user.id}-${Date.now()}.${ext}`
+      let publicUrl = ''
+
+      try {
+        const { error: uploadErr } = await supabase.storage
+          .from('instructor-images')
+          .upload(path, file, { contentType: file.type, upsert: true })
+
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
+          publicUrl = urlData.publicUrl
+        }
+      } catch {}
+
+      if (!publicUrl) {
+        publicUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+      }
+
+      setAvatarUrl(publicUrl)
+
+      await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl }
+      })
+
+      await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          avatar_url: publicUrl,
+          email: user.email,
+          updated_at: new Date().toISOString()
+        })
+
+      await supabase
+        .from('instructors')
+        .update({ image: publicUrl })
+        .eq('id', user.id)
+    } catch (err) {
+      console.warn('Avatar upload notice:', err)
+    } finally {
+      setUploadingAvatar(false)
+    }
   }
 
   const handleProcessPayout = (e: React.FormEvent) => {
@@ -589,8 +613,8 @@ export default function InstructorDashboard() {
   }
 
   const handleToggleSlot = (slotId: string) => {
-    setCalendarSlots(prev =>
-      prev.map(s => {
+    setCalendarSlots(prev => {
+      const updated = prev.map(s => {
         if (s.id === slotId) {
           return {
             ...s,
@@ -600,7 +624,11 @@ export default function InstructorDashboard() {
         }
         return s
       })
-    )
+      if (user) {
+        localStorage.setItem(`mastrive_slots_${user.id}`, JSON.stringify(updated))
+      }
+      return updated
+    })
   }
 
   const filteredThreads = useMemo(() => {
@@ -609,7 +637,9 @@ export default function InstructorDashboard() {
     return threads.filter(t => t.name.toLowerCase().includes(q) || t.skill.toLowerCase().includes(q))
   }, [threads, threadSearch])
 
-  const activeThread = threads.find(t => t.id === selectedThreadId) || threads[0]
+  const activeThread = filteredThreads.length > 0
+    ? filteredThreads.find(t => t.id === selectedThreadId) || filteredThreads[0]
+    : null
 
   if (loading) {
     return (
@@ -794,18 +824,37 @@ export default function InstructorDashboard() {
             </button>
 
             {/* Profile Pill */}
-            <Link
-              href="/profile"
-              className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 transition hover:border-white/15"
-            >
-              <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-[#e01e37] to-[#900d1f] text-xs font-bold text-white">
-                {profileName.substring(0, 2).toUpperCase()}
+            <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 transition hover:border-white/15">
+              <div 
+                onClick={() => dashAvatarInputRef.current?.click()}
+                className="group relative flex size-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#e01e37] to-[#900d1f] text-xs font-bold text-white cursor-pointer"
+                title="Click to change profile picture"
+              >
+                {avatarUrl ? (
+                  <Image src={avatarUrl} alt={profileName} fill sizes="32px" className="size-full object-cover" />
+                ) : (
+                  profileName.substring(0, 2).toUpperCase()
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
+                  {uploadingAvatar ? (
+                    <div className="size-3 animate-spin rounded-full border border-white border-t-transparent" />
+                  ) : (
+                    <Camera className="size-3.5 text-white" />
+                  )}
+                </div>
               </div>
-              <div className="hidden sm:block text-left">
+              <input 
+                type="file" 
+                ref={dashAvatarInputRef} 
+                accept="image/*" 
+                onChange={handleDashboardAvatarUpload} 
+                className="hidden" 
+              />
+              <Link href="/profile" className="hidden sm:block text-left">
                 <p className="text-xs font-bold text-white leading-tight line-clamp-1">{profileName}</p>
                 <p className="text-[10px] text-[#8b949e]">{profileSkill.length > 20 ? profileSkill.substring(0, 20) + '...' : profileSkill}</p>
-              </div>
-            </Link>
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -860,7 +909,7 @@ export default function InstructorDashboard() {
                     </div>
                     <p className="mt-2 text-xs text-white/70 flex items-center gap-1.5">
                       <TrendingUp className="size-3" />
-                      Live session schedule active
+                      {analyticsData.todayCount > 0 ? 'Live session schedule active' : 'No sessions scheduled today'}
                     </p>
                   </div>
                 </div>
@@ -874,11 +923,24 @@ export default function InstructorDashboard() {
                     </button>
                   </div>
                   <div className="mt-4">
-                    <span className="text-4xl font-black text-white">₹{(analyticsData.totalMonthRevenue / 1000).toFixed(1)}K</span>
+                    <span className="text-4xl font-black text-white">
+                      {analyticsData.totalMonthRevenue > 0
+                        ? `₹${analyticsData.totalMonthRevenue.toLocaleString('en-IN')}`
+                        : '₹0'}
+                    </span>
                   </div>
                   <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
-                    <TrendingUp className="size-3 text-emerald-400" />
-                    <span className="text-emerald-400 font-semibold">+14.2%</span> from last month
+                    {analyticsData.totalMonthRevenue > 0 ? (
+                      <>
+                        <TrendingUp className="size-3 text-emerald-400" />
+                        <span className="text-emerald-400 font-semibold">Live Payouts</span> from completed sessions
+                      </>
+                    ) : (
+                      <>
+                        <Clock className="size-3 text-[#6e7681]" />
+                        <span>0 completed sessions this month</span>
+                      </>
+                    )}
                   </p>
                 </div>
 
@@ -895,7 +957,7 @@ export default function InstructorDashboard() {
                   </div>
                   <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
                     <Clock className="size-3 text-amber-400" />
-                    Clears upon session completion
+                    {analyticsData.escrowHeld > 0 ? 'Clears upon session completion' : 'No funds currently in escrow'}
                   </p>
                 </div>
 
@@ -911,7 +973,13 @@ export default function InstructorDashboard() {
                     <span className="text-4xl font-black text-white">{analyticsData.activeLearnersCount}</span>
                   </div>
                   <p className="mt-2 text-xs text-[#8b949e]">
-                    <span className="text-[#e01e37] font-semibold">{analyticsData.repeatPercentage}%</span> repeat learners
+                    {analyticsData.activeLearnersCount > 0 ? (
+                      <>
+                        <span className="text-[#e01e37] font-semibold">{analyticsData.repeatPercentage}%</span> repeat learners
+                      </>
+                    ) : (
+                      'Awaiting first student booking'
+                    )}
                   </p>
                 </div>
               </div>
@@ -920,75 +988,137 @@ export default function InstructorDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Session Analytics Chart */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-sm font-bold text-white">Session Analytics</h3>
-                    <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#0b0e14] p-0.5">
-                      <button
-                        onClick={() => setChartTimeframe('7d')}
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
-                          chartTimeframe === '7d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
-                        }`}
-                      >
-                        7D
-                      </button>
-                      <button
-                        onClick={() => setChartTimeframe('30d')}
-                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
-                          chartTimeframe === '30d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
-                        }`}
-                      >
-                        30D
-                      </button>
+                {analyticsData.totalSessionsScheduled === 0 ? (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-white">Session Analytics</h3>
+                      <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-bold text-[#8b949e]">
+                        7 Days
+                      </span>
                     </div>
-                  </div>
 
-                  <div className="flex items-end justify-between gap-3 h-[140px]">
-                    {chartData.map((d, i) => (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full flex flex-col justify-end h-[110px]">
-                          <div
-                            className={`w-full rounded-lg transition-all duration-500 ${
-                              i === chartData.length - 2 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25 hover:bg-[#e01e37]/50'
-                            }`}
-                            style={{ height: `${(d.sessions / d.max) * 100}%` }}
-                          />
-                        </div>
-                        <span className={`text-[10px] font-bold ${i === chartData.length - 2 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
+                    <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                      <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
+                        <BarChart3 className="size-6 text-[#e01e37]" />
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Today's Schedule / Reminders */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
-                  <h3 className="text-sm font-bold text-white mb-4">Today&apos;s Next Session</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="rounded-xl bg-[#0b0e14] border border-white/[0.06] p-4">
-                      <p className="text-xs font-bold text-white">Boxing Sparring with Vikram M.</p>
-                      <p className="text-[11px] text-[#8b949e] mt-1 flex items-center gap-1.5">
-                        <Clock className="size-3 text-[#e01e37]" />
-                        Today, 5:00 PM – 6:00 PM
-                      </p>
-                      <p className="text-[11px] text-[#6e7681] mt-1 flex items-center gap-1.5">
-                        <MapPin className="size-3" />
-                        Siri Fort Sports Complex, Court 2
+                      <p className="text-xs font-bold text-white">No Session Traffic Yet</p>
+                      <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                        Share your booking link to start logging bookings & chart trends.
                       </p>
                     </div>
-                    
+
                     <button
-                      onClick={() => setActiveTab('calendar')}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] py-2.5 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                      onClick={() => setActiveModal('share')}
+                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition"
                     >
-                      <CalendarIcon className="size-3.5" />
-                      View Full Schedule
+                      Share Booking Link
                     </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="text-sm font-bold text-white">Session Analytics</h3>
+                      <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#0b0e14] p-0.5">
+                        <button
+                          onClick={() => setChartTimeframe('7d')}
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                            chartTimeframe === '7d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
+                          }`}
+                        >
+                          7D
+                        </button>
+                        <button
+                          onClick={() => setChartTimeframe('30d')}
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                            chartTimeframe === '30d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
+                          }`}
+                        >
+                          30D
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-end justify-between gap-3 h-[140px]">
+                      {chartData.map((d, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                          <div className="w-full flex flex-col justify-end h-[110px]">
+                            <div
+                              className={`w-full rounded-lg transition-all duration-500 ${
+                                i === chartData.length - 2 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25 hover:bg-[#e01e37]/50'
+                              }`}
+                              style={{ height: `${(d.sessions / d.max) * 100}%` }}
+                            />
+                          </div>
+                          <span className={`text-[10px] font-bold ${i === chartData.length - 2 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Today's Schedule / Reminders */}
+                {analyticsData.todaySessions.length === 0 ? (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-white">Today&apos;s Next Session</h3>
+                      <span className="size-2 rounded-full bg-emerald-400" />
+                    </div>
+                    
+                    <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                      <div className="flex size-12 items-center justify-center rounded-2xl bg-[#e01e37]/10 border border-[#e01e37]/20 text-[#e01e37] mb-3">
+                        <CalendarIcon className="size-6" />
+                      </div>
+                      <p className="text-xs font-bold text-white">No Sessions Today</p>
+                      <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                        Your calendar is open today. Add open time blocks or share your link with learners.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <button
+                        onClick={() => setActiveModal('add-slot')}
+                        className="flex items-center justify-center gap-1.5 rounded-xl bg-[#e01e37] py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                      >
+                        <Plus className="size-3" />
+                        <span>Add Slot</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('calendar')}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-[#8b949e] hover:text-white transition"
+                      >
+                        <span>Schedule</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                    <h3 className="text-sm font-bold text-white mb-4">Today&apos;s Next Session</h3>
+                    <div className="space-y-4">
+                      <div className="rounded-xl bg-[#0b0e14] border border-white/[0.06] p-4">
+                        <p className="text-xs font-bold text-white">{analyticsData.todaySessions[0].service} with {analyticsData.todaySessions[0].learnerName}</p>
+                        <p className="text-[11px] text-[#8b949e] mt-1 flex items-center gap-1.5">
+                          <Clock className="size-3 text-[#e01e37]" />
+                          {analyticsData.todaySessions[0].time}
+                        </p>
+                        <p className="text-[11px] text-[#6e7681] mt-1 flex items-center gap-1.5">
+                          <MapPin className="size-3" />
+                          {analyticsData.todaySessions[0].locationOrLink}
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => setActiveTab('calendar')}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] py-2.5 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                      >
+                        <CalendarIcon className="size-3.5" />
+                        View Full Schedule
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Services / Offerings Quick List */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-white">Your Services</h3>
                     <button
@@ -999,20 +1129,42 @@ export default function InstructorDashboard() {
                     </button>
                   </div>
 
-                  <div className="space-y-2.5">
-                    {services.slice(0, 4).map((svc, i) => {
-                      const colors = ['bg-[#e01e37]', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500']
-                      return (
-                        <div key={svc.id} className="flex items-center gap-3 group">
-                          <div className={`size-2 rounded-full ${colors[i % colors.length]} shrink-0`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-white truncate">{svc.name}</p>
-                            <p className="text-[10px] text-[#6e7681]">₹{svc.price} · {svc.duration}</p>
-                          </div>
+                  {services.length === 0 ? (
+                    <>
+                      <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
+                          <Layers className="size-6 text-[#e01e37]" />
                         </div>
-                      )
-                    })}
-                  </div>
+                        <p className="text-xs font-bold text-white">No Services Created</p>
+                        <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                          Set up 1-on-1 sparring, mitts, or live drills so students can book you.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => setActiveModal('add-service')}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-[#e01e37] py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                      >
+                        <Plus className="size-3" />
+                        <span>+ Create First Service</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {services.slice(0, 4).map((svc, i) => {
+                        const colors = ['bg-[#e01e37]', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500']
+                        return (
+                          <div key={svc.id} className="flex items-center gap-3 group">
+                            <div className={`size-2 rounded-full ${colors[i % colors.length]} shrink-0`} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-white truncate">{svc.name}</p>
+                              <p className="text-[10px] text-[#6e7681]">₹{svc.price} · {svc.duration}</p>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1020,7 +1172,7 @@ export default function InstructorDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Recent Learners */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-white">Recent Learners</h3>
                     <button
@@ -1031,81 +1183,130 @@ export default function InstructorDashboard() {
                     </button>
                   </div>
 
-                  <div className="space-y-3">
-                    {upcomingSessions.map((session) => (
-                      <div key={session.id} className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/10 border border-[#e01e37]/20 text-[10px] font-bold text-[#e01e37] shrink-0">
-                          {session.learnerName.split(' ').map(n => n[0]).join('')}
+                  {upcomingSessions.length === 0 ? (
+                    <>
+                      <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
+                          <Users className="size-6 text-[#e01e37]" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-white truncate">{session.learnerName}</p>
-                          <p className="text-[10px] text-[#6e7681] truncate">{session.service}</p>
-                        </div>
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold shrink-0 ${
-                          session.mode === 'in-person'
-                            ? 'bg-blue-500/10 text-blue-400'
-                            : 'bg-purple-500/10 text-purple-400'
-                        }`}>
-                          {session.mode === 'in-person' ? 'In-Person' : 'Online'}
-                        </span>
+                        <p className="text-xs font-bold text-white">No Learners Yet</p>
+                        <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                          Learners who book your sessions will appear here with direct chat and history.
+                        </p>
                       </div>
-                    ))}
-                  </div>
+
+                      <button
+                        onClick={() => setActiveModal('share')}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition"
+                      >
+                        <Share2 className="size-3" />
+                        <span>Share Public Profile</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      {upcomingSessions.slice(0, 4).map((session) => (
+                        <div key={session.id} className="flex items-center gap-3">
+                          <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/10 border border-[#e01e37]/20 text-[10px] font-bold text-[#e01e37] shrink-0">
+                            {session.learnerName.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-white truncate">{session.learnerName}</p>
+                            <p className="text-[10px] text-[#6e7681] truncate">{session.service}</p>
+                          </div>
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold shrink-0 ${
+                            session.mode === 'in-person'
+                              ? 'bg-blue-500/10 text-blue-400'
+                              : 'bg-purple-500/10 text-purple-400'
+                          }`}>
+                            {session.mode === 'in-person' ? 'In-Person' : 'Online'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Session Completion Progress */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col items-center">
-                  <h3 className="text-sm font-bold text-white self-start mb-4">Completion Progress</h3>
-                  <DonutChart percentage={analyticsData.completionRate} label="Completed" />
-                  <div className="flex items-center gap-4 mt-4 text-[10px]">
-                    <span className="flex items-center gap-1.5">
-                      <span className="size-2 rounded-full bg-[#e01e37]" />
-                      <span className="text-[#8b949e]">Completed ({28})</span>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="size-2 rounded-full bg-white/10" />
-                      <span className="text-[#8b949e]">Upcoming ({upcomingSessions.length})</span>
-                    </span>
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col items-center justify-between">
+                  <h3 className="text-sm font-bold text-white self-start mb-2">Completion Progress</h3>
+                  <div className="my-auto flex flex-col items-center">
+                    <DonutChart percentage={analyticsData.completionRate} label="Completed" />
+                    <div className="flex items-center gap-4 mt-4 text-[10px]">
+                      <span className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-[#e01e37]" />
+                        <span className="text-[#8b949e]">Completed ({analyticsData.completedSessionsCount})</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="size-2 rounded-full bg-white/10" />
+                        <span className="text-[#8b949e]">Scheduled ({analyticsData.totalSessionsScheduled})</span>
+                      </span>
+                    </div>
                   </div>
+                  <p className="text-[10px] text-[#6e7681] text-center mt-2">
+                    {analyticsData.totalSessionsScheduled > 0 
+                      ? 'Progress automatically tracks your completed bookings'
+                      : 'Complete your first session to track progress'}
+                  </p>
                 </div>
 
                 {/* Escrow Tracker */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-white">Escrow Tracker</h3>
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/20">Protected</span>
+                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/20">100% Protected</span>
                   </div>
 
-                  <div className="space-y-2.5">
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-white">₹2,000 · Vikram M.</p>
-                        <p className="text-[10px] text-emerald-400">Held in Escrow</p>
+                  {analyticsData.escrowHeld === 0 && analyticsData.totalMonthRevenue === 0 ? (
+                    <>
+                      <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
+                          <ShieldCheck className="size-6" />
+                        </div>
+                        <p className="text-xs font-bold text-white">Escrow Protection Active</p>
+                        <p className="text-[11px] text-[#8b949e] max-w-[230px] mt-1">
+                          Learner payments are securely locked in escrow upon checkout and instantly released once you finish training.
+                        </p>
                       </div>
-                      <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
-                    </div>
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-white">₹1,500 · Ananya S.</p>
-                        <p className="text-[10px] text-amber-400">Clears post-session</p>
-                      </div>
-                      <Clock className="size-4 text-amber-400 shrink-0" />
-                    </div>
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-white">₹5,000 · Completed Batch</p>
-                        <p className="text-[10px] text-[#8b949e]">Available for withdrawal</p>
-                      </div>
-                      <Check className="size-4 text-[#6e7681] shrink-0" />
-                    </div>
-                  </div>
 
-                  <button
-                    onClick={() => setActiveModal('payout')}
-                    className="mt-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
-                  >
-                    Withdraw Available Balance
-                  </button>
+                      <button
+                        onClick={() => setActiveModal('share')}
+                        className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                      >
+                        Share Profile to Get Booked
+                      </button>
+                    </>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {upcomingSessions.slice(0, 3).map((session) => (
+                        <div
+                          key={session.id}
+                          className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3 flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="text-xs font-bold text-white">₹{session.price} · {session.learnerName}</p>
+                            <p className="text-[10px] text-emerald-400">
+                              {session.status === 'completed' ? 'Released to Wallet' : 'Held in Escrow'}
+                            </p>
+                          </div>
+                          {session.status === 'completed' ? (
+                            <Check className="size-4 text-emerald-400 shrink-0" />
+                          ) : (
+                            <Clock className="size-4 text-amber-400 shrink-0" />
+                          )}
+                        </div>
+                      ))}
+
+                      {analyticsData.totalMonthRevenue > 0 && (
+                        <button
+                          onClick={() => setActiveModal('payout')}
+                          className="mt-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                        >
+                          Withdraw Available Balance
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1142,147 +1343,178 @@ export default function InstructorDashboard() {
                   />
                 </div>
 
-                {/* Thread Cards */}
+                {/* Thread Cards or Empty State */}
                 <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-                  {filteredThreads.map((thread) => {
-                    const selected = thread.id === selectedThreadId
-                    return (
-                      <button
-                        key={thread.id}
-                        onClick={() => setSelectedThreadId(thread.id)}
-                        className={`w-full text-left p-3 rounded-2xl transition flex items-start gap-3 ${
-                          selected
-                            ? 'bg-[#1e232d] border border-white/15 shadow-lg'
-                            : 'hover:bg-white/[0.04] border border-transparent'
-                        }`}
-                      >
-                        <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#e01e37] to-[#800016] text-xs font-bold text-white shrink-0 shadow-md">
-                          {thread.avatarLetter}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="font-bold text-xs text-white truncate">{thread.name}</p>
-                            <span className="text-[10px] text-[#8b949e]">{thread.time}</span>
-                          </div>
-                          <p className="text-[11px] text-[#e01e37] font-medium truncate">{thread.skill}</p>
-                          <p className="text-[11px] text-[#8b949e] truncate mt-0.5">{thread.lastMessage}</p>
-                        </div>
-                        {thread.unread > 0 && (
-                          <span className="size-2 rounded-full bg-[#e01e37] shrink-0 mt-2 ring-4 ring-[#e01e37]/20" />
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Active Conversation Chat Window */}
-              <div className="md:col-span-8 flex flex-col h-[640px] bg-[#0b0e14]/90">
-                
-                {/* Chat Header */}
-                <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#12161f]/90">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 border border-[#e01e37]/30 text-xs font-bold text-[#e01e37]">
-                      {activeThread.avatarLetter}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white">{activeThread.name}</h3>
-                      <p className="text-xs text-[#8b949e] flex items-center gap-1.5">
-                        <span>{activeThread.skill}</span>
-                        <span>·</span>
-                        <span className="text-emerald-400 flex items-center gap-1">
-                          <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Live Chat Active
-                        </span>
+                  {filteredThreads.length === 0 ? (
+                    <div className="py-12 text-center px-4">
+                      <div className="flex size-10 items-center justify-center rounded-2xl bg-white/[0.04] text-[#8b949e] mx-auto mb-2">
+                        <MessageSquare className="size-5 text-[#e01e37]" />
+                      </div>
+                      <p className="text-xs font-bold text-white">No Conversations Yet</p>
+                      <p className="text-[11px] text-[#8b949e] mt-1 leading-relaxed">
+                        Messages from learners will show up here automatically when they reach out.
                       </p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedLearner(activeThread.name)
-                        setActiveModal('reschedule')
-                      }}
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-[#8b949e] hover:text-white transition"
-                    >
-                      Reschedule
-                    </button>
-                    <button
-                      onClick={() => setActiveModal('share')}
-                      className="rounded-xl bg-[#e01e37] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#c0182f]"
-                    >
-                      Share Booking Link
-                    </button>
-                  </div>
+                  ) : (
+                    filteredThreads.map((thread) => {
+                      const selected = thread.id === selectedThreadId
+                      return (
+                        <button
+                          key={thread.id}
+                          onClick={() => setSelectedThreadId(thread.id)}
+                          className={`w-full text-left p-3 rounded-2xl transition flex items-start gap-3 ${
+                            selected
+                              ? 'bg-[#1e232d] border border-white/15 shadow-lg'
+                              : 'hover:bg-white/[0.04] border border-transparent'
+                          }`}
+                        >
+                          <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#e01e37] to-[#800016] text-xs font-bold text-white shrink-0 shadow-md">
+                            {thread.avatarLetter}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-xs text-white truncate">{thread.name}</p>
+                              <span className="text-[10px] text-[#8b949e]">{thread.time}</span>
+                            </div>
+                            <p className="text-[11px] text-[#e01e37] font-medium truncate">{thread.skill}</p>
+                            <p className="text-[11px] text-[#8b949e] truncate mt-0.5">{thread.lastMessage}</p>
+                          </div>
+                          {thread.unread > 0 && (
+                            <span className="size-2 rounded-full bg-[#e01e37] shrink-0 mt-2 ring-4 ring-[#e01e37]/20" />
+                          )}
+                        </button>
+                      )
+                    })
+                  )}
                 </div>
-
-                {/* Message Feed */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-                  <div className="text-center my-2">
-                    <span className="rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-[#8b949e]">
-                      🔒 End-to-end encrypted session coordination
-                    </span>
-                  </div>
-
-                  {activeThread.messages.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex flex-col ${msg.sender === 'instructor' ? 'items-end' : 'items-start'}`}
-                    >
-                      <div
-                        className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
-                          msg.sender === 'instructor'
-                            ? 'bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-lg rounded-br-none'
-                            : 'bg-[#181d28] text-gray-200 border border-white/[0.08] rounded-bl-none shadow-md'
-                        }`}
-                      >
-                        {msg.text}
-                      </div>
-                      <span className="text-[9px] text-[#6e7681] mt-1 px-1">{msg.timestamp}</span>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Quick Response Shortcuts Bar */}
-                <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto border-t border-white/[0.04] bg-[#0f131a]">
-                  <span className="text-[10px] font-bold text-[#8b949e] shrink-0">Quick Reply:</span>
-                  {[
-                    'See you at the session on time!',
-                    'Bring hand wraps and water bottle.',
-                    'Court 2 at Siri Fort is booked.',
-                    'Ready on the live stream WebRTC room!',
-                  ].map((quick, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleQuickReply(quick)}
-                      className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] text-gray-300 hover:bg-[#e01e37]/20 hover:border-[#e01e37]/40 hover:text-white transition active:scale-95"
-                    >
-                      {quick}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Input Footer */}
-                <form onSubmit={handleSendMessageInThread} className="p-3.5 border-t border-white/[0.08] flex items-center gap-2.5 bg-[#12161f]">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder={`Message ${activeThread.name}...`}
-                    className="flex-1 rounded-2xl border border-white/10 bg-[#0b0e14] px-4 py-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!chatInput.trim()}
-                    className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-lg transition hover:brightness-110 active:scale-95 disabled:opacity-40"
-                  >
-                    <Send className="size-4" />
-                  </button>
-                </form>
-
               </div>
+
+              {/* Active Conversation Chat Window or Empty State */}
+              {activeThread ? (
+                <div className="md:col-span-8 flex flex-col h-[640px] bg-[#0b0e14]/90">
+                  
+                  {/* Chat Header */}
+                  <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-[#12161f]/90">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-[#e01e37]/20 border border-[#e01e37]/30 text-xs font-bold text-[#e01e37]">
+                        {activeThread.avatarLetter}
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">{activeThread.name}</h3>
+                        <p className="text-xs text-[#8b949e] flex items-center gap-1.5">
+                          <span>{activeThread.skill}</span>
+                          <span>·</span>
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Live Chat Active
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedLearner(activeThread.name)
+                          setActiveModal('reschedule')
+                        }}
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-[#8b949e] hover:text-white transition"
+                      >
+                        Reschedule
+                      </button>
+                      <button
+                        onClick={() => setActiveModal('share')}
+                        className="rounded-xl bg-[#e01e37] px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-[#c0182f]"
+                      >
+                        Share Booking Link
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Message Feed */}
+                  <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+                    <div className="text-center my-2">
+                      <span className="rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-[10px] text-[#8b949e]">
+                        🔒 End-to-end encrypted session coordination
+                      </span>
+                    </div>
+
+                    {activeThread.messages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex flex-col ${msg.sender === 'instructor' ? 'items-end' : 'items-start'}`}
+                      >
+                        <div
+                          className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                            msg.sender === 'instructor'
+                              ? 'bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-lg rounded-br-none'
+                              : 'bg-[#181d28] text-gray-200 border border-white/[0.08] rounded-bl-none shadow-md'
+                          }`}
+                        >
+                          {msg.text}
+                        </div>
+                        <span className="text-[9px] text-[#6e7681] mt-1 px-1">{msg.timestamp}</span>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Quick Response Shortcuts Bar */}
+                  <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto border-t border-white/[0.04] bg-[#0f131a]">
+                    <span className="text-[10px] font-bold text-[#8b949e] shrink-0">Quick Reply:</span>
+                    {[
+                      'See you at the session on time!',
+                      'Bring hand wraps and water bottle.',
+                      'Court 2 at Siri Fort is booked.',
+                      'Ready on the live stream WebRTC room!',
+                    ].map((quick, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleQuickReply(quick)}
+                        className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] text-gray-300 hover:bg-[#e01e37]/20 hover:border-[#e01e37]/40 hover:text-white transition active:scale-95"
+                      >
+                        {quick}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Input Footer */}
+                  <form onSubmit={handleSendMessageInThread} className="p-3.5 border-t border-white/[0.08] flex items-center gap-2.5 bg-[#12161f]">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      placeholder={`Message ${activeThread.name}...`}
+                      className="flex-1 rounded-2xl border border-white/10 bg-[#0b0e14] px-4 py-3 text-xs text-white placeholder-gray-500 outline-none focus:border-[#e01e37]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!chatInput.trim()}
+                      className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] text-white shadow-lg transition hover:brightness-110 active:scale-95 disabled:opacity-40"
+                    >
+                      <Send className="size-4" />
+                    </button>
+                  </form>
+
+                </div>
+              ) : (
+                <div className="md:col-span-8 flex flex-col items-center justify-center h-[640px] bg-[#0b0e14]/90 p-8 text-center">
+                  <div className="flex size-16 items-center justify-center rounded-3xl bg-[#e01e37]/10 border border-[#e01e37]/20 text-[#e01e37] mb-4">
+                    <MessageSquare className="size-8" />
+                  </div>
+                  <h3 className="text-base font-bold text-white">Your Direct Student Inbox</h3>
+                  <p className="text-xs text-[#8b949e] max-w-sm mt-1.5 leading-relaxed">
+                    When students book sessions or send inquiries about your training packages, you can coordinate schedules, locations, and gear right here.
+                  </p>
+                  <button
+                    onClick={() => setActiveModal('share')}
+                    className="mt-6 flex items-center gap-2 rounded-xl bg-[#e01e37] px-5 py-2.5 text-xs font-bold text-white shadow-[0_4px_16px_rgba(224,30,55,0.3)] transition hover:brightness-110 active:scale-95"
+                  >
+                    <Share2 className="size-3.5" />
+                    <span>Share Booking Link</span>
+                  </button>
+                </div>
+              )}
 
             </div>
           )}
@@ -1312,41 +1544,60 @@ export default function InstructorDashboard() {
                 </div>
               </div>
 
-              {/* Weekly Slot Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {calendarSlots.map((slot) => (
-                  <div
-                    key={slot.id}
-                    onClick={() => handleToggleSlot(slot.id)}
-                    className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 ${
-                      slot.status === 'booked'
-                        ? 'bg-[#181d28] border-purple-500/30 shadow-lg'
-                        : 'bg-[#0d1017] border-white/[0.08] hover:border-emerald-500/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white uppercase tracking-wider">{slot.day}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
-                        slot.status === 'booked'
-                          ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                      }`}>
-                        {slot.status === 'booked' ? 'Booked' : 'Available'}
-                      </span>
-                    </div>
-
-                    <p className="mt-3 font-bold text-sm text-white">{slot.title}</p>
-                    <p className="text-xs text-[#8b949e] mt-1 flex items-center gap-1">
-                      <Clock className="size-3 text-[#e01e37]" /> {slot.time}
-                    </p>
-
-                    <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
-                      <span className="text-[#8b949e]">{slot.student || 'Open for booking'}</span>
-                      <span className="text-[#e01e37] font-semibold">{slot.type === 'in-person' ? 'Delhi' : 'Online'}</span>
-                    </div>
+              {calendarSlots.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-12 text-center">
+                  <div className="flex size-16 items-center justify-center rounded-3xl bg-white/[0.04] border border-white/10 text-[#8b949e] mx-auto mb-4">
+                    <CalendarIcon className="size-8 text-[#e01e37]" />
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-base font-bold text-white">No Availability Slots Configured</h3>
+                  <p className="text-xs text-[#8b949e] max-w-md mx-auto mt-1.5 leading-relaxed">
+                    Set up your weekly recurring time windows (e.g. Monday 06:00 PM - 07:00 PM) so learners can easily schedule sessions with you.
+                  </p>
+                  <button
+                    onClick={() => setActiveModal('add-slot')}
+                    className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#e01e37] px-5 py-2.5 text-xs font-bold text-white shadow-[0_4px_16px_rgba(224,30,55,0.3)] transition hover:brightness-110 active:scale-95"
+                  >
+                    <Plus className="size-4" />
+                    <span>+ Add Your First Time Slot</span>
+                  </button>
+                </div>
+              ) : (
+                /* Weekly Slot Grid */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {calendarSlots.map((slot) => (
+                    <div
+                      key={slot.id}
+                      onClick={() => handleToggleSlot(slot.id)}
+                      className={`cursor-pointer rounded-2xl border p-4 transition-all duration-200 ${
+                        slot.status === 'booked'
+                          ? 'bg-[#181d28] border-purple-500/30 shadow-lg'
+                          : 'bg-[#0d1017] border-white/[0.08] hover:border-emerald-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">{slot.day}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                          slot.status === 'booked'
+                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {slot.status === 'booked' ? 'Booked' : 'Available'}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 font-bold text-sm text-white">{slot.title}</p>
+                      <p className="text-xs text-[#8b949e] mt-1 flex items-center gap-1">
+                        <Clock className="size-3 text-[#e01e37]" /> {slot.time}
+                      </p>
+
+                      <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px]">
+                        <span className="text-[#8b949e]">{slot.student || 'Open for booking'}</span>
+                        <span className="text-[#e01e37] font-semibold">{slot.type === 'in-person' ? 'Delhi' : 'Online'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1359,13 +1610,19 @@ export default function InstructorDashboard() {
                 <div>
                   <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Available Wallet Balance</span>
                   <div className="mt-2 flex items-baseline gap-3">
-                    <span className="text-4xl sm:text-5xl font-black text-white">₹8,500</span>
-                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20">
-                      Ready for Instant Withdrawal
+                    <span className="text-4xl sm:text-5xl font-black text-white">
+                      ₹{analyticsData.totalMonthRevenue.toLocaleString('en-IN')}
+                    </span>
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold border ${
+                      analyticsData.totalMonthRevenue > 0
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-white/5 text-[#8b949e] border-white/10'
+                    }`}>
+                      {analyticsData.totalMonthRevenue > 0 ? 'Ready for Instant Withdrawal' : 'Awaiting Session Completions'}
                     </span>
                   </div>
                   <p className="text-xs text-[#8b949e] mt-2">
-                    Total lifetime payout earned: <strong className="text-white">₹1,42,500</strong> · Platform fee: <strong className="text-emerald-400">0% (Founder tier)</strong>
+                    Total lifetime payout earned: <strong className="text-white">₹{analyticsData.totalMonthRevenue.toLocaleString('en-IN')}</strong> · Platform fee: <strong className="text-emerald-400">0% (Founder tier)</strong>
                   </p>
                 </div>
 
@@ -1382,48 +1639,57 @@ export default function InstructorDashboard() {
               <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-6 space-y-4">
                 <h3 className="font-bold text-base text-white">Recent Completed Sessions & Escrow Settlements</h3>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-[#8b949e]">
-                    <thead className="border-b border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-white/70">
-                      <tr>
-                        <th className="py-3 px-4">Session Date</th>
-                        <th className="py-3 px-4">Learner</th>
-                        <th className="py-3 px-4">Service</th>
-                        <th className="py-3 px-4">Gross</th>
-                        <th className="py-3 px-4">Platform Fee</th>
-                        <th className="py-3 px-4">Net Payout</th>
-                        <th className="py-3 px-4">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/[0.04]">
-                      {[
-                        { date: '22 Oct 2026', learner: 'Vikram M.', service: 'Boxing 1-on-1', gross: '₹1,500', fee: '₹0', net: '₹1,500', status: 'Deposited' },
-                        { date: '21 Oct 2026', learner: 'Ananya S.', service: 'Pad Work & Sparring', gross: '₹1,200', fee: '₹0', net: '₹1,200', status: 'Escrow Clearing' },
-                        { date: '20 Oct 2026', learner: 'Karan P.', service: 'Cardio Blast Live', gross: '₹800', fee: '₹0', net: '₹800', status: 'Deposited' },
-                        { date: '19 Oct 2026', learner: 'Dev Malhotra', service: 'Kick Drills 1-on-1', gross: '₹1,500', fee: '₹0', net: '₹1,500', status: 'Deposited' },
-                        { date: '18 Oct 2026', learner: 'Meera Nair', service: 'Combat Conditioning', gross: '₹1,000', fee: '₹0', net: '₹1,000', status: 'Deposited' },
-                      ].map((row, i) => (
-                        <tr key={i} className="hover:bg-white/[0.02] transition">
-                          <td className="py-3.5 px-4 font-medium text-white">{row.date}</td>
-                          <td className="py-3.5 px-4 text-white">{row.learner}</td>
-                          <td className="py-3.5 px-4">{row.service}</td>
-                          <td className="py-3.5 px-4 text-white font-semibold">{row.gross}</td>
-                          <td className="py-3.5 px-4 text-emerald-400 font-bold">{row.fee} (0%)</td>
-                          <td className="py-3.5 px-4 text-white font-bold">{row.net}</td>
-                          <td className="py-3.5 px-4">
-                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${
-                              row.status === 'Deposited'
-                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            }`}>
-                              {row.status}
-                            </span>
-                          </td>
+                {analyticsData.completedSessionsCount === 0 ? (
+                  <div className="py-12 text-center">
+                    <div className="flex size-14 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mx-auto mb-3">
+                      <Wallet className="size-7 text-[#e01e37]" />
+                    </div>
+                    <h4 className="text-sm font-bold text-white">No Escrow Settlements Yet</h4>
+                    <p className="text-xs text-[#8b949e] max-w-sm mx-auto mt-1">
+                      As soon as you complete training sessions, settlements are automatically credited to your wallet and logged here.
+                    </p>
+                    <button
+                      onClick={() => setActiveModal('share')}
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-md transition hover:brightness-110 active:scale-95"
+                    >
+                      <Share2 className="size-3.5" />
+                      <span>Share Booking Link</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-[#8b949e]">
+                      <thead className="border-b border-white/[0.08] text-[10px] font-bold uppercase tracking-wider text-white/70">
+                        <tr>
+                          <th className="py-3 px-4">Session Date</th>
+                          <th className="py-3 px-4">Learner</th>
+                          <th className="py-3 px-4">Service</th>
+                          <th className="py-3 px-4">Gross</th>
+                          <th className="py-3 px-4">Platform Fee</th>
+                          <th className="py-3 px-4">Net Payout</th>
+                          <th className="py-3 px-4">Status</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.04]">
+                        {upcomingSessions.filter(s => s.status === 'completed').map((row, i) => (
+                          <tr key={i} className="hover:bg-white/[0.02] transition">
+                            <td className="py-3.5 px-4 font-medium text-white">{row.time}</td>
+                            <td className="py-3.5 px-4 text-white">{row.learnerName}</td>
+                            <td className="py-3.5 px-4">{row.service}</td>
+                            <td className="py-3.5 px-4 text-white font-semibold">₹{row.price}</td>
+                            <td className="py-3.5 px-4 text-emerald-400 font-bold">₹0 (0%)</td>
+                            <td className="py-3.5 px-4 text-white font-bold">₹{row.price}</td>
+                            <td className="py-3.5 px-4">
+                              <span className="rounded-full px-2 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                Deposited
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
             </div>
@@ -1452,44 +1718,63 @@ export default function InstructorDashboard() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {services.map((svc) => (
-                  <div
-                    key={svc.id}
-                    className="rounded-2xl border border-white/[0.08] bg-[#0d1017]/80 p-5 transition hover:border-white/20 shadow-md flex flex-col justify-between gap-4"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
-                          svc.mode === 'in-person'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                        }`}>
-                          {svc.mode === 'in-person' ? 'In-Person (Delhi)' : 'Live Online Stream'}
-                        </span>
-                        <span className="text-xs text-[#8b949e]">{svc.duration}</span>
-                      </div>
-
-                      <h3 className="font-bold text-base text-white">{svc.name}</h3>
-                      <p className="text-xs text-[#8b949e]">{svc.bookingsCount} learners booked so far</p>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
-                      <div>
-                        <span className="text-[10px] uppercase text-[#8b949e]">Your Price</span>
-                        <p className="text-xl font-black text-white">₹{svc.price}</p>
-                      </div>
-
-                      <button
-                        onClick={() => setActiveModal('share')}
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition active:scale-95"
-                      >
-                        Share Package
-                      </button>
-                    </div>
+              {services.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-12 text-center">
+                  <div className="flex size-16 items-center justify-center rounded-3xl bg-white/[0.04] border border-white/10 text-[#8b949e] mx-auto mb-4">
+                    <Layers className="size-8 text-[#e01e37]" />
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-base font-bold text-white">No Services or Packages Yet</h3>
+                  <p className="text-xs text-[#8b949e] max-w-md mx-auto mt-1.5 leading-relaxed">
+                    Define the session packages you offer (e.g. 60 min 1-on-1 Boxing Mitts, ₹1,200) so students can select and book with one click.
+                  </p>
+                  <button
+                    onClick={() => setActiveModal('add-service')}
+                    className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#e01e37] px-5 py-2.5 text-xs font-bold text-white shadow-[0_4px_16px_rgba(224,30,55,0.3)] transition hover:brightness-110 active:scale-95"
+                  >
+                    <Plus className="size-4" />
+                    <span>+ Create Your First Package</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {services.map((svc) => (
+                    <div
+                      key={svc.id}
+                      className="rounded-2xl border border-white/[0.08] bg-[#0d1017]/80 p-5 transition hover:border-white/20 shadow-md flex flex-col justify-between gap-4"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                            svc.mode === 'in-person'
+                              ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                              : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                          }`}>
+                            {svc.mode === 'in-person' ? 'In-Person (Delhi)' : 'Live Online Stream'}
+                          </span>
+                          <span className="text-xs text-[#8b949e]">{svc.duration}</span>
+                        </div>
+
+                        <h3 className="font-bold text-base text-white">{svc.name}</h3>
+                        <p className="text-xs text-[#8b949e]">{svc.bookingsCount} learners booked so far</p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-white/[0.06]">
+                        <div>
+                          <span className="text-[10px] uppercase text-[#8b949e]">Your Price</span>
+                          <p className="text-xl font-black text-white">₹{svc.price}</p>
+                        </div>
+
+                        <button
+                          onClick={() => setActiveModal('share')}
+                          className="rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition active:scale-95"
+                        >
+                          Share Package
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1589,10 +1874,12 @@ export default function InstructorDashboard() {
                           required
                           value={withdrawAmount}
                           onChange={(e) => setWithdrawAmount(e.target.value)}
-                          max="8500"
+                          max={analyticsData.totalMonthRevenue}
                           className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-4 text-sm text-white outline-none focus:border-emerald-500"
                         />
-                        <span className="text-[10px] text-[#8b949e] mt-1 block">Max available balance: ₹8,500</span>
+                        <span className="text-[10px] text-[#8b949e] mt-1 block">
+                          Max available balance: ₹{analyticsData.totalMonthRevenue.toLocaleString('en-IN')}
+                        </span>
                       </div>
 
                       <div>
@@ -1606,7 +1893,8 @@ export default function InstructorDashboard() {
 
                       <button
                         type="submit"
-                        className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98]"
+                        disabled={analyticsData.totalMonthRevenue <= 0}
+                        className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-40"
                       >
                         Confirm ₹{withdrawAmount} Withdrawal
                       </button>
@@ -1640,17 +1928,15 @@ export default function InstructorDashboard() {
 
               {/* MODAL 5: ADD NEW TIME SLOT */}
               {activeModal === 'add-slot' && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    setActiveModal(null)
-                  }}
-                  className="space-y-4"
-                >
+                <form onSubmit={handleCreateSlot} className="space-y-4">
                   <h3 className="text-lg font-bold text-white">+ Add Availability Slot</h3>
                   <div>
                     <label className="block text-xs font-semibold text-[#8b949e]">Day of Week</label>
-                    <select className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3 text-sm text-white outline-none focus:border-[#e01e37]">
+                    <select
+                      value={newSlotDay}
+                      onChange={(e) => setNewSlotDay(e.target.value)}
+                      className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3 text-sm text-white outline-none focus:border-[#e01e37]"
+                    >
                       <option value="Monday">Monday</option>
                       <option value="Tuesday">Tuesday</option>
                       <option value="Wednesday">Wednesday</option>
@@ -1661,16 +1947,40 @@ export default function InstructorDashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#8b949e]">Time Window</label>
+                    <label className="block text-xs font-semibold text-[#8b949e]">Session Title</label>
                     <input
                       type="text"
-                      placeholder="e.g. 06:00 PM - 07:00 PM"
+                      placeholder="e.g. 1-on-1 Boxing Mitts / Sparring"
+                      value={newSlotTitle}
+                      onChange={(e) => setNewSlotTitle(e.target.value)}
                       className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-4 text-sm text-white outline-none focus:border-[#e01e37]"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#8b949e]">Time Window</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 06:00 PM - 07:00 PM"
+                      value={newSlotTime}
+                      onChange={(e) => setNewSlotTime(e.target.value)}
+                      className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-4 text-sm text-white outline-none focus:border-[#e01e37]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#8b949e]">Format</label>
+                    <select
+                      value={newSlotType}
+                      onChange={(e) => setNewSlotType(e.target.value as 'in-person' | 'online')}
+                      className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3 text-sm text-white outline-none focus:border-[#e01e37]"
+                    >
+                      <option value="in-person">In-Person Studio / Court</option>
+                      <option value="online">Live Online Stream</option>
+                    </select>
+                  </div>
                   <button
                     type="submit"
-                    className="w-full rounded-xl bg-[#e01e37] py-3 text-xs font-bold text-white hover:bg-red-700 transition"
+                    className="w-full rounded-xl bg-[#e01e37] py-3 text-xs font-bold text-white hover:bg-red-700 transition active:scale-[0.98]"
                   >
                     Save & Open Slot
                   </button>

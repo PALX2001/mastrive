@@ -39,6 +39,7 @@ export function Header({
   }, [])
 
   const [profileName, setProfileName] = useState<string | null>(null)
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -47,12 +48,15 @@ export function Header({
       try {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name')
+          .select('full_name, avatar_url')
           .eq('id', userId)
           .maybeSingle()
 
         if (profile?.full_name) {
           setProfileName(profile.full_name)
+        }
+        if (profile?.avatar_url) {
+          setProfileAvatarUrl(profile.avatar_url)
         }
       } catch {
         // ignore error
@@ -113,7 +117,7 @@ export function Header({
     return 'Learner'
   }, [user, profileName])
 
-  const userAvatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture
+  const userAvatarUrl = profileAvatarUrl || user?.user_metadata?.avatar_url || user?.user_metadata?.picture
 
   return (
     <header

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
@@ -18,7 +18,9 @@ import {
   Video,
   ShieldCheck,
   Clock,
-  Sparkles
+  Sparkles,
+  Camera,
+  Upload
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
@@ -27,7 +29,10 @@ import { VerifiedProgressTrack } from '@/components/mastrive/verified-progress-t
 
 export default function ProfilePage() {
   const [user, setUser] = useState<SupabaseUser | null>(null)
-  const [profileData, setProfileData] = useState<{ full_name?: string; city?: string; phone?: string } | null>(null)
+  const [profileData, setProfileData] = useState<{ full_name?: string; city?: string; phone?: string; avatar_url?: string } | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isInstructor, setIsInstructor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'settings'>('overview')
@@ -72,7 +77,7 @@ export default function ProfilePage() {
         // Fetch profile from profiles table
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, full_name, city, phone')
+          .select('role, full_name, city, phone, avatar_url')
           .eq('id', user.id)
           .maybeSingle()
 
@@ -82,6 +87,9 @@ export default function ProfilePage() {
             setNameInput(profile.full_name)
           }
         }
+
+        const resolvedAvatar = profile?.avatar_url || user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+        setAvatarUrl(resolvedAvatar)
 
         // Fetch user's bookings from bookings table
         setLoadingBookings(true)
@@ -165,6 +173,89 @@ export default function ProfilePage() {
     }
   }
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    if (!file.type.startsWith('image/')) {
+      setSaveStatus({ type: 'error', text: 'Please select a valid image file (PNG, JPG, or WEBP).' })
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveStatus({ type: 'error', text: 'Image size must be under 5 MB.' })
+      return
+    }
+
+    setUploadingAvatar(true)
+    setSaveStatus(null)
+    const supabase = createClient()
+
+    try {
+      // 1. Instant local preview
+      const localPreview = URL.createObjectURL(file)
+      setAvatarUrl(localPreview)
+
+      // 2. Upload to Supabase Storage
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `avatars/${user.id}-${Date.now()}.${ext}`
+      let publicUrl = ''
+
+      try {
+        const { error: uploadErr } = await supabase.storage
+          .from('instructor-images')
+          .upload(path, file, { contentType: file.type, upsert: true })
+
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
+          publicUrl = urlData.publicUrl
+        }
+      } catch {
+        // Fallback to base64 below
+      }
+
+      if (!publicUrl) {
+        publicUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+      }
+
+      setAvatarUrl(publicUrl)
+
+      // 3. Persist to Auth user metadata
+      await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl }
+      })
+
+      // 4. Persist to profiles table
+      await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          avatar_url: publicUrl,
+          email: user.email,
+          updated_at: new Date().toISOString()
+        })
+
+      // 5. If user is an instructor, also update instructors table
+      if (isInstructor) {
+        await supabase
+          .from('instructors')
+          .update({ image: publicUrl })
+          .eq('id', user.id)
+      }
+
+      setSaveStatus({ type: 'success', text: 'Profile picture updated successfully!' })
+    } catch (err: any) {
+      setSaveStatus({ type: 'error', text: err?.message || 'Failed to upload profile picture.' })
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -203,19 +294,42 @@ export default function ProfilePage() {
           <div className="absolute -right-20 -top-20 size-64 rounded-full bg-[#e01e37]/10 blur-3xl" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#e01e37]/20 border border-[#e01e37]/30 text-2xl font-bold text-[#e01e37]">
-                {(user?.user_metadata?.avatar_url || user?.user_metadata?.picture) ? (
+              <div 
+                onClick={() => avatarInputRef.current?.click()}
+                className="group relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#e01e37]/20 border border-[#e01e37]/30 text-2xl font-bold text-[#e01e37] cursor-pointer shadow-lg transition-transform hover:scale-105 active:scale-95"
+                title="Click to upload profile picture"
+              >
+                {avatarUrl ? (
                   <Image
-                    src={user.user_metadata.avatar_url || user.user_metadata.picture}
+                    src={avatarUrl}
                     alt="Profile"
-                    width={80}
-                    height={80}
+                    fill
+                    sizes="80px"
                     className="size-full object-cover"
                   />
                 ) : (
                   resolvedName.substring(0, 2).toUpperCase()
                 )}
+
+                {/* Hover camera overlay */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 backdrop-blur-xs transition-opacity group-hover:opacity-100">
+                  {uploadingAvatar ? (
+                    <div className="size-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <>
+                      <Camera className="size-5 text-white" />
+                      <span className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white">Change</span>
+                    </>
+                  )}
+                </div>
               </div>
+              <input
+                type="file"
+                ref={avatarInputRef}
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-bold tracking-tight text-white">
@@ -455,6 +569,51 @@ export default function ProfilePage() {
 
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-2xl">
+              {/* Profile Photo Card */}
+              <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
+                <h3 className="text-base font-semibold text-white mb-4">Profile Photo</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+                  <div className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#e01e37]/20 border border-[#e01e37]/30 text-2xl font-bold text-[#e01e37]">
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt="Profile"
+                        fill
+                        sizes="80px"
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      resolvedName.substring(0, 2).toUpperCase()
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => avatarInputRef.current?.click()}
+                        disabled={uploadingAvatar}
+                        className="inline-flex items-center gap-2 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 px-4 py-2 text-xs font-bold text-white transition active:scale-95 disabled:opacity-50"
+                      >
+                        {uploadingAvatar ? (
+                          <>
+                            <div className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="size-3.5 text-[#ff4d6d]" />
+                            <span>Upload New Photo</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#8b949e]">
+                      Supports JPG, PNG or WEBP (Max 5MB). Photo updates automatically across your bookings and coach directory.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
                 <h3 className="text-base font-semibold text-white mb-4">Account Information</h3>
                 
