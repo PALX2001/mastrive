@@ -92,6 +92,9 @@ type PublishedInstructorRow = {
   image_urls: string[] | null
   learners_count?: number | null
   is_verified?: boolean | null
+  rating?: number | null
+  reviews_count?: number | null
+  is_published?: boolean | null
 }
 
 const categoryIdFor = (category: string): Exclude<CategoryId, 'all'> => {
@@ -108,6 +111,9 @@ const toInstructor = (row: PublishedInstructorRow): Instructor => {
   const experience = Number.parseInt(row.experience_years || '', 10)
   const learnersCount = Number(row.learners_count || 0)
   const isVerified = learnersCount >= 10 || Boolean(row.is_verified)
+  const images = Array.isArray(row.image_urls) && row.image_urls.length > 0
+    ? row.image_urls
+    : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=800']
 
   return {
     id: row.id,
@@ -119,15 +125,15 @@ const toInstructor = (row: PublishedInstructorRow): Instructor => {
     mode: isOnline ? 'online' : 'in-person',
     area,
     city: row.city || 'Delhi',
-    rating: 5.0,
-    reviews: learnersCount,
-    price: row.price_per_hour || 1000,
+    rating: row.rating ? Number(row.rating) : 4.9,
+    reviews: row.reviews_count != null ? Number(row.reviews_count) : learnersCount,
+    price: row.price_per_hour ? Number(row.price_per_hour) : 1000,
     tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(row.city || area).toUpperCase()}`,
-    image: row.image_urls?.[0],
-    images: row.image_urls || [],
-    description: row.bio || `${row.skill} instructor available for personalised sessions.`,
+    image: images[0],
+    images,
+    description: row.bio || `${row.skill} instructor available for personalised sessions on Mastrive.`,
     experienceYears: Number.isFinite(experience) ? experience : undefined,
-    languages: row.languages_spoken || [],
+    languages: Array.isArray(row.languages_spoken) && row.languages_spoken.length > 0 ? row.languages_spoken : ['English', 'Hindi'],
     education: row.education || undefined,
     certifications: row.certifications
       ? [{ title: row.certifications, institute: 'Instructor-provided', year: '' }]
@@ -146,6 +152,7 @@ export function InstructorDirectory({
   const [selectedInstructor, setSelectedInstructor] = useState<BookingInstructor | null>(null)
   const [activeProfileInstructor, setActiveProfileInstructor] = useState<Instructor | null>(null)
   const [publishedInstructors, setPublishedInstructors] = useState<Instructor[]>([])
+  const [isDbActive, setIsDbActive] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Track scroll position right as section enters viewport
@@ -175,23 +182,7 @@ export function InstructorDirectory({
       const seenIds = new Set<string>()
       const seenNames = new Set<string>()
 
-      // 1. Load from localStorage for instant zero-latency appearance
-      if (typeof window !== 'undefined') {
-        try {
-          const cached = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
-          if (Array.isArray(cached)) {
-            for (const item of cached) {
-              if (item?.id && !seenIds.has(item.id)) {
-                seenIds.add(item.id)
-                seenNames.add(item.name?.toLowerCase().trim())
-                mergedList.push(item)
-              }
-            }
-          }
-        } catch {}
-      }
-
-      // 2. Load from Supabase `instructors` table
+      // 1. Load from Supabase `instructors` table (Primary Source of Truth)
       try {
         const { data: dbInstructors, error: instErr } = await supabase
           .from('instructors')
@@ -199,6 +190,7 @@ export function InstructorDirectory({
           .order('published_at', { ascending: false })
 
         if (!instErr && dbInstructors && dbInstructors.length > 0) {
+          if (mounted) setIsDbActive(true)
           for (const row of dbInstructors) {
             const mapped = toInstructor(row)
             const normalizedName = mapped.name?.toLowerCase().trim()
@@ -213,7 +205,7 @@ export function InstructorDirectory({
         if (process.env.NODE_ENV !== 'production') console.warn('Instructors table query fallback:', e)
       }
 
-      // 3. Load from Supabase `instructor_applications` table (ensures every application is represented)
+      // 2. Load from Supabase `instructor_applications` table (ensures newly submitted applications display immediately)
       try {
         const { data: appData, error: appErr } = await supabase
           .from('instructor_applications')
@@ -267,12 +259,70 @@ export function InstructorDirectory({
         if (process.env.NODE_ENV !== 'production') console.warn('Applications table fallback notice:', e)
       }
 
+      // 3. Load from localStorage for instant offline/optimistic appearance
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
+          if (Array.isArray(cached)) {
+            for (const item of cached) {
+              if (item?.id && !seenIds.has(item.id)) {
+                seenIds.add(item.id)
+                seenNames.add(item.name?.toLowerCase().trim())
+                mergedList.push(item)
+              }
+            }
+          }
+        } catch {}
+      }
+
       if (mounted) {
         setPublishedInstructors(mergedList)
       }
     }
 
     loadAllInstructors()
+
+    // 4. Subscribe to Supabase Realtime for live changes in the instructors table
+    const channel = supabase
+      .channel('instructors-realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'instructors' },
+        (payload) => {
+          if (!mounted) return
+          setIsDbActive(true)
+
+          if (payload.eventType === 'INSERT') {
+            const row = payload.new as PublishedInstructorRow
+            if (row && row.is_published !== false) {
+              const inst = toInstructor(row)
+              setPublishedInstructors((prev) => [inst, ...prev.filter((i) => i.id !== inst.id)])
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            const row = payload.new as PublishedInstructorRow
+            if (row) {
+              if (row.is_published === false) {
+                setPublishedInstructors((prev) => prev.filter((i) => i.id !== row.id))
+              } else {
+                const inst = toInstructor(row)
+                setPublishedInstructors((prev) => {
+                  const exists = prev.some((i) => i.id === inst.id)
+                  if (exists) {
+                    return prev.map((i) => (i.id === inst.id ? inst : i))
+                  }
+                  return [inst, ...prev]
+                })
+              }
+            }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as { id?: string })?.id
+            if (deletedId) {
+              setPublishedInstructors((prev) => prev.filter((i) => i.id !== deletedId))
+            }
+          }
+        }
+      )
+      .subscribe()
 
     if (typeof window !== 'undefined') {
       window.addEventListener('mastrive_instructors_updated', loadAllInstructors)
@@ -281,6 +331,7 @@ export function InstructorDirectory({
 
     return () => {
       mounted = false
+      supabase.removeChannel(channel)
       if (typeof window !== 'undefined') {
         window.removeEventListener('mastrive_instructors_updated', loadAllInstructors)
         window.removeEventListener('storage', loadAllInstructors)
@@ -288,10 +339,12 @@ export function InstructorDirectory({
     }
   }, [])
 
-  const allInstructors = useMemo(
-    () => [...publishedInstructors, ...instructors],
-    [publishedInstructors]
-  )
+  const allInstructors = useMemo(() => {
+    if (isDbActive || publishedInstructors.length > 0) {
+      return publishedInstructors
+    }
+    return instructors
+  }, [isDbActive, publishedInstructors])
 
   // Parallax offsets
   const col1Y = useTransform(smoothProgress, [0, 1], [40, 0])
