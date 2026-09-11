@@ -41,6 +41,10 @@ function MainApp() {
   const [showWelcomeToast, setShowWelcomeToast] = useState(false)
 
   useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'explore' || tabParam === 'tournaments' || tabParam === 'instructor' || tabParam === 'demo') {
+      setTab(tabParam as MainTab)
+    }
     if (searchParams.get('welcome') === 'true') {
       setShowWelcomeToast(true)
       const timer = setTimeout(() => {
@@ -106,7 +110,9 @@ function MainApp() {
 
         {tab === 'tournaments' && <TournamentsView />}
 
-        {tab === 'instructor' && <InstructorApplicationView />}
+        {tab === 'instructor' && (
+          <InstructorApplicationView onExploreDirectory={() => handleTabChange('explore')} />
+        )}
 
         {tab === 'demo' && (
           <section className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-4 text-center">

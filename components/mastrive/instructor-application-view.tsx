@@ -3,7 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import type { Instructor } from '@/lib/data'
 import { 
   ChevronDown, 
   CheckCircle2, 
@@ -81,7 +83,12 @@ type SubmittedData = {
   teachingModes: string[]
 }
 
-export default function InstructorApplicationView() {
+interface InstructorApplicationViewProps {
+  onExploreDirectory?: () => void
+}
+
+export default function InstructorApplicationView({ onExploreDirectory }: InstructorApplicationViewProps = {}) {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     profile_type: 'individual' as 'individual' | 'institute',
     name: '',
@@ -157,38 +164,79 @@ export default function InstructorApplicationView() {
               .from('instructor-images')
               .getPublicUrl(path)
             imageUrls.push(publicUrl.publicUrl)
+          } else {
+            imageUrls.push(URL.createObjectURL(photo))
           }
         } catch {
-          // If storage upload fails due to network, generate preview url
           imageUrls.push(URL.createObjectURL(photo))
         }
       }
 
-      // 2. Submit via API route (bypasses RLS issues on client side)
-      const res = await fetch('/api/instructor/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: appId,
-          ...formData,
-          image_urls: imageUrls,
-          user_id: userId,
-        }),
-      })
+      const isOnline = formData.teaching_modes.some((m) => /online|stream|video/i.test(m))
+      const applicantName = formData.name.trim() || formData.institute_name.trim() || 'Coach'
+      const applicantSkill = formData.sub_skills.trim() || 'Coach'
+      const applicantCity = formData.city.trim() || 'Delhi'
+      const applicantPrice = formData.price_per_hour ? Number(formData.price_per_hour) : 1000
 
-      const result = await res.json()
-      if (!res.ok && result.error) {
-        throw new Error(result.error)
+      // 2. Instant optimistic persistence in localStorage
+      const normCat = formData.category.toLowerCase()
+      const catId = normCat.includes('fitness') ? 'fitness' : normCat.includes('music') ? 'music' : normCat.includes('lifestyle') ? 'lifestyle' : 'strategy'
+      
+      const customCard: Instructor = {
+        id: appId,
+        name: applicantName,
+        verified: false, // Unverified until 10 learners boarded
+        totalStudents: 0,
+        skill: applicantSkill,
+        category: catId,
+        mode: isOnline ? 'online' : 'in-person',
+        area: isOnline ? 'Live Stream' : formData.locality.trim() || applicantCity,
+        city: applicantCity,
+        rating: 5.0,
+        reviews: 0,
+        price: applicantPrice,
+        tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${applicantCity.toUpperCase()}`,
+        image: imageUrls[0] || (photos[0] ? URL.createObjectURL(photos[0]) : undefined),
+        images: imageUrls,
+        description: formData.bio.trim() || `Specialized ${applicantSkill} coach available for booking on Mastrive.`,
+        experienceYears: 2,
+        languages: formData.languages,
+        modes: formData.teaching_modes,
+      }
+
+      if (typeof window !== 'undefined') {
+        try {
+          const existing = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
+          const filtered = Array.isArray(existing) ? existing.filter((c: any) => c.id !== appId) : []
+          localStorage.setItem('mastrive_custom_instructors', JSON.stringify([customCard, ...filtered]))
+          window.dispatchEvent(new Event('mastrive_instructors_updated'))
+        } catch {}
+      }
+
+      // 3. Submit via Server API route (bypasses client RLS issues)
+      try {
+        await fetch('/api/instructor/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: appId,
+            ...formData,
+            image_urls: imageUrls,
+            user_id: userId,
+          }),
+        })
+      } catch (apiErr) {
+        if (process.env.NODE_ENV !== 'production') console.warn('API sync background notice:', apiErr)
       }
 
       // Store summary for Thank You presentation
       setSubmittedData({
-        name: formData.name.trim() || formData.institute_name.trim() || 'Coach',
+        name: applicantName,
         category: formData.category,
-        skill: formData.sub_skills.trim() || 'Instructor',
-        city: formData.city.trim() || 'Delhi',
-        locality: formData.locality.trim() || 'Delhi',
-        price: formData.price_per_hour ? Number(formData.price_per_hour) : 1000,
+        skill: applicantSkill,
+        city: applicantCity,
+        locality: formData.locality.trim() || applicantCity,
+        price: applicantPrice,
         imageUrl: imageUrls[0] || (photos[0] ? URL.createObjectURL(photos[0]) : undefined),
         email: formData.email.trim(),
         teachingModes: formData.teaching_modes,
@@ -386,13 +434,26 @@ export default function InstructorApplicationView() {
 
               {/* Action Buttons */}
               <div className="space-y-3 pt-2">
-                <Link
-                  href="/#instructors"
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#e52e42] py-3 text-[13px] font-bold uppercase tracking-wider text-white shadow-[0_4px_14px_rgba(229,46,66,0.3)] transition-all hover:bg-[#d02538] active:scale-[0.99]"
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onExploreDirectory) {
+                      onExploreDirectory()
+                    } else {
+                      router.push('/?tab=explore#instructors')
+                    }
+                    setTimeout(() => {
+                      const el = document.getElementById('instructors')
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth' })
+                      }
+                    }, 100)
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#e52e42] py-3 text-[13px] font-bold uppercase tracking-wider text-white shadow-[0_4px_14px_rgba(229,46,66,0.3)] transition-all hover:bg-[#d02538] active:scale-[0.99] cursor-pointer"
                 >
                   <span>Explore Directory &amp; Find Your Card</span>
                   <ArrowRight className="size-4" />
-                </Link>
+                </button>
 
                 <div className="grid grid-cols-2 gap-3">
                   <button

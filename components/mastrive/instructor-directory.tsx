@@ -170,21 +170,121 @@ export function InstructorDirectory({
     let mounted = true
     const supabase = createClient()
 
-    const loadPublishedInstructors = async () => {
-      const { data, error } = await supabase
-        .from('instructors')
-        .select('id, display_name, skill, category, teaching_modes, locality, city, price_per_hour, bio, experience_years, languages_spoken, education, certifications, image_urls, learners_count, is_verified')
-        .eq('is_published', true)
-        .order('published_at', { ascending: false })
+    const loadAllInstructors = async () => {
+      const mergedList: Instructor[] = []
+      const seenIds = new Set<string>()
+      const seenNames = new Set<string>()
 
-      if (!error && data && mounted) {
-        setPublishedInstructors(data.map(toInstructor))
+      // 1. Load from localStorage for instant zero-latency appearance
+      if (typeof window !== 'undefined') {
+        try {
+          const cached = JSON.parse(localStorage.getItem('mastrive_custom_instructors') || '[]')
+          if (Array.isArray(cached)) {
+            for (const item of cached) {
+              if (item?.id && !seenIds.has(item.id)) {
+                seenIds.add(item.id)
+                seenNames.add(item.name?.toLowerCase().trim())
+                mergedList.push(item)
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Load from Supabase `instructors` table
+      try {
+        const { data: dbInstructors, error: instErr } = await supabase
+          .from('instructors')
+          .select('*')
+          .order('published_at', { ascending: false })
+
+        if (!instErr && dbInstructors && dbInstructors.length > 0) {
+          for (const row of dbInstructors) {
+            const mapped = toInstructor(row)
+            const normalizedName = mapped.name?.toLowerCase().trim()
+            if (!seenIds.has(mapped.id) && !seenNames.has(normalizedName)) {
+              seenIds.add(mapped.id)
+              seenNames.add(normalizedName)
+              mergedList.push(mapped)
+            }
+          }
+        }
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') console.warn('Instructors table query fallback:', e)
+      }
+
+      // 3. Load from Supabase `instructor_applications` table (ensures every application is represented)
+      try {
+        const { data: appData, error: appErr } = await supabase
+          .from('instructor_applications')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (!appErr && appData && appData.length > 0) {
+          for (const app of appData) {
+            const appId = app.id
+            const fullName = (app.full_name || app.institute_name || 'Coach').trim()
+            const normalizedName = fullName.toLowerCase()
+            
+            if (!seenIds.has(appId) && !seenNames.has(normalizedName)) {
+              seenIds.add(appId)
+              seenNames.add(normalizedName)
+
+              const isOnline = app.teaching_modes?.some((mode: string) => /online|stream|video/i.test(mode)) ?? false
+              const area = isOnline ? 'Live Stream' : app.locality || app.location || app.city || 'Delhi'
+              const experience = Number.parseInt(app.experience_years || app.experience || '', 10)
+              const firstImage = Array.isArray(app.image_urls) && app.image_urls.length > 0 ? app.image_urls[0] : undefined
+
+              mergedList.push({
+                id: appId,
+                name: fullName,
+                verified: false, // Unverified until 10 learners boarded
+                totalStudents: 0,
+                skill: app.sub_skills || app.skill || 'Coach',
+                category: categoryIdFor(app.category || 'Fitness & Combat'),
+                mode: isOnline ? 'online' : 'in-person',
+                area,
+                city: app.city || 'Delhi',
+                rating: 5.0,
+                reviews: 0,
+                price: app.price_per_hour ? Number(app.price_per_hour) : 1000,
+                tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(app.city || area).toUpperCase()}`,
+                image: firstImage,
+                images: Array.isArray(app.image_urls) ? app.image_urls : (firstImage ? [firstImage] : []),
+                description: app.bio || `Specialized ${app.sub_skills || app.skill || 'coach'} available for booking on Mastrive.`,
+                experienceYears: Number.isFinite(experience) ? experience : 2,
+                languages: app.languages_spoken || ['English', 'Hindi'],
+                education: app.education || undefined,
+                certifications: app.certifications
+                  ? [{ title: app.certifications, institute: 'Instructor-provided', year: '' }]
+                  : [],
+                modes: app.teaching_modes || [],
+              })
+            }
+          }
+        }
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') console.warn('Applications table fallback notice:', e)
+      }
+
+      if (mounted) {
+        setPublishedInstructors(mergedList)
       }
     }
 
-    loadPublishedInstructors()
+    loadAllInstructors()
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mastrive_instructors_updated', loadAllInstructors)
+      window.addEventListener('storage', loadAllInstructors)
+    }
+
     return () => {
       mounted = false
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mastrive_instructors_updated', loadAllInstructors)
+        window.removeEventListener('storage', loadAllInstructors)
+      }
     }
   }, [])
 
@@ -231,7 +331,7 @@ export function InstructorDirectory({
   }, [activeCategory, allInstructors, query])
 
   return (
-    <div ref={containerRef} className="perspective-1000 w-full pb-24 overflow-hidden">
+    <div id="instructors" ref={containerRef} className="perspective-1000 w-full pb-24 overflow-hidden">
       <motion.section
         style={{
           opacity,
