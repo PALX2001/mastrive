@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { calculateBookingPrice, COUPONS, type PricingBreakdown } from '@/lib/pricing'
+import { loadRazorpayScript } from '@/lib/razorpay'
 
 export interface BookingInstructor {
   id?: string
@@ -51,35 +52,6 @@ const TIME_SLOTS = [
   { time: '7:30 PM', available: true },
   { time: '9:00 PM', available: true },
 ]
-
-// Singleton Razorpay script loader
-let razorpayPromise: Promise<boolean> | null = null
-
-const loadRazorpayScript = (): Promise<boolean> => {
-  if (typeof window === 'undefined') return Promise.resolve(false)
-  if ((window as any).Razorpay) return Promise.resolve(true)
-  if (razorpayPromise) return razorpayPromise
-
-  razorpayPromise = new Promise((resolve) => {
-    const existingScript = document.querySelector('script[src*="checkout.razorpay.com"]')
-    if (existingScript) {
-      resolve(true)
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-    script.onload = () => resolve(true)
-    script.onerror = () => {
-      razorpayPromise = null
-      resolve(false)
-    }
-    document.body.appendChild(script)
-  })
-
-  return razorpayPromise
-}
 
 export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps) {
   const [mounted, setMounted] = useState(false)

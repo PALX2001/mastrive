@@ -47,6 +47,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} bg-background`}
     >
       <head>
+        <link rel="preconnect" href="https://pwxhtxqvlsmspwazkaik.supabase.co" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://pwxhtxqvlsmspwazkaik.supabase.co" />
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>

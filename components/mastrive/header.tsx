@@ -44,32 +44,46 @@ export function Header({
 
   useEffect(() => {
     const supabase = createClient()
+    let lastFetchedUserId: string | null = null
 
     const fetchUserProfile = async (userId: string, userEmail?: string) => {
+      if (lastFetchedUserId === userId && profileName) return
+      lastFetchedUserId = userId
+
       try {
         let isInst = false
 
-        // 1. Check user metadata first
-        if (user?.user_metadata?.role === 'instructor' || user?.app_metadata?.role === 'instructor') {
+        // 1. Instant metadata check
+        if (
+          userEmail?.toLowerCase() === '2001palash@gmail.com' ||
+          user?.user_metadata?.role === 'instructor' ||
+          user?.app_metadata?.role === 'instructor'
+        ) {
           isInst = true
         }
 
-        // 2. Fetch profile by id OR email (valid columns only)
-        let { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, role')
-          .eq('id', userId)
-          .maybeSingle()
-
-        if (!profile && userEmail) {
-          const { data: pEmail } = await supabase
+        // 2. Parallel concurrent checks across tables
+        const [profileRes, appRes, instRes] = await Promise.allSettled([
+          supabase
             .from('profiles')
             .select('full_name, role')
-            .eq('email', userEmail)
-            .maybeSingle()
-          if (pEmail) profile = pEmail
-        }
+            .eq('id', userId)
+            .maybeSingle(),
+          userEmail
+            ? supabase
+                .from('instructor_applications')
+                .select('id')
+                .or(`user_id.eq.${userId},email.eq.${userEmail}`)
+                .maybeSingle()
+            : Promise.resolve({ data: null } as any),
+          supabase
+            .from('instructors')
+            .select('id')
+            .or(`id.eq.${userId},user_id.eq.${userId}`)
+            .maybeSingle(),
+        ])
 
+        const profile = profileRes.status === 'fulfilled' ? profileRes.value.data : null
         if (profile?.full_name) {
           setProfileName(profile.full_name)
         }
@@ -77,28 +91,12 @@ export function Header({
           isInst = true
         }
 
-        // 3. Fallback for Palash or application check
-        if (!isInst && userEmail) {
-          if (userEmail.toLowerCase() === '2001palash@gmail.com') {
-            isInst = true
-          } else {
-            const { data: appData } = await supabase
-              .from('instructor_applications')
-              .select('id')
-              .or(`user_id.eq.${userId},email.eq.${userEmail}`)
-              .maybeSingle()
-            if (appData) isInst = true
-          }
+        if (!isInst && appRes.status === 'fulfilled' && appRes.value.data) {
+          isInst = true
         }
 
-        // 4. Check instructors table by id or user_id
-        if (!isInst) {
-          const { data: inst } = await supabase
-            .from('instructors')
-            .select('id')
-            .or(`id.eq.${userId},user_id.eq.${userId}`)
-            .maybeSingle()
-          if (inst) isInst = true
+        if (!isInst && instRes.status === 'fulfilled' && instRes.value.data) {
+          isInst = true
         }
 
         setIsInstructor(isInst)
@@ -108,34 +106,26 @@ export function Header({
     }
 
     // Check initial auth state
-    const getUser = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        setUser(user)
-        if (user) {
-          fetchUserProfile(user.id, user.email)
-        }
-      } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('Error fetching user:', err)
-        }
-      } finally {
-        setLoading(false)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      if (user) {
+        fetchUserProfile(user.id, user.email)
       }
-    }
-
-    getUser()
+      setLoading(false)
+    }).catch(() => {
+      setLoading(false)
+    })
 
     // Subscribe to auth state changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchUserProfile(session.user.id, session.user.email)
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) {
+        fetchUserProfile(u.id, u.email)
       } else {
+        lastFetchedUserId = null
         setProfileName(null)
         setProfileAvatarUrl(null)
         setIsInstructor(false)

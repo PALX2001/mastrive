@@ -16,8 +16,13 @@ import {
   Share2,
   Check,
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import type { Instructor } from '@/lib/data'
-import { BookingModal } from '@/components/mastrive/booking-modal'
+
+const BookingModal = dynamic(
+  () => import('@/components/mastrive/booking-modal').then((mod) => mod.BookingModal),
+  { ssr: false }
+)
 
 export interface ProfileSlot {
   id: string

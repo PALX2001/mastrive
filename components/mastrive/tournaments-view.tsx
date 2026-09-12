@@ -7,6 +7,7 @@ import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry }
 import { TierBadge, XPMetric } from './leaderboard-tiers'
 import { VerifiedProgressTrack } from './verified-progress-track'
 import { createClient } from '@/lib/supabase/client'
+import { loadRazorpayScript } from '@/lib/razorpay'
 
 interface Tournament {
   id: string
@@ -43,35 +44,6 @@ const STATES_OPTIONS = [
   'Haryana',
 ]
 
-// Singleton Razorpay script loader
-let razorpayPromise: Promise<boolean> | null = null
-
-const loadRazorpayScript = (): Promise<boolean> => {
-  if (typeof window === 'undefined') return Promise.resolve(false)
-  if ((window as any).Razorpay) return Promise.resolve(true)
-  if (razorpayPromise) return razorpayPromise
-
-  razorpayPromise = new Promise((resolve) => {
-    const existingScript = document.querySelector('script[src*="checkout.razorpay.com"]')
-    if (existingScript) {
-      resolve(true)
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.async = true
-    script.onload = () => resolve(true)
-    script.onerror = () => {
-      razorpayPromise = null
-      resolve(false)
-    }
-    document.body.appendChild(script)
-  })
-
-  return razorpayPromise
-}
-
 export function TournamentsView() {
   const [registered, setRegistered] = useState<Set<string>>(() => new Set())
   const [selectedState, setSelectedState] = useState<string>('Global')
@@ -84,11 +56,23 @@ export function TournamentsView() {
 
   useEffect(() => {
     const supabase = createClient()
+    let isMounted = true
 
     const loadLeaderboardData = async () => {
-      // 1. Get current logged in user
-      const { data: authData } = await supabase.auth.getUser()
-      const user = authData?.user
+      // 1. Fetch user and public leaderboard in parallel
+      const [authRes, viewRes] = await Promise.all([
+        supabase.auth.getUser().catch(() => ({ data: { user: null } })),
+        Promise.resolve(
+          supabase
+            .from('leaderboard_profiles')
+            .select('id, created_at, full_name, city, skill')
+            .order('created_at', { ascending: true })
+        ).catch(() => ({ data: null, error: true } as any)),
+      ])
+
+      if (!isMounted) return
+
+      const user = authRes?.data?.user
       const uid = user?.id || null
       const userEmail = user?.email || null
       setCurrentUserId(uid)
@@ -104,23 +88,16 @@ export function TournamentsView() {
           isInst = true
         }
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, role')
-          .eq('id', user.id)
-          .maybeSingle()
+        // Parallel profile, instructor role, and registrations query
+        const [profileRes, instRes, userRegsRes] = await Promise.all([
+          supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle(),
+          supabase.from('instructors').select('id').or(`user_id.eq.${user.id},id.eq.${user.id}`).maybeSingle(),
+          supabase.from('tournament_registrations').select('tournament_id').or(`user_id.eq.${user.id},participant_email.eq.${user.email}`),
+        ])
 
-        if (profile?.role === 'instructor') {
+        const profile = profileRes.data
+        if (profile?.role === 'instructor' || instRes.data) {
           isInst = true
-        }
-
-        if (!isInst && user.id) {
-          const { data: instRow } = await supabase
-            .from('instructors')
-            .select('id')
-            .or(`user_id.eq.${user.id},id.eq.${user.id}`)
-            .maybeSingle()
-          if (instRow) isInst = true
         }
 
         setIsUserInstructor(isInst)
@@ -136,41 +113,27 @@ export function TournamentsView() {
         }
         setUserName(currentName)
 
-        // Load existing registered tournaments from Supabase
-        try {
-          const { data: userRegs } = await supabase
-            .from('tournament_registrations')
-            .select('tournament_id')
-            .or(`user_id.eq.${user.id},participant_email.eq.${user.email}`)
-          if (userRegs && userRegs.length > 0) {
-            setRegistered(new Set(userRegs.map((r: any) => r.tournament_id)))
-          }
-        } catch {
-          // Table might be initializing
+        if (userRegsRes.data && userRegsRes.data.length > 0) {
+          setRegistered(new Set(userRegsRes.data.map((r: any) => r.tournament_id)))
         }
       }
 
       // 2. Fetch public learner profiles from Supabase safe leaderboard view (falls back to profiles)
       let learnerProfiles: any[] = []
-      try {
-        const { data: viewData, error: viewErr } = await supabase
-          .from('leaderboard_profiles')
-          .select('id, created_at, full_name, city, skill')
-          .order('created_at', { ascending: true })
-
-        if (!viewErr && viewData) {
-          learnerProfiles = viewData
-        } else {
-          // Fallback if view is not yet initialized
+      if (viewRes.data && !(viewRes as any).error) {
+        learnerProfiles = viewRes.data
+      } else {
+        // Fallback if view is not yet initialized
+        try {
           const { data: dbProfiles } = await supabase
             .from('profiles')
             .select('id, created_at, full_name, city, skill, role')
             .eq('role', 'user')
             .order('created_at', { ascending: true })
           learnerProfiles = dbProfiles || []
+        } catch {
+          learnerProfiles = []
         }
-      } catch {
-        learnerProfiles = []
       }
 
       // Map learner profiles to leaderboard entries

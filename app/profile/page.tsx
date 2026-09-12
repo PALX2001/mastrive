@@ -86,35 +86,44 @@ export default function ProfilePage() {
         setUser(user)
         setNameInput(user.user_metadata?.full_name || '')
 
-        // Fetch profile from profiles table (using valid columns only)
-        let { data: profile } = await supabase
-          .from('profiles')
-          .select('id, email, role, full_name, city, phone, skill')
-          .eq('id', user.id)
-          .maybeSingle()
+        // Fetch profile, bookings, applications, and instructor records concurrently
+        setLoadingBookings(true)
+        const [profileRes, bookingsRes, appRes, instRes] = await Promise.allSettled([
+          supabase
+            .from('profiles')
+            .select('id, email, role, full_name, city, phone, skill')
+            .eq('id', user.id)
+            .maybeSingle(),
+          supabase
+            .from('bookings')
+            .select('*')
+            .or(`user_id.eq.${user.id},customer_email.eq.${user.email}`)
+            .order('created_at', { ascending: false }),
+          user.email
+            ? supabase
+                .from('instructor_applications')
+                .select('id, status')
+                .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+                .maybeSingle()
+            : Promise.resolve({ data: null } as any),
+          supabase
+            .from('instructors')
+            .select('id')
+            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+            .maybeSingle(),
+        ])
 
+        if (!isMounted) return
+        setLoadingBookings(false)
+
+        let profile = profileRes.status === 'fulfilled' ? profileRes.value.data : null
         if (!profile && user.email) {
           const { data: profileByEmail } = await supabase
             .from('profiles')
             .select('id, email, role, full_name, city, phone, skill')
             .eq('email', user.email)
             .maybeSingle()
-
-          if (profileByEmail) {
-            profile = profileByEmail
-            // Keep user row in sync with current auth user id
-            await supabase
-              .from('profiles')
-              .upsert({
-                id: user.id,
-                email: user.email,
-                role: profileByEmail.role || 'user',
-                full_name: profileByEmail.full_name || user.user_metadata?.full_name || null,
-                city: profileByEmail.city || null,
-                phone: profileByEmail.phone || null,
-                updated_at: new Date().toISOString()
-              })
-          }
+          if (profileByEmail) profile = profileByEmail
         }
 
         if (profile) {
@@ -124,64 +133,30 @@ export default function ProfilePage() {
           }
         }
 
+        const userBookings = bookingsRes.status === 'fulfilled' ? bookingsRes.value.data : null
+        if (userBookings) {
+          setBookings(userBookings)
+        }
+
         const resolvedAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
         setAvatarUrl(resolvedAvatar)
 
-        // Fetch user's bookings from bookings table
-        setLoadingBookings(true)
-        try {
-          const { data: userBookings } = await supabase
-            .from('bookings')
-            .select('*')
-            .or(`user_id.eq.${user.id},customer_email.eq.${user.email}`)
-            .order('created_at', { ascending: false })
-
-          if (userBookings && isMounted) {
-            setBookings(userBookings)
-          }
-        } catch {
-          // Table might still be synchronizing
-        } finally {
-          if (isMounted) setLoadingBookings(false)
-        }
-
         // Comprehensive instructor role check
         let isInst = false
-
-        // 1. Metadata check
         if (user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor') {
           isInst = true
         }
-
-        // 2. Profile role check
         if (profile?.role === 'instructor') {
           isInst = true
         }
-
-        // 3. Fallback for Palash or application record
-        if (!isInst && user.email) {
-          if (user.email.toLowerCase() === '2001palash@gmail.com') {
-            isInst = true
-          } else {
-            const { data: application } = await supabase
-              .from('instructor_applications')
-              .select('id, status')
-              .or(`user_id.eq.${user.id},email.eq.${user.email}`)
-              .maybeSingle()
-
-            if (application) isInst = true
-          }
+        if (!isInst && user.email?.toLowerCase() === '2001palash@gmail.com') {
+          isInst = true
         }
-
-        // 4. Instructors table check by id or user_id
-        if (!isInst) {
-          const { data: instData } = await supabase
-            .from('instructors')
-            .select('id')
-            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-            .maybeSingle()
-
-          if (instData) isInst = true
+        if (!isInst && appRes.status === 'fulfilled' && appRes.value.data) {
+          isInst = true
+        }
+        if (!isInst && instRes.status === 'fulfilled' && instRes.value.data) {
+          isInst = true
         }
 
         if (isInst && isMounted) {

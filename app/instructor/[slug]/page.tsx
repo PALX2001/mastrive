@@ -91,21 +91,21 @@ async function resolveInstructor(rawSlug: string): Promise<InstructorProfileData
     }
 
     if (matchedDb) {
-      // 3. Fetch active services for this instructor
-      const { data: dbServices } = await supabase
-        .from('instructor_services')
-        .select('*')
-        .eq('instructor_id', matchedDb.id)
-        .eq('active', true)
-        .order('price', { ascending: true })
-
-      // 4. Fetch open calendar slots for this instructor
-      const { data: dbSlots } = await supabase
-        .from('instructor_slots')
-        .select('*')
-        .eq('instructor_id', matchedDb.id)
-        .eq('status', 'open')
-        .order('created_at', { ascending: true })
+      // 3 & 4. Fetch active services and calendar slots concurrently
+      const [{ data: dbServices }, { data: dbSlots }] = await Promise.all([
+        supabase
+          .from('instructor_services')
+          .select('*')
+          .eq('instructor_id', matchedDb.id)
+          .eq('active', true)
+          .order('price', { ascending: true }),
+        supabase
+          .from('instructor_slots')
+          .select('*')
+          .eq('instructor_id', matchedDb.id)
+          .eq('status', 'open')
+          .order('created_at', { ascending: true }),
+      ])
 
       const isOnline = matchedDb.teaching_modes?.some((m: string) => /online|stream|video/i.test(m)) ?? false
       const area = isOnline ? 'Live Stream' : matchedDb.locality || matchedDb.city || 'Delhi'
