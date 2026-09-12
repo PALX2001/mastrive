@@ -68,11 +68,6 @@ export async function GET(request: Request) {
           // Only assign full_name if real name is provided; never dump raw email usernames like 2001palash into database
           finalFullName = existingProfile?.full_name || metaName || null
 
-          const avatarUrl =
-            user.user_metadata?.avatar_url ||
-            user.user_metadata?.picture ||
-            null
-
           await supabase
             .from('profiles')
             .upsert(
@@ -80,7 +75,7 @@ export async function GET(request: Request) {
                 id: user.id,
                 full_name: finalFullName,
                 email: user.email,
-                avatar_url: avatarUrl,
+                // NOTE: profiles table has no avatar_url column — avatar lives in auth.user_metadata only
                 updated_at: new Date().toISOString(),
               },
               { onConflict: 'id' }
