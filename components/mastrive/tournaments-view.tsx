@@ -80,6 +80,7 @@ export function TournamentsView() {
   const [userName, setUserName] = useState<string>('')
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [isUserInstructor, setIsUserInstructor] = useState<boolean>(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -93,12 +94,36 @@ export function TournamentsView() {
       setCurrentUserId(uid)
 
       let currentName = ''
+      let isInst = false
+
       if (user) {
+        if (
+          user.email?.toLowerCase() === '2001palash@gmail.com' ||
+          user.user_metadata?.role === 'instructor'
+        ) {
+          isInst = true
+        }
+
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name')
+          .select('full_name, role')
           .eq('id', user.id)
           .maybeSingle()
+
+        if (profile?.role === 'instructor') {
+          isInst = true
+        }
+
+        if (!isInst && user.id) {
+          const { data: instRow } = await supabase
+            .from('instructors')
+            .select('id')
+            .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+            .maybeSingle()
+          if (instRow) isInst = true
+        }
+
+        setIsUserInstructor(isInst)
 
         if (profile?.full_name?.trim()) {
           currentName = profile.full_name.trim()
@@ -119,7 +144,11 @@ export function TournamentsView() {
         .order('created_at', { ascending: true })
 
       // Filter out instructors strictly — only learners belong on the tournament leaderboard!
-      const learnerProfiles = (dbProfiles || []).filter((p) => p.role !== 'instructor')
+      const learnerProfiles = (dbProfiles || []).filter(
+        (p) =>
+          p.role !== 'instructor' &&
+          p.email?.toLowerCase() !== '2001palash@gmail.com'
+      )
 
       // Map learner profiles to leaderboard entries
       const realEntries: LeaderboardEntry[] = learnerProfiles.map((p, idx) => {
@@ -131,7 +160,7 @@ export function TournamentsView() {
 
         const rawName = p.full_name?.trim() || (p.email ? p.email.split('@')[0] : 'Learner')
         const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-        const isMe = Boolean((uid && p.id === uid) || (userEmail && p.email === userEmail))
+        const isMe = !isInst && Boolean((uid && p.id === uid) || (userEmail && p.email?.toLowerCase() === userEmail.toLowerCase()))
 
         return {
           rank: 0,
@@ -149,8 +178,8 @@ export function TournamentsView() {
       // Combine with initial seed entries if real count is low, filtering out any instructors
       let combined = [...realEntries]
 
-      // If the current user logged in is a learner and not in realEntries yet, add them
-      if (uid && userEmail && !combined.some((item) => item.isUser)) {
+      // Only if current user is confirmed a LEARNER (!isInst) and not in realEntries, add them
+      if (!isInst && uid && userEmail && !combined.some((item) => item.isUser)) {
         combined.push({
           rank: 0,
           name: currentName || 'Your Profile',
@@ -299,7 +328,7 @@ export function TournamentsView() {
   const currentUser = useMemo(() => {
     const userEntry = liveLeaderboard.find((item) => item.isUser)
     return {
-      rank: userEntry?.rank || 2,
+      rank: userEntry?.rank || 1,
       name: userName || userEntry?.name || 'Your Profile',
       category: userEntry?.category || 'Fitness & Combat',
       skill: userEntry?.skill || 'Strength Training',
@@ -307,9 +336,9 @@ export function TournamentsView() {
       xp: userEntry?.xp || 1200,
       verifiedHrs: userEntry?.verifiedHrs || 18,
       status: 'rising' as const,
-      isUser: true,
+      isUser: !isUserInstructor && Boolean(userEntry),
     }
-  }, [liveLeaderboard, userName])
+  }, [liveLeaderboard, userName, isUserInstructor])
 
   return (
     <section className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8 selection:bg-[#e01e37] selection:text-white">
@@ -553,15 +582,39 @@ export function TournamentsView() {
         </div>
 
         {/* User Verified Hours & Mastery Progress Track */}
-        <div className="mt-6">
-          <VerifiedProgressTrack
-            verifiedHrs={currentUser.verifiedHrs}
-            userName={currentUser.name}
-            userSkill={currentUser.skill}
-            rank={currentUser.rank}
-            xp={currentUser.xp}
-          />
-        </div>
+        {!isUserInstructor ? (
+          <div className="mt-6">
+            <VerifiedProgressTrack
+              verifiedHrs={currentUser.verifiedHrs}
+              userName={currentUser.name}
+              userSkill={currentUser.skill}
+              rank={currentUser.rank}
+              xp={currentUser.xp}
+            />
+          </div>
+        ) : (
+          <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-sm">
+                ✓
+              </span>
+              <div>
+                <p className="text-sm font-bold text-white">
+                  Instructor Account ({userName || 'Palash Bhowmik'})
+                </p>
+                <p className="text-xs text-[#8b949e]">
+                  You are viewing the learner leaderboard. As a verified coach, you are excluded from learner rankings.
+                </p>
+              </div>
+            </div>
+            <a
+              href="/dashboard/instructor"
+              className="shrink-0 rounded-xl bg-white/10 border border-white/15 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
+            >
+              Instructor Dashboard →
+            </a>
+          </div>
+        )}
 
         {/* Leaderboard Table Container */}
         <div className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-[#12161f]/90 shadow-2xl backdrop-blur-xl">
