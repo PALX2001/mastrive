@@ -169,13 +169,12 @@ export function Hero({
     <section className="relative z-10 flex min-h-[70vh] w-full flex-col items-center justify-center overflow-visible px-4 pb-6 pt-12 sm:pt-16">
       <div className="relative mx-auto max-w-3xl text-center">
 
-        {/* Layered ambient glows — gives depth without being flat */}
+        {/* [SAVED FOR REVERT] Red ambient glow bloom:
         <div aria-hidden className="pointer-events-none">
-          {/* Primary center bloom */}
           <div className="absolute left-1/2 top-1/2 -z-10 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e01e37]/12 blur-[100px] transform-gpu" />
-          {/* Offset secondary glow — depth layer */}
           <div className="absolute left-[40%] top-[30%] -z-10 h-[300px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e01e37]/06 blur-[80px] transform-gpu" />
         </div>
+        */}
 
         {/* Location Badge — glass style */}
         <motion.div
@@ -207,7 +206,7 @@ export function Hero({
               className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 text-center text-3xl font-extrabold leading-tight tracking-tight text-[#f5f5f5] sm:text-6xl"
             >
               <span className="shrink-0">{HERO_PHRASES[phraseIndex].line1}</span>
-              <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent drop-shadow-[0_0_20px_rgba(224,30,55,0.4)]">
+              <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
                 {HERO_PHRASES[phraseIndex].line2}
               </span>
             </motion.h1>
