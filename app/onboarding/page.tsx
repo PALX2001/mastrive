@@ -189,7 +189,69 @@ export default function OnboardingPage() {
         </header>
       )}
 
-      {/* Main Multi-Step Box */}
+      {/* ================================================================== */}
+      {/* STEP 3 — Full-screen cinematic overlay (outside the card box)       */}
+      {/* ================================================================== */}
+      <AnimatePresence>
+        {step === 3 && (
+          <motion.div
+            key="step-3-fullscreen"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 1.04 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#080a0f] px-6 text-center"
+          >
+            {/* Centred radial glow */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 top-1/2 size-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-[#e01e37]/20 via-[#e01e37]/5 to-transparent blur-[140px] transform-gpu"
+            />
+
+            {/* 1. Verified badge */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            >
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                <ShieldCheck className="size-4" />
+                Account Verified &amp; Ready
+              </span>
+            </motion.div>
+
+            {/* 2. "Welcome to MASTRIVE" — always one row, baseline-aligned */}
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+              className="mt-8 flex flex-row flex-wrap items-center justify-center gap-x-4 gap-y-2"
+            >
+              <span className="text-4xl sm:text-6xl font-black tracking-tight text-white" style={{ lineHeight: 1 }}>
+                Welcome&nbsp;to
+              </span>
+              <Image
+                src="/logo.svg"
+                alt="MASTRIVE"
+                width={260}
+                height={60}
+                priority
+                className="h-11 sm:h-[3.75rem] w-auto object-contain"
+              />
+            </motion.div>
+
+            {/* 3. Glowing red accent bar */}
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: '100%', opacity: 1 }}
+              transition={{ delay: 0.4, duration: 2.2, ease: 'easeInOut' }}
+              className="mt-10 h-[3px] max-w-xs sm:max-w-sm rounded-full bg-gradient-to-r from-transparent via-[#e01e37] to-transparent shadow-[0_0_20px_rgba(224,30,55,0.9)]"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Multi-Step Box (steps 1 & 2) */}
       <div className="relative z-10 w-full max-w-xl">
         <AnimatePresence mode="wait">
           
@@ -409,59 +471,6 @@ export default function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* ========================================================================= */}
-          {/* STEP 3: CINEMATIC WELCOME SCREEN */}
-          {/* ========================================================================= */}
-          {step === 3 && (
-            <motion.div
-              key="step-3-clean"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="relative flex flex-col items-center justify-center text-center py-12 px-4"
-            >
-              {/* 1. Account Verified & Ready Badge */}
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-              >
-                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                  <ShieldCheck className="size-4" />
-                  Account Verified & Ready
-                </span>
-              </motion.div>
-
-              {/* 2. Welcome to [MASTRIVE Logo] */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15, duration: 0.5 }}
-                className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
-              >
-                <span className="text-3xl sm:text-5xl font-black tracking-tight text-white">
-                  Welcome to
-                </span>
-                <Image
-                  src="/logo.svg"
-                  alt="MASTRIVE"
-                  width={220}
-                  height={50}
-                  priority
-                  className="h-10 sm:h-14 w-auto object-contain inline-block"
-                />
-              </motion.div>
-
-              {/* 3. Sleek Glowing Red Bar */}
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: '100%', opacity: 1 }}
-                transition={{ delay: 0.3, duration: 2.2, ease: 'easeInOut' }}
-                className="mt-8 h-1 max-w-sm rounded-full bg-gradient-to-r from-transparent via-[#e01e37] to-transparent shadow-[0_0_18px_rgba(224,30,55,0.9)]"
-              />
-            </motion.div>
-          )}
 
         </AnimatePresence>
       </div>
