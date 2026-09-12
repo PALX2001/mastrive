@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
-import { Star, Quote } from 'lucide-react'
+import { Star, Quote, ShieldCheck } from 'lucide-react'
 import { instructors as fallbackInstructors, type CategoryId, type Instructor } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
@@ -25,43 +25,79 @@ const REVIEWS = [
   {
     id: '1',
     name: 'Aarav Sharma',
-    role: 'Learner (South Delhi)',
+    role: 'Verified Learner · South Delhi',
     skill: 'Strength & Conditioning',
     instructor: 'Ikjot Singh',
     rating: 5,
     comment:
-      'Ikjot completely transformed my lifts and posture in 4 weeks. Super patient, technical, and genuinely invested in progressive overload.',
+      'Ikjot completely transformed my compound lifts and posture in 4 weeks. Super patient, deeply technical, and dialed into progressive overload.',
     avatar:
       'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
   },
   {
     id: '2',
+    name: 'Rohan Varma',
+    role: 'Boxing Athlete · Gurgaon',
+    skill: 'Boxing & Sparring',
+    instructor: 'palash',
+    rating: 5,
+    comment:
+      'Incredible 1-on-1 sparring session. Palash broke down footwork angles and head movement drills that elevated my counter-punching immediately.',
+    avatar:
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    id: '3',
     name: 'Tanya Mehra',
-    role: 'Learner (Delhi)',
+    role: 'Verified Learner · Delhi NCR',
     skill: 'Body Transformation',
     instructor: 'Ikjot Singh',
     rating: 5,
     comment:
-      'Best fitness coach I have worked with. The personalized progressive overload plan and form cues are on point, and I saw real transformation.',
+      'Best fitness coach I have worked with. The personalized progressive overload plan and form cues are razor sharp, and I saw real transformation.',
     avatar:
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80',
   },
   {
-    id: '3',
+    id: '4',
+    name: 'Ananya Kapoor',
+    role: 'Music Student · Delhi',
+    skill: 'Fingerstyle & Acoustic Guitar',
+    instructor: 'Acoustic Coach',
+    rating: 5,
+    comment:
+      'Mastered alternate picking and percussive tapping within 3 sessions. Having a dedicated 1-on-1 mentor made 6 months of tutorials obsolete.',
+    avatar:
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    id: '5',
     name: 'Karan Joshi',
-    role: 'Strength Athlete',
+    role: 'Strength Athlete · Delhi',
     skill: 'Powerlifting & Form',
     instructor: 'Ikjot Singh',
     rating: 5,
     comment:
-      'Great eye for technique corrections. Helped me break plateaus in my bench press and squat safely without injuries.',
+      'Laser-focused eye for biomechanics. Fixed my hip shift on heavy squats and helped me break through a 6-month bench plateau safely.',
     avatar:
       'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80',
+  },
+  {
+    id: '6',
+    name: 'Kabir Sengupta',
+    role: 'Strategy & Chess · Bengaluru',
+    skill: 'Tournament Chess Tactics',
+    instructor: 'Chess Master',
+    rating: 5,
+    comment:
+      'Deep opening prep and calculation drills. Went from 1500 to 1820 Elo with targeted game reviews and high-level tactical motif analysis.',
+    avatar:
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80',
   },
 ]
 
 // Duplicate reviews list to create seamless infinite marquee loop
-const MARQUEE_REVIEWS = [...REVIEWS, ...REVIEWS, ...REVIEWS]
+const MARQUEE_REVIEWS = [...REVIEWS, ...REVIEWS]
 
 type PublishedInstructorRow = {
   id: string
@@ -417,7 +453,7 @@ export function InstructorDirectory({
             })}
           </div>
         ) : (
-          <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-[#161b22] p-12 text-center">
+          <div className="mt-4 rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center backdrop-blur-xl">
             <p className="text-sm text-[#8b949e]">
               No instructors match your search. Try a different category or keyword.
             </p>
@@ -425,63 +461,111 @@ export function InstructorDirectory({
         )}
 
         {/* Automatic Horizontal Reviews Marquee */}
-        <div className="content-auto mt-20 border-t border-white/10 pt-12">
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="content-auto relative mt-24 border-t border-white/[0.08] pt-14">
+          {/* Subtle ambient crimson spotlight bloom behind marquee */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-16 left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#e01e37]/10 via-[#e01e37]/02 to-transparent blur-[140px] transform-gpu"
+          />
+
+          <div className="relative z-10 mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#e01e37]/30 bg-[#e01e37]/10 px-3.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[#ff4d6d] shadow-[0_0_15px_rgba(224,30,55,0.15)]">
+                <span className="size-1.5 rounded-full bg-[#e01e37] animate-pulse" />
                 Verified Social Proof
-              </span>
-              <h3 className="mt-1 text-2xl font-extrabold tracking-tight text-[#f0f6fc]">
+              </div>
+              <h3 className="mt-3 text-2xl font-black tracking-tight text-[#f0f6fc] sm:text-3xl">
                 What Learners Are Saying
               </h3>
+              <p className="mt-1 text-xs text-[#8b949e] sm:text-sm">
+                Authentic feedback from real 1-on-1 sessions booked on Mastrive.
+              </p>
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22] px-4 py-2 text-xs text-[#8b949e]">
-              <Star className="size-4 fill-amber-400 text-amber-400" />
-              <span className="font-bold text-[#f0f6fc]">4.9 / 5.0</span> across verified learners
+            <div className="flex items-center gap-2.5 rounded-full border border-white/[0.1] bg-white/[0.03] px-4 py-2 text-xs text-[#8b949e] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <Star className="size-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+              <span className="font-extrabold text-[#f0f6fc]">4.9 / 5.0</span>
+              <span className="hidden sm:inline text-white/30">•</span>
+              <span className="hidden sm:inline">across verified learners</span>
             </div>
           </div>
 
           {/* Marquee Wrapper with Vignette Fades */}
-          <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
-            <div className="animate-marquee gap-4 py-4 transform-gpu">
+          <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
+            <div className="animate-marquee gap-5 py-4 transform-gpu [animation-duration:42s]">
               {MARQUEE_REVIEWS.map((rev, idx) => (
                 <div
                   key={`${rev.id}-${idx}`}
-                  className="relative flex w-[320px] shrink-0 flex-col justify-between rounded-2xl border border-white/10 bg-[#161b22] p-6 shadow-sm transition-all duration-300 hover:border-white/20 sm:w-[380px]"
+                  className="group relative flex w-[340px] shrink-0 flex-col justify-between rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#131722]/85 via-[#0e121a]/90 to-[#090c12]/95 p-6 backdrop-blur-xl transition-all duration-300 hover:border-[#e01e37]/40 hover:shadow-[0_16px_45px_rgba(224,30,55,0.14)] shadow-[0_10px_35px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] sm:w-[400px]"
                 >
-                  <Quote className="absolute right-5 top-5 size-8 text-white/5" />
+                  {/* Subtle top edge glow line on card */}
+                  <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent transition-opacity duration-300 group-hover:via-[#e01e37]/60" />
+
                   <div>
-                    <div className="flex items-center gap-1 text-amber-400">
-                      <Star className="size-3.5 fill-current" />
-                      <Star className="size-3.5 fill-current" />
-                      <Star className="size-3.5 fill-current" />
-                      <Star className="size-3.5 fill-current" />
-                      <Star className="size-3.5 fill-current" />
+                    {/* Top Row: Stars + Verified Badge */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-0.5 text-amber-400">
+                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
+                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
+                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
+                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
+                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
+                        </div>
+                        <span className="text-xs font-black text-white ml-1">5.0</span>
+                      </div>
+
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                        <ShieldCheck className="size-3" />
+                        Verified
+                      </span>
                     </div>
-                    <p className="mt-4 text-sm leading-relaxed text-[#8b949e]">
+
+                    {/* Skill Tag */}
+                    <div className="mt-3.5">
+                      <span className="inline-flex items-center rounded-md border border-[#e01e37]/25 bg-[#e01e37]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#ff4d6d]">
+                        {rev.skill}
+                      </span>
+                    </div>
+
+                    {/* Comment Body */}
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-[#c9d1d9] transition-colors duration-200 group-hover:text-white">
                       &ldquo;{rev.comment}&rdquo;
                     </p>
                   </div>
 
-                  <div className="mt-6 flex items-center gap-3 border-t border-white/5 pt-4">
-                    <div className="relative size-10 overflow-hidden rounded-full border border-white/10">
-                      <Image
-                        src={rev.avatar}
-                        alt={rev.name}
-                        width={40}
-                        height={40}
-                        loading="lazy"
-                        className="size-full object-cover"
-                      />
+                  {/* Bottom Footer: Learner & Coach Attribution */}
+                  <div className="mt-6 flex items-center justify-between border-t border-white/[0.07] pt-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative size-10 shrink-0 overflow-hidden rounded-full border border-white/10 ring-2 ring-[#e01e37]/20">
+                        <Image
+                          src={rev.avatar}
+                          alt={rev.name}
+                          width={40}
+                          height={40}
+                          loading="lazy"
+                          className="size-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="truncate text-sm font-bold text-[#f0f6fc]">
+                          {rev.name}
+                        </h4>
+                        <p className="truncate text-[11px] text-[#8b949e]">
+                          {rev.role}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-[#f0f6fc]">
-                        {rev.name}
-                      </h4>
-                      <p className="text-xs text-[#8b949e]">
-                        Learned <span className="text-[#f0f6fc]">{rev.skill}</span> with {rev.instructor}
-                      </p>
-                    </div>
+
+                    {rev.instructor && (
+                      <div className="shrink-0 pl-2 text-right">
+                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#6e7681]">
+                          Coach
+                        </span>
+                        <span className="text-xs font-bold text-white transition-colors duration-200 group-hover:text-[#ff4d6d]">
+                          {rev.instructor}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
