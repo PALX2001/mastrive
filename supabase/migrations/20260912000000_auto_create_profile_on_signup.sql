@@ -13,7 +13,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   _full_name text;
   _role      text;
@@ -35,7 +35,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 -- 3. Trigger: fires after every INSERT on auth.users
 drop trigger if exists on_auth_user_created on auth.users;
