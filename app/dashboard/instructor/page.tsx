@@ -140,6 +140,16 @@ export default function InstructorDashboard() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   const [chartTimeframe, setChartTimeframe] = useState<'7d' | '30d'>('7d')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const matchesSearch = useCallback(
+    (keywords: string[]) => {
+      const q = searchQuery.trim().toLowerCase()
+      if (!q) return true
+      return keywords.some((k) => k.toLowerCase().includes(q) || q.includes(k.toLowerCase()))
+    },
+    [searchQuery]
+  )
 
   // Real-time timer ticker
   useEffect(() => {
@@ -342,28 +352,62 @@ export default function InstructorDashboard() {
           if (appData.skill && !profile?.skill) setProfileSkill(appData.skill)
         }
 
-        // 3. Load services from localStorage
-        const savedServices = localStorage.getItem(`mastrive_services_${user.id}`)
-        if (savedServices) {
-          try {
-            setServices(JSON.parse(savedServices))
-          } catch {
-            setServices([])
+        // 3. Load services from Supabase (with fallback to localStorage)
+        try {
+          const { data: dbServices } = await supabase
+            .from('instructor_services')
+            .select('*')
+            .or(`user_id.eq.${user.id},instructor_id.eq.${user.id}`)
+            .order('created_at', { ascending: true })
+
+          if (dbServices && dbServices.length > 0) {
+            setServices(
+              dbServices.map((s: any) => ({
+                id: s.id,
+                name: s.name,
+                duration: s.duration,
+                mode: s.mode,
+                price: Number(s.price) || 1000,
+                bookingsCount: s.bookings_count || 0,
+                active: s.active !== false,
+              }))
+            )
+          } else {
+            const savedServices = localStorage.getItem(`mastrive_services_${user.id}`)
+            setServices(savedServices ? JSON.parse(savedServices) : [])
           }
-        } else {
-          setServices([])
+        } catch {
+          const savedServices = localStorage.getItem(`mastrive_services_${user.id}`)
+          setServices(savedServices ? JSON.parse(savedServices) : [])
         }
 
-        // 4. Load calendar slots from localStorage
-        const savedSlots = localStorage.getItem(`mastrive_slots_${user.id}`)
-        if (savedSlots) {
-          try {
-            setCalendarSlots(JSON.parse(savedSlots))
-          } catch {
-            setCalendarSlots([])
+        // 4. Load calendar slots from Supabase (with fallback to localStorage)
+        try {
+          const { data: dbSlots } = await supabase
+            .from('instructor_slots')
+            .select('*')
+            .or(`user_id.eq.${user.id},instructor_id.eq.${user.id}`)
+            .order('created_at', { ascending: true })
+
+          if (dbSlots && dbSlots.length > 0) {
+            setCalendarSlots(
+              dbSlots.map((slot: any) => ({
+                id: slot.id,
+                day: slot.day,
+                time: slot.time,
+                title: slot.title,
+                type: slot.type,
+                status: slot.status,
+                student: slot.student,
+              }))
+            )
+          } else {
+            const savedSlots = localStorage.getItem(`mastrive_slots_${user.id}`)
+            setCalendarSlots(savedSlots ? JSON.parse(savedSlots) : [])
           }
-        } else {
-          setCalendarSlots([])
+        } catch {
+          const savedSlots = localStorage.getItem(`mastrive_slots_${user.id}`)
+          setCalendarSlots(savedSlots ? JSON.parse(savedSlots) : [])
         }
 
         // 5. Query REAL bookings from bookings table
@@ -495,16 +539,44 @@ export default function InstructorDashboard() {
     )
   }
 
-  const handleCreateService = (e: React.FormEvent) => {
+  const handleCreateService = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newServiceName || !newServicePrice) return
 
+    const priceNum = parseInt(newServicePrice) || 1000
+    const svcMode = newServiceMode === 'both' ? 'in-person' : newServiceMode
+    let generatedId = `s-${Date.now()}`
+
+    if (user) {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('instructor_services')
+          .insert({
+            user_id: user.id,
+            instructor_id: user.id,
+            name: newServiceName.trim(),
+            duration: newServiceDuration,
+            mode: svcMode,
+            price: priceNum,
+            bookings_count: 0,
+            active: true,
+          })
+          .select()
+          .single()
+
+        if (data?.id) generatedId = data.id
+      } catch (svcErr) {
+        if (process.env.NODE_ENV !== 'production') console.warn('Service insert note:', svcErr)
+      }
+    }
+
     const newSvc = {
-      id: `s-${Date.now()}`,
+      id: generatedId,
       name: newServiceName,
       duration: newServiceDuration,
-      mode: newServiceMode === 'both' ? 'in-person' : newServiceMode,
-      price: parseInt(newServicePrice) || 1000,
+      mode: svcMode,
+      price: priceNum,
       bookingsCount: 0,
       active: true,
     }
@@ -522,12 +594,38 @@ export default function InstructorDashboard() {
     setActiveModal(null)
   }
 
-  const handleCreateSlot = (e: React.FormEvent) => {
+  const handleCreateSlot = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newSlotTime.trim()) return
 
+    let slotId = `slot-${Date.now()}`
+
+    if (user) {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('instructor_slots')
+          .insert({
+            user_id: user.id,
+            instructor_id: user.id,
+            day: newSlotDay,
+            time: newSlotTime.trim(),
+            title: newSlotTitle || '1-on-1 Coaching',
+            type: newSlotType,
+            status: 'open',
+            student: null,
+          })
+          .select()
+          .single()
+
+        if (data?.id) slotId = data.id
+      } catch (slotErr) {
+        if (process.env.NODE_ENV !== 'production') console.warn('Slot insert note:', slotErr)
+      }
+    }
+
     const newSlot = {
-      id: `slot-${Date.now()}`,
+      id: slotId,
       day: newSlotDay,
       time: newSlotTime,
       title: newSlotTitle || '1-on-1 Coaching',
@@ -574,30 +672,25 @@ export default function InstructorDashboard() {
           const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
           publicUrl = urlData.publicUrl
         }
-      } catch {}
-
-      if (!publicUrl) {
-        publicUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
+      } catch (err) {
+        console.warn('Storage upload error:', err)
       }
 
-      setAvatarUrl(publicUrl)
+      if (publicUrl) {
+        setAvatarUrl(publicUrl)
 
-      await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl }
-      })
+        await supabase.auth.updateUser({
+          data: { avatar_url: publicUrl }
+        })
 
-      try {
-        await supabase
-          .from('instructors')
-          .update({ image_urls: [publicUrl] })
-          .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-      } catch {
-        // Non-critical
+        try {
+          await supabase
+            .from('instructors')
+            .update({ image_urls: [publicUrl] })
+            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+        } catch {
+          // Non-critical
+        }
       }
     } catch (err) {
       console.warn('Avatar upload notice:', err)
@@ -615,14 +708,19 @@ export default function InstructorDashboard() {
     }, 1800)
   }
 
-  const handleToggleSlot = (slotId: string) => {
+  const handleToggleSlot = async (slotId: string) => {
+    let nextStatus = 'booked'
+    let nextStudent: string | null = 'Manually Reserved'
+
     setCalendarSlots(prev => {
       const updated = prev.map(s => {
         if (s.id === slotId) {
+          nextStatus = s.status === 'open' ? 'booked' : 'open'
+          nextStudent = s.status === 'open' ? 'Manually Reserved' : null
           return {
             ...s,
-            status: s.status === 'open' ? 'booked' : 'open',
-            student: s.status === 'open' ? 'Manually Reserved' : null,
+            status: nextStatus,
+            student: nextStudent,
           }
         }
         return s
@@ -632,6 +730,17 @@ export default function InstructorDashboard() {
       }
       return updated
     })
+
+    if (user) {
+      try {
+        const supabase = createClient()
+        await supabase
+          .from('instructor_slots')
+          .update({ status: nextStatus, student: nextStudent })
+          .eq('id', slotId)
+          .or(`user_id.eq.${user.id},instructor_id.eq.${user.id}`)
+      } catch {}
+    }
   }
 
   const filteredThreads = useMemo(() => {
@@ -643,6 +752,25 @@ export default function InstructorDashboard() {
   const activeThread = filteredThreads.length > 0
     ? filteredThreads.find(t => t.id === selectedThreadId) || filteredThreads[0]
     : null
+
+  // Reactive search card filtering
+  const showTodaySessions = matchesSearch(["today's sessions", "sessions", "session", "today"])
+  const showMonthRevenue = matchesSearch(["month revenue", "revenue", "earnings", "income", "payout", "payouts"])
+  const showEscrowHeld = matchesSearch(["escrow held", "escrow", "held", "funds"])
+  const showActiveLearners = matchesSearch(["active learners", "learners", "students", "clients"])
+
+  const showSessionAnalytics = matchesSearch(["session analytics", "analytics", "traffic", "chart", "graphs"])
+  const showNextSession = matchesSearch(["today's next session", "next session", "schedule", "slots", "calendar", "add slot"])
+  const showServices = matchesSearch(["your services", "services", "service", "pricing", "packages", "plans", "create service"])
+
+  const showRecentLearners = matchesSearch(["recent learners", "learners", "learner", "students", "student", "messages", "inbox"])
+  const showCompletionProgress = matchesSearch(["completion progress", "completion", "progress", "rate"])
+  const showEscrowTracker = matchesSearch(["escrow tracker", "escrow", "protection", "security"])
+
+  const anyStatVisible = showTodaySessions || showMonthRevenue || showEscrowHeld || showActiveLearners
+  const anyMiddleVisible = showSessionAnalytics || showNextSession || showServices
+  const anyBottomVisible = showRecentLearners || showCompletionProgress || showEscrowTracker
+  const anyCardVisible = anyStatVisible || anyMiddleVisible || anyBottomVisible
 
   if (loading) {
     return (
@@ -716,10 +844,6 @@ export default function InstructorDashboard() {
               <UserIcon className="size-[18px] text-[#e01e37]" />
               <span>Learner Profile</span>
             </Link>
-            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
-              <ArrowLeft className="size-[18px]" />
-              <span>Back to Explore</span>
-            </Link>
             <Link href="/profile" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
               <Settings className="size-[18px]" />
               <span>Account Settings</span>
@@ -727,6 +851,10 @@ export default function InstructorDashboard() {
             <Link href="/support" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
               <HelpCircle className="size-[18px]" />
               <span>Help & Support</span>
+            </Link>
+            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/[0.04] hover:text-white transition">
+              <ArrowLeft className="size-[18px]" />
+              <span>Back to Explore</span>
             </Link>
           </nav>
         </div>
@@ -756,27 +884,39 @@ export default function InstructorDashboard() {
         <header className="sticky top-0 z-20 flex h-[72px] items-center justify-between gap-4 border-b border-white/[0.08] bg-[#0b0e14]/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           
           {/* Left: Mobile Menu + Logo & Search Bar */}
-          <div className="flex items-center gap-3 flex-1 max-w-sm">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-1 max-w-sm sm:max-w-md">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Open Navigation Menu"
-              className="flex size-10 items-center justify-center rounded-xl border border-white/10 bg-[#161b22]/80 text-[#f0f6fc] transition hover:border-white/20 active:scale-95 lg:hidden"
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#161b22]/80 text-[#f0f6fc] transition hover:border-white/20 active:scale-95 lg:hidden"
             >
               <Menu className="size-5" />
             </button>
 
-            <Link href="/" className="lg:hidden flex items-center">
-              <Image src="/logo.svg" alt="MASTRIVE" width={110} height={26} priority className="h-6 w-auto object-contain" />
+            <Link href="/" className="lg:hidden flex items-center shrink-0">
+              <Image src="/logo.svg" alt="MASTRIVE" width={95} height={22} priority className="h-5 w-auto object-contain" />
             </Link>
 
-            {/* Search Bar */}
-            <div className="hidden md:flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3.5 py-2 transition focus-within:border-white/20">
-              <Search className="size-4 text-[#6e7681]" />
+            {/* Responsive Search Bar */}
+            <div className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 sm:px-3.5 sm:py-2 transition focus-within:border-white/20">
+              <Search className="size-4 text-[#6e7681] shrink-0" />
               <input
                 type="text"
-                placeholder="Search sessions, learners..."
-                className="flex-1 bg-transparent text-xs text-white placeholder-[#6e7681] outline-none"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search sessions, learners, revenue..."
+                className="w-full bg-transparent text-xs text-white placeholder-[#6e7681] outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="text-[#6e7681] hover:text-white transition p-0.5 shrink-0"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -819,26 +959,6 @@ export default function InstructorDashboard() {
 
           {/* Right: Actions + Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Toggle: Learner Profile */}
-            <Link
-              href="/profile"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#12161f]/80 px-3 py-1.5 text-xs font-semibold text-[#f0f6fc] backdrop-blur-md transition hover:border-[#e01e37]/40 hover:bg-[#e01e37]/10 active:scale-95"
-              title="Switch to Learner Profile"
-            >
-              <UserIcon className="size-3.5 text-[#e01e37]" />
-              <span className="hidden sm:inline">Learner Profile</span>
-            </Link>
-
-            {/* Quick Toggle: Explore Skills */}
-            <Link
-              href="/"
-              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#12161f]/80 px-3 py-1.5 text-xs font-semibold text-[#8b949e] backdrop-blur-md transition hover:border-white/20 hover:text-white active:scale-95"
-              title="Explore Skills"
-            >
-              <ArrowLeft className="size-3.5" />
-              <span>Explore</span>
-            </Link>
-
             <button 
               onClick={() => setActiveTab('inbox')}
               className="relative flex size-9 items-center justify-center rounded-xl border border-white/[0.08] bg-[#12161f]/80 text-[#8b949e] transition hover:border-white/15 hover:text-white"
@@ -918,424 +1038,481 @@ export default function InstructorDashboard() {
                 </div>
               </div>
 
+              {/* Filter Notice Banner if searching */}
+              {searchQuery.trim() && (
+                <div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#12161f] px-4 py-2.5 text-xs text-[#8b949e]">
+                  <div className="flex items-center gap-2">
+                    <Search className="size-3.5 text-[#e01e37]" />
+                    <span>Filtering dashboard for <strong className="text-white">&ldquo;{searchQuery}&rdquo;</strong></span>
+                  </div>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs font-bold text-[#e01e37] hover:underline"
+                  >
+                    Reset Filter
+                  </button>
+                </div>
+              )}
+
               {/* ===== DYNAMIC STAT CARDS ROW ===== */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                
-                {/* Stat 1: Today's Sessions */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#e01e37] to-[#a0111f] p-5 shadow-[0_8px_24px_rgba(224,30,55,0.25)]">
-                  <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-white/70">Today&apos;s Sessions</span>
-                      <div className="flex size-8 items-center justify-center rounded-full bg-white/20">
-                        <CalendarIcon className="size-4 text-white" />
+              {anyStatVisible && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  
+                  {/* Stat 1: Today's Sessions */}
+                  {showTodaySessions && (
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#e01e37] to-[#a0111f] p-5 shadow-[0_8px_24px_rgba(224,30,55,0.25)]">
+                      <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold uppercase tracking-wider text-white/70">Today&apos;s Sessions</span>
+                          <div className="flex size-8 items-center justify-center rounded-full bg-white/20">
+                            <CalendarIcon className="size-4 text-white" />
+                          </div>
+                        </div>
+                        <div className="mt-4">
+                          <span className="text-4xl font-black text-white">{analyticsData.todayCount}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-white/70 flex items-center gap-1.5">
+                          <TrendingUp className="size-3" />
+                          {analyticsData.todayCount > 0 ? 'Live session schedule active' : 'No sessions scheduled today'}
+                        </p>
                       </div>
                     </div>
-                    <div className="mt-4">
-                      <span className="text-4xl font-black text-white">{analyticsData.todayCount}</span>
+                  )}
+
+                  {/* Stat 2: Month Revenue */}
+                  {showMonthRevenue && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Month Revenue</span>
+                        <button onClick={() => setActiveTab('earnings')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                          <ChevronRight className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-4xl font-black text-white">
+                          {analyticsData.totalMonthRevenue > 0
+                            ? `₹${analyticsData.totalMonthRevenue.toLocaleString('en-IN')}`
+                            : '₹0'}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
+                        {analyticsData.totalMonthRevenue > 0 ? (
+                          <>
+                            <TrendingUp className="size-3 text-emerald-400" />
+                            <span className="text-emerald-400 font-semibold">Live Payouts</span> from completed sessions
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="size-3 text-[#6e7681]" />
+                            <span>0 completed sessions this month</span>
+                          </>
+                        )}
+                      </p>
                     </div>
-                    <p className="mt-2 text-xs text-white/70 flex items-center gap-1.5">
-                      <TrendingUp className="size-3" />
-                      {analyticsData.todayCount > 0 ? 'Live session schedule active' : 'No sessions scheduled today'}
-                    </p>
-                  </div>
-                </div>
+                  )}
 
-                {/* Stat 2: Month Revenue */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Month Revenue</span>
-                    <button onClick={() => setActiveTab('earnings')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
-                      <ChevronRight className="size-3.5" />
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    <span className="text-4xl font-black text-white">
-                      {analyticsData.totalMonthRevenue > 0
-                        ? `₹${analyticsData.totalMonthRevenue.toLocaleString('en-IN')}`
-                        : '₹0'}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
-                    {analyticsData.totalMonthRevenue > 0 ? (
-                      <>
-                        <TrendingUp className="size-3 text-emerald-400" />
-                        <span className="text-emerald-400 font-semibold">Live Payouts</span> from completed sessions
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="size-3 text-[#6e7681]" />
-                        <span>0 completed sessions this month</span>
-                      </>
-                    )}
-                  </p>
-                </div>
+                  {/* Stat 3: Escrow Held */}
+                  {showEscrowHeld && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Escrow Held</span>
+                        <button onClick={() => setActiveModal('payout')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                          <ChevronRight className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-4xl font-black text-white">₹{analyticsData.escrowHeld.toLocaleString('en-IN')}</span>
+                      </div>
+                      <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
+                        <Clock className="size-3 text-amber-400" />
+                        {analyticsData.escrowHeld > 0 ? 'Clears upon session completion' : 'No funds currently in escrow'}
+                      </p>
+                    </div>
+                  )}
 
-                {/* Stat 3: Escrow Held */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Escrow Held</span>
-                    <button onClick={() => setActiveModal('payout')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
-                      <ChevronRight className="size-3.5" />
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    <span className="text-4xl font-black text-white">₹{analyticsData.escrowHeld.toLocaleString('en-IN')}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-[#8b949e] flex items-center gap-1.5">
-                    <Clock className="size-3 text-amber-400" />
-                    {analyticsData.escrowHeld > 0 ? 'Clears upon session completion' : 'No funds currently in escrow'}
-                  </p>
+                  {/* Stat 4: Active Learners */}
+                  {showActiveLearners && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Active Learners</span>
+                        <button onClick={() => setActiveTab('inbox')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
+                          <ChevronRight className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-4xl font-black text-white">{analyticsData.activeLearnersCount}</span>
+                      </div>
+                      <p className="mt-2 text-xs text-[#8b949e]">
+                        {analyticsData.activeLearnersCount > 0 ? (
+                          <>
+                            <span className="text-[#e01e37] font-semibold">{analyticsData.repeatPercentage}%</span> repeat learners
+                          </>
+                        ) : (
+                          'Awaiting first student booking'
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
-
-                {/* Stat 4: Active Learners */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 transition hover:border-white/15">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Active Learners</span>
-                    <button onClick={() => setActiveTab('inbox')} className="flex size-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-[#8b949e] hover:text-white transition">
-                      <ChevronRight className="size-3.5" />
-                    </button>
-                  </div>
-                  <div className="mt-4">
-                    <span className="text-4xl font-black text-white">{analyticsData.activeLearnersCount}</span>
-                  </div>
-                  <p className="mt-2 text-xs text-[#8b949e]">
-                    {analyticsData.activeLearnersCount > 0 ? (
-                      <>
-                        <span className="text-[#e01e37] font-semibold">{analyticsData.repeatPercentage}%</span> repeat learners
-                      </>
-                    ) : (
-                      'Awaiting first student booking'
-                    )}
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* ===== MIDDLE ROW: Analytics | Schedule | Services ===== */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Session Analytics Chart */}
-                {analyticsData.totalSessionsScheduled === 0 ? (
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-bold text-white">Session Analytics</h3>
-                      <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-bold text-[#8b949e]">
-                        7 Days
-                      </span>
-                    </div>
-
-                    <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
-                      <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
-                        <BarChart3 className="size-6 text-[#e01e37]" />
+              {anyMiddleVisible && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Session Analytics Chart */}
+                  {showSessionAnalytics && (analyticsData.totalSessionsScheduled === 0 ? (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-white">Session Analytics</h3>
+                        <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-bold text-[#8b949e]">
+                          7 Days
+                        </span>
                       </div>
-                      <p className="text-xs font-bold text-white">No Session Traffic Yet</p>
-                      <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
-                        Share your booking link to start logging bookings & chart trends.
-                      </p>
-                    </div>
 
-                    <button
-                      onClick={() => setActiveModal('share')}
-                      className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition"
-                    >
-                      Share Booking Link
-                    </button>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
-                    <div className="flex items-center justify-between mb-5">
-                      <h3 className="text-sm font-bold text-white">Session Analytics</h3>
-                      <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#0b0e14] p-0.5">
-                        <button
-                          onClick={() => setChartTimeframe('7d')}
-                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
-                            chartTimeframe === '7d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
-                          }`}
-                        >
-                          7D
-                        </button>
-                        <button
-                          onClick={() => setChartTimeframe('30d')}
-                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
-                            chartTimeframe === '30d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
-                          }`}
-                        >
-                          30D
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-end justify-between gap-3 h-[140px]">
-                      {chartData.map((d, i) => (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                          <div className="w-full flex flex-col justify-end h-[110px]">
-                            <div
-                              className={`w-full rounded-lg transition-all duration-500 ${
-                                i === chartData.length - 2 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25 hover:bg-[#e01e37]/50'
-                              }`}
-                              style={{ height: `${(d.sessions / d.max) * 100}%` }}
-                            />
-                          </div>
-                          <span className={`text-[10px] font-bold ${i === chartData.length - 2 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
+                      <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
+                          <BarChart3 className="size-6 text-[#e01e37]" />
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Today's Schedule / Reminders */}
-                {analyticsData.todaySessions.length === 0 ? (
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-bold text-white">Today&apos;s Next Session</h3>
-                      <span className="size-2 rounded-full bg-emerald-400" />
-                    </div>
-                    
-                    <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
-                      <div className="flex size-12 items-center justify-center rounded-2xl bg-[#e01e37]/10 border border-[#e01e37]/20 text-[#e01e37] mb-3">
-                        <CalendarIcon className="size-6" />
+                        <p className="text-xs font-bold text-white">No Session Traffic Yet</p>
+                        <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                          Share your booking link to start logging bookings & chart trends.
+                        </p>
                       </div>
-                      <p className="text-xs font-bold text-white">No Sessions Today</p>
-                      <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
-                        Your calendar is open today. Add open time blocks or share your link with learners.
-                      </p>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2 mt-2">
                       <button
-                        onClick={() => setActiveModal('add-slot')}
-                        className="flex items-center justify-center gap-1.5 rounded-xl bg-[#e01e37] py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                        onClick={() => setActiveModal('share')}
+                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition"
                       >
-                        <Plus className="size-3" />
-                        <span>Add Slot</span>
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('calendar')}
-                        className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-[#8b949e] hover:text-white transition"
-                      >
-                        <span>Schedule</span>
+                        Share Booking Link
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
-                    <h3 className="text-sm font-bold text-white mb-4">Today&apos;s Next Session</h3>
-                    <div className="space-y-4">
-                      <div className="rounded-xl bg-[#0b0e14] border border-white/[0.06] p-4">
-                        <p className="text-xs font-bold text-white">{analyticsData.todaySessions[0].service} with {analyticsData.todaySessions[0].learnerName}</p>
-                        <p className="text-[11px] text-[#8b949e] mt-1 flex items-center gap-1.5">
-                          <Clock className="size-3 text-[#e01e37]" />
-                          {analyticsData.todaySessions[0].time}
-                        </p>
-                        <p className="text-[11px] text-[#6e7681] mt-1 flex items-center gap-1.5">
-                          <MapPin className="size-3" />
-                          {analyticsData.todaySessions[0].locationOrLink}
-                        </p>
+                  ) : (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5">
+                      <div className="flex items-center justify-between mb-5">
+                        <h3 className="text-sm font-bold text-white">Session Analytics</h3>
+                        <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-[#0b0e14] p-0.5">
+                          <button
+                            onClick={() => setChartTimeframe('7d')}
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                              chartTimeframe === '7d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
+                            }`}
+                          >
+                            7D
+                          </button>
+                          <button
+                            onClick={() => setChartTimeframe('30d')}
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition ${
+                              chartTimeframe === '30d' ? 'bg-[#e01e37] text-white' : 'text-[#8b949e]'
+                            }`}
+                          >
+                            30D
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-end justify-between gap-3 h-[140px]">
+                        {chartData.map((d, i) => (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                            <div className="w-full flex flex-col justify-end h-[110px]">
+                              <div
+                                className={`w-full rounded-lg transition-all duration-500 ${
+                                  i === chartData.length - 2 ? 'bg-[#e01e37]' : 'bg-[#e01e37]/25 hover:bg-[#e01e37]/50'
+                                }`}
+                                style={{ height: `${(d.sessions / d.max) * 100}%` }}
+                              />
+                            </div>
+                            <span className={`text-[10px] font-bold ${i === chartData.length - 2 ? 'text-[#e01e37]' : 'text-[#6e7681]'}`}>{d.day}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Today's Schedule / Reminders */}
+                  {showNextSession && (analyticsData.todaySessions.length === 0 ? (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-white">Today&apos;s Next Session</h3>
+                        <span className="size-2 rounded-full bg-emerald-400" />
                       </div>
                       
-                      <button
-                        onClick={() => setActiveTab('calendar')}
-                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] py-2.5 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
-                      >
-                        <CalendarIcon className="size-3.5" />
-                        View Full Schedule
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Services / Offerings Quick List */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-white">Your Services</h3>
-                    <button
-                      onClick={() => setActiveModal('add-service')}
-                      className="flex items-center gap-1 text-[11px] font-semibold text-[#e01e37] hover:underline"
-                    >
-                      <Plus className="size-3" /> New
-                    </button>
-                  </div>
-
-                  {services.length === 0 ? (
-                    <>
                       <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
-                        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
-                          <Layers className="size-6 text-[#e01e37]" />
+                        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#e01e37]/10 border border-[#e01e37]/20 text-[#e01e37] mb-3">
+                          <CalendarIcon className="size-6" />
                         </div>
-                        <p className="text-xs font-bold text-white">No Services Created</p>
+                        <p className="text-xs font-bold text-white">No Sessions Today</p>
                         <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
-                          Set up 1-on-1 sparring, mitts, or live drills so students can book you.
+                          Your calendar is open today. Add open time blocks or share your link with learners.
                         </p>
                       </div>
 
-                      <button
-                        onClick={() => setActiveModal('add-service')}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-[#e01e37] py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
-                      >
-                        <Plus className="size-3" />
-                        <span>+ Create First Service</span>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {services.slice(0, 4).map((svc, i) => {
-                        const colors = ['bg-[#e01e37]', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500']
-                        return (
-                          <div key={svc.id} className="flex items-center gap-3 group">
-                            <div className={`size-2 rounded-full ${colors[i % colors.length]} shrink-0`} />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-white truncate">{svc.name}</p>
-                              <p className="text-[10px] text-[#6e7681]">₹{svc.price} · {svc.duration}</p>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ===== BOTTOM ROW: Recent Learners | Progress | Escrow ===== */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Recent Learners */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-white">Recent Learners</h3>
-                    <button
-                      onClick={() => setActiveTab('inbox')}
-                      className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-[#8b949e] hover:text-white transition"
-                    >
-                      <Plus className="size-3" /> View In Inbox
-                    </button>
-                  </div>
-
-                  {upcomingSessions.length === 0 ? (
-                    <>
-                      <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
-                        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
-                          <Users className="size-6 text-[#e01e37]" />
-                        </div>
-                        <p className="text-xs font-bold text-white">No Learners Yet</p>
-                        <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
-                          Learners who book your sessions will appear here with direct chat and history.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => setActiveModal('share')}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition"
-                      >
-                        <Share2 className="size-3" />
-                        <span>Share Public Profile</span>
-                      </button>
-                    </>
-                  ) : (
-                    <div className="space-y-3">
-                      {upcomingSessions.slice(0, 4).map((session) => (
-                        <div key={session.id} className="flex items-center gap-3">
-                          <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/10 border border-[#e01e37]/20 text-[10px] font-bold text-[#e01e37] shrink-0">
-                            {session.learnerName.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-white truncate">{session.learnerName}</p>
-                            <p className="text-[10px] text-[#6e7681] truncate">{session.service}</p>
-                          </div>
-                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold shrink-0 ${
-                            session.mode === 'in-person'
-                              ? 'bg-blue-500/10 text-blue-400'
-                              : 'bg-purple-500/10 text-purple-400'
-                          }`}>
-                            {session.mode === 'in-person' ? 'In-Person' : 'Online'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Session Completion Progress */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col items-center justify-between">
-                  <h3 className="text-sm font-bold text-white self-start mb-2">Completion Progress</h3>
-                  <div className="my-auto flex flex-col items-center">
-                    <DonutChart percentage={analyticsData.completionRate} label="Completed" />
-                    <div className="flex items-center gap-4 mt-4 text-[10px]">
-                      <span className="flex items-center gap-1.5">
-                        <span className="size-2 rounded-full bg-[#e01e37]" />
-                        <span className="text-[#8b949e]">Completed ({analyticsData.completedSessionsCount})</span>
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="size-2 rounded-full bg-white/10" />
-                        <span className="text-[#8b949e]">Scheduled ({analyticsData.totalSessionsScheduled})</span>
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-[#6e7681] text-center mt-2">
-                    {analyticsData.totalSessionsScheduled > 0 
-                      ? 'Progress automatically tracks your completed bookings'
-                      : 'Complete your first session to track progress'}
-                  </p>
-                </div>
-
-                {/* Escrow Tracker */}
-                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-white">Escrow Tracker</h3>
-                    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/20">100% Protected</span>
-                  </div>
-
-                  {analyticsData.escrowHeld === 0 && analyticsData.totalMonthRevenue === 0 ? (
-                    <>
-                      <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
-                        <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
-                          <ShieldCheck className="size-6" />
-                        </div>
-                        <p className="text-xs font-bold text-white">Escrow Protection Active</p>
-                        <p className="text-[11px] text-[#8b949e] max-w-[230px] mt-1">
-                          Learner payments are securely locked in escrow upon checkout and instantly released once you finish training.
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => setActiveModal('share')}
-                        className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
-                      >
-                        Share Profile to Get Booked
-                      </button>
-                    </>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {upcomingSessions.slice(0, 3).map((session) => (
-                        <div
-                          key={session.id}
-                          className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3 flex items-center justify-between"
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button
+                          onClick={() => setActiveModal('add-slot')}
+                          className="flex items-center justify-center gap-1.5 rounded-xl bg-[#e01e37] py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
                         >
-                          <div>
-                            <p className="text-xs font-bold text-white">₹{session.price} · {session.learnerName}</p>
-                            <p className="text-[10px] text-emerald-400">
-                              {session.status === 'completed' ? 'Direct Bank Settlement' : 'Held in Escrow'}
+                          <Plus className="size-3" />
+                          <span>Add Slot</span>
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('calendar')}
+                          className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-[#8b949e] hover:text-white transition"
+                        >
+                          <span>Schedule</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                      <h3 className="text-sm font-bold text-white mb-4">Today&apos;s Next Session</h3>
+                      <div className="space-y-4">
+                        <div className="rounded-xl bg-[#0b0e14] border border-white/[0.06] p-4">
+                          <p className="text-xs font-bold text-white">{analyticsData.todaySessions[0].service} with {analyticsData.todaySessions[0].learnerName}</p>
+                          <p className="text-[11px] text-[#8b949e] mt-1 flex items-center gap-1.5">
+                            <Clock className="size-3 text-[#e01e37]" />
+                            {analyticsData.todaySessions[0].time}
+                          </p>
+                          <p className="text-[11px] text-[#6e7681] mt-1 flex items-center gap-1.5">
+                            <MapPin className="size-3" />
+                            {analyticsData.todaySessions[0].locationOrLink}
+                          </p>
+                        </div>
+                        
+                        <button
+                          onClick={() => setActiveTab('calendar')}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] py-2.5 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                        >
+                          <CalendarIcon className="size-3.5" />
+                          View Full Schedule
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Services / Offerings Quick List */}
+                  {showServices && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-white">Your Services</h3>
+                        <button
+                          onClick={() => setActiveModal('add-service')}
+                          className="flex items-center gap-1 text-[11px] font-semibold text-[#e01e37] hover:underline"
+                        >
+                          <Plus className="size-3" /> New
+                        </button>
+                      </div>
+
+                      {services.length === 0 ? (
+                        <>
+                          <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
+                              <Layers className="size-6 text-[#e01e37]" />
+                            </div>
+                            <p className="text-xs font-bold text-white">No Services Created</p>
+                            <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                              Set up 1-on-1 sparring, mitts, or live drills so students can book you.
                             </p>
                           </div>
-                          {session.status === 'completed' ? (
-                            <Check className="size-4 text-emerald-400 shrink-0" />
-                          ) : (
-                            <Clock className="size-4 text-amber-400 shrink-0" />
-                          )}
-                        </div>
-                      ))}
 
-                      {analyticsData.totalMonthRevenue > 0 && (
-                        <button
-                          onClick={() => setActiveModal('payout')}
-                          className="mt-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
-                        >
-                          Withdraw Available Balance
-                        </button>
+                          <button
+                            onClick={() => setActiveModal('add-service')}
+                            className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-[#e01e37] py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                          >
+                            <Plus className="size-3" />
+                            <span>+ Create First Service</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {services.slice(0, 4).map((svc, i) => {
+                            const colors = ['bg-[#e01e37]', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500']
+                            return (
+                              <div key={svc.id} className="flex items-center gap-3 group">
+                                <div className={`size-2 rounded-full ${colors[i % colors.length]} shrink-0`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-white truncate">{svc.name}</p>
+                                  <p className="text-[10px] text-[#6e7681]">₹{svc.price} · {svc.duration}</p>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
                     </div>
                   )}
                 </div>
-              </div>
+              )}
+
+              {/* ===== BOTTOM ROW: Recent Learners | Progress | Escrow ===== */}
+              {anyBottomVisible && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Recent Learners */}
+                  {showRecentLearners && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-white">Recent Learners</h3>
+                        <button
+                          onClick={() => setActiveTab('inbox')}
+                          className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 py-1.5 text-[10px] font-semibold text-[#8b949e] hover:text-white transition"
+                        >
+                          <Plus className="size-3" /> View In Inbox
+                        </button>
+                      </div>
+
+                      {upcomingSessions.length === 0 ? (
+                        <>
+                          <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                            <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mb-3">
+                              <Users className="size-6 text-[#e01e37]" />
+                            </div>
+                            <p className="text-xs font-bold text-white">No Learners Yet</p>
+                            <p className="text-[11px] text-[#8b949e] max-w-[220px] mt-1">
+                              Learners who book your sessions will appear here with direct chat and history.
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => setActiveModal('share')}
+                            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] py-2 text-xs font-semibold text-white hover:bg-white/[0.08] transition"
+                          >
+                            <Share2 className="size-3" />
+                            <span>Share Public Profile</span>
+                          </button>
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          {upcomingSessions.slice(0, 4).map((session) => (
+                            <div key={session.id} className="flex items-center gap-3">
+                              <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/10 border border-[#e01e37]/20 text-[10px] font-bold text-[#e01e37] shrink-0">
+                                {session.learnerName.split(' ').map(n => n[0]).join('')}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-white truncate">{session.learnerName}</p>
+                                <p className="text-[10px] text-[#6e7681] truncate">{session.service}</p>
+                              </div>
+                              <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold shrink-0 ${
+                                session.mode === 'in-person'
+                                  ? 'bg-blue-500/10 text-blue-400'
+                                  : 'bg-purple-500/10 text-purple-400'
+                              }`}>
+                                {session.mode === 'in-person' ? 'In-Person' : 'Online'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Session Completion Progress */}
+                  {showCompletionProgress && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col items-center justify-between">
+                      <h3 className="text-sm font-bold text-white self-start mb-2">Completion Progress</h3>
+                      <div className="my-auto flex flex-col items-center">
+                        <DonutChart percentage={analyticsData.completionRate} label="Completed" />
+                        <div className="flex items-center gap-4 mt-4 text-[10px]">
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-[#e01e37]" />
+                            <span className="text-[#8b949e]">Completed ({analyticsData.completedSessionsCount})</span>
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-white/10" />
+                            <span className="text-[#8b949e]">Scheduled ({analyticsData.totalSessionsScheduled})</span>
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-[#6e7681] text-center mt-2">
+                        {analyticsData.totalSessionsScheduled > 0 
+                          ? 'Progress automatically tracks your completed bookings'
+                          : 'Complete your first session to track progress'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Escrow Tracker */}
+                  {showEscrowTracker && (
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-white">Escrow Tracker</h3>
+                        <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-400 border border-emerald-500/20">100% Protected</span>
+                      </div>
+
+                      {analyticsData.escrowHeld === 0 && analyticsData.totalMonthRevenue === 0 ? (
+                        <>
+                          <div className="my-auto py-6 flex flex-col items-center justify-center text-center">
+                            <div className="flex size-12 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
+                              <ShieldCheck className="size-6" />
+                            </div>
+                            <p className="text-xs font-bold text-white">Escrow Protection Active</p>
+                            <p className="text-[11px] text-[#8b949e] max-w-[230px] mt-1">
+                              Learner payments are securely locked in escrow upon checkout and instantly released once you finish training.
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => setActiveModal('share')}
+                            className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                          >
+                            Share Profile to Get Booked
+                          </button>
+                        </>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {upcomingSessions.slice(0, 3).map((session) => (
+                            <div
+                              key={session.id}
+                              className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] p-3 flex items-center justify-between"
+                            >
+                              <div>
+                                <p className="text-xs font-bold text-white">₹{session.price} · {session.learnerName}</p>
+                                <p className="text-[10px] text-emerald-400">
+                                  {session.status === 'completed' ? 'Direct Bank Settlement' : 'Held in Escrow'}
+                                </p>
+                              </div>
+                              {session.status === 'completed' ? (
+                                <Check className="size-4 text-emerald-400 shrink-0" />
+                              ) : (
+                                <Clock className="size-4 text-amber-400 shrink-0" />
+                              )}
+                            </div>
+                          ))}
+
+                          {analyticsData.totalMonthRevenue > 0 && (
+                            <button
+                              onClick={() => setActiveModal('payout')}
+                              className="mt-3 w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 py-2 text-[11px] font-bold text-emerald-400 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                            >
+                              Withdraw Available Balance
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* No cards match filter state */}
+              {!anyCardVisible && (
+                <div className="rounded-2xl border border-white/[0.08] bg-[#12161f] p-12 text-center my-6">
+                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e]">
+                    <Search className="size-6 text-[#e01e37]" />
+                  </div>
+                  <h3 className="text-sm font-bold text-white mb-1">No dashboard cards found</h3>
+                  <p className="text-xs text-[#8b949e] max-w-sm mx-auto mb-4">
+                    No stats or sections match your search &ldquo;{searchQuery}&rdquo;. Try searching for &ldquo;sessions&rdquo;, &ldquo;revenue&rdquo;, &ldquo;learners&rdquo;, or &ldquo;escrow&rdquo;.
+                  </p>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white transition hover:brightness-110 active:scale-[0.98]"
+                  >
+                    Clear Search
+                  </button>
+                </div>
+              )}
 
             </div>
           )}
@@ -2164,20 +2341,12 @@ export default function InstructorDashboard() {
                   <span>Learner Profile</span>
                 </Link>
                 <Link
-                  href="/"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
-                >
-                  <ArrowLeft className="size-[18px]" />
-                  <span>Back to Explore</span>
-                </Link>
-                <Link
                   href="/profile"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#8b949e] hover:bg-white/5 hover:text-white transition"
                 >
                   <Settings className="size-[18px]" />
-                  <span>Settings</span>
+                  <span>Account Settings</span>
                 </Link>
                 <Link
                   href="/support"

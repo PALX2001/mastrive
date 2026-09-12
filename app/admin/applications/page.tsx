@@ -27,6 +27,30 @@ export default function AdminApplicationsPage() {
           return
         }
 
+        // Check founder / admin role across app metadata, profile table, and founder email
+        let isAdmin =
+          user.app_metadata?.role === 'admin' ||
+          user.user_metadata?.role === 'admin' ||
+          user.email?.toLowerCase() === '2001palash@gmail.com'
+
+        if (!isAdmin) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (profile?.role === 'admin') {
+            isAdmin = true
+          }
+        }
+
+        if (!isAdmin) {
+          setAuthorized(false)
+          setLoading(false)
+          return
+        }
+
         setAuthorized(true)
 
         const { data } = await supabase

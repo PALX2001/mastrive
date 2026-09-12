@@ -135,20 +135,43 @@ export function TournamentsView() {
           currentName = cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'Your Profile'
         }
         setUserName(currentName)
+
+        // Load existing registered tournaments from Supabase
+        try {
+          const { data: userRegs } = await supabase
+            .from('tournament_registrations')
+            .select('tournament_id')
+            .or(`user_id.eq.${user.id},participant_email.eq.${user.email}`)
+          if (userRegs && userRegs.length > 0) {
+            setRegistered(new Set(userRegs.map((r: any) => r.tournament_id)))
+          }
+        } catch {
+          // Table might be initializing
+        }
       }
 
-      // 2. Fetch all profiles from Supabase where role != 'instructor'
-      const { data: dbProfiles } = await supabase
-        .from('profiles')
-        .select('id, email, role, created_at, full_name, city, skill')
-        .order('created_at', { ascending: true })
+      // 2. Fetch public learner profiles from Supabase safe leaderboard view (falls back to profiles)
+      let learnerProfiles: any[] = []
+      try {
+        const { data: viewData, error: viewErr } = await supabase
+          .from('leaderboard_profiles')
+          .select('id, created_at, full_name, city, skill')
+          .order('created_at', { ascending: true })
 
-      // Filter out instructors strictly — only learners belong on the tournament leaderboard!
-      const learnerProfiles = (dbProfiles || []).filter(
-        (p) =>
-          p.role !== 'instructor' &&
-          p.email?.toLowerCase() !== '2001palash@gmail.com'
-      )
+        if (!viewErr && viewData) {
+          learnerProfiles = viewData
+        } else {
+          // Fallback if view is not yet initialized
+          const { data: dbProfiles } = await supabase
+            .from('profiles')
+            .select('id, created_at, full_name, city, skill, role')
+            .eq('role', 'user')
+            .order('created_at', { ascending: true })
+          learnerProfiles = dbProfiles || []
+        }
+      } catch {
+        learnerProfiles = []
+      }
 
       // Map learner profiles to leaderboard entries
       const realEntries: LeaderboardEntry[] = learnerProfiles.map((p, idx) => {
@@ -158,9 +181,9 @@ export function TournamentsView() {
         // Base XP starting at 1200 + bonus for days registered
         const xp = 1200 + (learnerProfiles.length - idx) * 350 + daysOld * 12
 
-        const rawName = p.full_name?.trim() || (p.email ? p.email.split('@')[0] : 'Learner')
+        const rawName = p.full_name?.trim() || 'Learner'
         const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
-        const isMe = !isInst && Boolean((uid && p.id === uid) || (userEmail && p.email?.toLowerCase() === userEmail.toLowerCase()))
+        const isMe = !isInst && Boolean(uid && p.id === uid)
 
         return {
           rank: 0,
@@ -295,12 +318,31 @@ export function TournamentsView() {
       name: 'MASTRIVE',
       description: `Registration for ${selectedTournament.name}`,
       image: '/logo.svg',
-      handler: function (response: any) {
+      handler: async function (response: any) {
+        const paymentId = response.razorpay_payment_id || `pay_${Date.now()}`
+        try {
+          await fetch('/api/tournaments/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tournament_id: selectedTournament.id,
+              tournament_name: selectedTournament.name,
+              participant_name: participant.name,
+              participant_email: participant.email,
+              participant_phone: participant.phone,
+              xp_handle: participant.xpHandle,
+              entry_fee: selectedTournament.entryFee,
+              payment_reference: paymentId,
+              user_id: currentUserId,
+            }),
+          })
+        } catch {}
+
         setRegistered((prev) => new Set(prev).add(selectedTournament.id))
         setSelectedTournament(null)
         setIsProcessing(false)
         setParticipant({ name: '', email: '', phone: '', xpHandle: '' })
-        alert(`Registration & Payment Successful! Payment ID: ${response.razorpay_payment_id}`)
+        alert(`Registration & Payment Successful! Payment ID: ${paymentId}`)
       },
       prefill: {
         name: participant.name,
@@ -529,6 +571,41 @@ export function TournamentsView() {
         )}
       </AnimatePresence>
 
+      {/* User Verified Hours & Mastery Progress Track */}
+      {!isUserInstructor ? (
+        <div className="mt-14">
+          <VerifiedProgressTrack
+            verifiedHrs={currentUser.verifiedHrs}
+            userName={currentUser.name}
+            userSkill={currentUser.skill}
+            rank={currentUser.rank}
+            xp={currentUser.xp}
+          />
+        </div>
+      ) : (
+        <div className="mt-14 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-sm">
+              ✓
+            </span>
+            <div>
+              <p className="text-sm font-bold text-white">
+                Instructor Account ({userName || 'Palash Bhowmik'})
+              </p>
+              <p className="text-xs text-[#8b949e]">
+                You are viewing the learner leaderboard. As a verified coach, you are excluded from learner rankings.
+              </p>
+            </div>
+          </div>
+          <a
+            href="/dashboard/instructor"
+            className="shrink-0 rounded-xl bg-white/10 border border-white/15 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
+          >
+            Instructor Dashboard →
+          </a>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* REAL-TIME LEADERBOARD SECTION */}
       {/* ========================================================================= */}
@@ -580,41 +657,6 @@ export function TournamentsView() {
             </div>
           </div>
         </div>
-
-        {/* User Verified Hours & Mastery Progress Track */}
-        {!isUserInstructor ? (
-          <div className="mt-6">
-            <VerifiedProgressTrack
-              verifiedHrs={currentUser.verifiedHrs}
-              userName={currentUser.name}
-              userSkill={currentUser.skill}
-              rank={currentUser.rank}
-              xp={currentUser.xp}
-            />
-          </div>
-        ) : (
-          <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 backdrop-blur-md">
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-sm">
-                ✓
-              </span>
-              <div>
-                <p className="text-sm font-bold text-white">
-                  Instructor Account ({userName || 'Palash Bhowmik'})
-                </p>
-                <p className="text-xs text-[#8b949e]">
-                  You are viewing the learner leaderboard. As a verified coach, you are excluded from learner rankings.
-                </p>
-              </div>
-            </div>
-            <a
-              href="/dashboard/instructor"
-              className="shrink-0 rounded-xl bg-white/10 border border-white/15 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 transition"
-            >
-              Instructor Dashboard →
-            </a>
-          </div>
-        )}
 
         {/* Leaderboard Table Container */}
         <div className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-[#12161f]/90 shadow-2xl backdrop-blur-xl">

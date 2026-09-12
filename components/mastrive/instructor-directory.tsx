@@ -248,60 +248,6 @@ export function InstructorDirectory({
         if (process.env.NODE_ENV !== 'production') console.warn('Instructors table query fallback:', e)
       }
 
-      // 2. Load from Supabase `instructor_applications` table (ensures newly submitted applications display immediately)
-      try {
-        const { data: appData, error: appErr } = await supabase
-          .from('instructor_applications')
-          .select('*')
-          .order('created_at', { ascending: false })
-
-        if (!appErr && appData && appData.length > 0) {
-          for (const app of appData) {
-            const appId = app.id
-            const fullName = (app.full_name || app.institute_name || 'Coach').trim()
-            const normalizedName = fullName.toLowerCase()
-            
-            if (!seenIds.has(appId) && !seenNames.has(normalizedName)) {
-              seenIds.add(appId)
-              seenNames.add(normalizedName)
-
-              const isOnline = app.teaching_modes?.some((mode: string) => /online|stream|video/i.test(mode)) ?? false
-              const area = isOnline ? 'Live Stream' : app.locality || app.location || app.city || 'Delhi'
-              const experience = Number.parseInt(app.experience_years || app.experience || '', 10)
-              const firstImage = Array.isArray(app.image_urls) && app.image_urls.length > 0 ? app.image_urls[0] : undefined
-
-              mergedList.push({
-                id: appId,
-                name: fullName,
-                verified: false, // Unverified until 10 learners boarded
-                totalStudents: 0,
-                skill: app.sub_skills || app.skill || 'Coach',
-                category: categoryIdFor(app.category || 'Fitness & Combat'),
-                mode: isOnline ? 'online' : 'in-person',
-                area,
-                city: app.city || 'Delhi',
-                rating: 5.0,
-                reviews: 0,
-                price: app.price_per_hour ? Number(app.price_per_hour) : 1000,
-                tag: `${isOnline ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(app.city || area).toUpperCase()}`,
-                image: firstImage,
-                images: Array.isArray(app.image_urls) ? app.image_urls : (firstImage ? [firstImage] : []),
-                description: app.bio || `Specialized ${app.sub_skills || app.skill || 'coach'} available for booking on Mastrive.`,
-                experienceYears: Number.isFinite(experience) ? experience : 2,
-                languages: app.languages_spoken || ['English', 'Hindi'],
-                education: app.education || undefined,
-                certifications: app.certifications
-                  ? [{ title: app.certifications, institute: 'Instructor-provided', year: '' }]
-                  : [],
-                modes: app.teaching_modes || [],
-              })
-            }
-          }
-        }
-      } catch (e) {
-        if (process.env.NODE_ENV !== 'production') console.warn('Applications table fallback notice:', e)
-      }
-
       // Safe fallback to seed instructors if network or DB returned 0 rows
       if (mergedList.length === 0 && fallbackInstructors.length > 0) {
         mergedList.push(...fallbackInstructors)

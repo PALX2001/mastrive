@@ -26,6 +26,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { calculateBookingPrice, COUPONS, type PricingBreakdown } from '@/lib/pricing'
 
 export interface BookingInstructor {
   id?: string
@@ -50,13 +51,6 @@ const TIME_SLOTS = [
   { time: '7:30 PM', available: true },
   { time: '9:00 PM', available: true },
 ]
-
-// Valid coupon codes mapped to discount percentages
-const COUPONS: Record<string, { discount: number; description: string }> = {
-  GROUP2: { discount: 0.15, description: '15% Off Group Discount' },
-  BATCH4: { discount: 0.25, description: '25% Off Squad Pass' },
-  MASTRIVE10: { discount: 0.10, description: '10% Off Promo Discount' },
-}
 
 // Singleton Razorpay script loader
 let razorpayPromise: Promise<boolean> | null = null
@@ -156,23 +150,16 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     })
   }, [])
 
-  const basePricePerSession = instructor?.price ?? 0
+  const pricing = useMemo(() => {
+    return calculateBookingPrice({
+      instructorRate: instructor?.price ?? 1000,
+      bookingType,
+      personCount,
+      couponCode: appliedCoupon,
+    })
+  }, [instructor?.price, bookingType, personCount, appliedCoupon])
 
-  const { rawTotalPrice, discountAmount, totalPrice } = useMemo(() => {
-    const pricePerParticipant =
-      bookingType === 'single'
-        ? basePricePerSession
-        : Math.round(basePricePerSession * 4 * 0.8)
-
-    const raw = pricePerParticipant * personCount
-    const discountMultiplier = appliedCoupon ? COUPONS[appliedCoupon]?.discount ?? 0 : 0
-    const discount = Math.round(raw * discountMultiplier)
-    return {
-      rawTotalPrice: raw,
-      discountAmount: discount,
-      totalPrice: raw - discount,
-    }
-  }, [basePricePerSession, bookingType, personCount, appliedCoupon])
+  const { rawTotalPrice, discountAmount, finalTotalPrice: totalPrice } = pricing
 
   // Mastrive Centralized UPI Payment Details
   const mastriveUpiId = process.env.NEXT_PUBLIC_UPI_ID || 'mastrive@upi'
@@ -241,6 +228,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
           mode: mode,
           person_count: personCount,
           total_amount: totalPrice,
+          coupon_code: appliedCoupon,
           payment_method: method,
           payment_reference: paymentRef,
           customer_name: `${title} ${fullName}`.trim(),
@@ -301,22 +289,32 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
 
     const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
 
-    // If no real Razorpay key provided or library blocked, simulate free test payment directly
-    if (!isLoaded || !razorpayKey || razorpayKey === 'rzp_test_placeholder') {
-      const simulatedPaymentId = `pay_sim_${Date.now().toString(36).toUpperCase()}`
-      await finalizeBooking('razorpay', simulatedPaymentId)
+    if (!isLoaded) {
+      setBookingError('Payment gateway could not be loaded. Please check your network connection or use UPI QR.')
+      setIsProcessing(false)
+      return
+    }
+
+    if (!razorpayKey || razorpayKey === 'rzp_test_placeholder') {
+      setBookingError('Razorpay online checkout is not configured yet. Please complete payment using the UPI QR option.')
+      setIsProcessing(false)
       return
     }
 
     const options = {
       key: razorpayKey,
-      amount: totalPrice * 100,
+      amount: Math.round(totalPrice * 100),
       currency: 'INR',
       name: 'MASTRIVE',
       description: `${bookingType === 'monthly' ? 'Monthly Pass' : 'Single Session'} with ${instructor.name}`,
       image: '/logo.svg',
       handler: function (response: any) {
-        finalizeBooking('razorpay', response.razorpay_payment_id || `rzp_${Date.now()}`)
+        if (response.razorpay_payment_id) {
+          finalizeBooking('razorpay', response.razorpay_payment_id)
+        } else {
+          setBookingError('Payment was not completed. Please try again or use UPI QR.')
+          setIsProcessing(false)
+        }
       },
       prefill: {
         name: `${title} ${fullName}`.trim(),
@@ -342,9 +340,9 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
     try {
       const paymentObject = new (window as any).Razorpay(options)
       paymentObject.open()
-    } catch {
-      // Fallback to instant confirmation if window.Razorpay fails
-      await finalizeBooking('razorpay', `pay_fallback_${Date.now()}`)
+    } catch (err: any) {
+      setBookingError(err?.message || 'Payment initialization failed. Please use UPI QR.')
+      setIsProcessing(false)
     }
   }, [instructor, fullName, totalPrice, bookingType, title, email, phone, selectedDateObj, selectedTime, mode, finalizeBooking])
 
@@ -861,14 +859,30 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
 
                 {/* Bottom Total & Actions */}
                 <div className="mt-5">
-                  {appliedCoupon && (
-                    <div className="mb-1 flex justify-between text-xs text-[#888]">
-                      <span>Original</span>
-                      <span className="line-through">₹{rawTotalPrice.toLocaleString('en-IN')}</span>
+                  {/* Transparent Platform Fee & Taxes Breakdown */}
+                  <div className="space-y-1.5 border-t border-white/[0.08] pt-3 text-[11px]">
+                    <div className="flex justify-between text-[#888]">
+                      <span>Coach Fee ({pricing.sessionCount}x {personCount > 1 ? `· ${personCount} persons` : ''})</span>
+                      <span className="font-semibold text-white">₹{pricing.instructorSubtotal.toLocaleString('en-IN')}</span>
                     </div>
-                  )}
-                  <div className="mb-4 flex items-baseline justify-between">
-                    <span className="text-xs uppercase text-[#888]">Total Online</span>
+                    <div className="flex justify-between text-[#888]">
+                      <span>Booking Expenses & Escrow (15%)</span>
+                      <span className="font-semibold text-white">₹{pricing.platformFee.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-[#888]">
+                      <span>Taxes & GST (18%)</span>
+                      <span className="font-semibold text-white">₹{pricing.taxes.toLocaleString('en-IN')}</span>
+                    </div>
+                    {appliedCoupon && pricing.discountAmount > 0 && (
+                      <div className="flex justify-between text-emerald-400 font-semibold">
+                        <span>Coupon Discount ({appliedCoupon})</span>
+                        <span>-₹{pricing.discountAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-4 mt-3 flex items-baseline justify-between border-t border-white/[0.08] pt-3">
+                    <span className="text-xs font-bold uppercase tracking-wider text-[#888]">Total Online</span>
                     <span className="text-2xl font-black text-white">
                       ₹{totalPrice.toLocaleString('en-IN')}
                     </span>

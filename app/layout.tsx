@@ -50,8 +50,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
       </head>
-      <body className="antialiased font-sans">
-        <main>{children}</main>
+      <body className="antialiased font-sans flex min-h-screen flex-col">
+        <div className="flex-1">{children}</div>
         <Footer />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
