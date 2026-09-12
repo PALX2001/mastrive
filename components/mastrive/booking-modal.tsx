@@ -758,7 +758,7 @@ export function BookingModal({ isOpen, onClose, instructor }: BookingModalProps)
                         <CreditCard className="size-7 mx-auto text-[#e01e37]" />
                         <p className="text-xs font-bold text-white">Instant Automated Online Checkout</p>
                         <p className="text-[11px] text-[#777]">
-                          Supports all Indian Debit/Credit Cards, NetBanking, EMI & Wallets with instant verification.
+                          Supports UPI, all Indian Debit/Credit Cards, NetBanking and EMI with instant verification.
                         </p>
                       </div>
                     )}

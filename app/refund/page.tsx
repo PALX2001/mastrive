@@ -39,7 +39,7 @@ export default function RefundPolicyPage() {
         <div className="border-t border-white/10 pt-6">
           <h2 className="text-lg font-bold text-white mb-2">2. Cancellations by Users</h2>
           <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-white">More than 24 Hours Notice:</strong> If you cancel a session at least 24 hours before the scheduled start time, you are eligible for a full refund to your original payment method or instant wallet credit.</li>
+            <li><strong className="text-white">More than 24 Hours Notice:</strong> If you cancel a session at least 24 hours before the scheduled start time, you are eligible for a full refund to your original payment method.</li>
             <li><strong className="text-white">Less than 24 Hours Notice:</strong> Cancellations made within 24 hours of the session start time are generally non-refundable, as the instructor&apos;s time has been reserved. Exceptions may be reviewed case-by-case.</li>
           </ul>
         </div>
@@ -47,7 +47,7 @@ export default function RefundPolicyPage() {
         <div className="border-t border-white/10 pt-6">
           <h2 className="text-lg font-bold text-white mb-2">3. Instructor Cancellations</h2>
           <p>
-            In the rare event that an instructor cancels a session or fails to show up for an in-person meeting or live-stream, you will receive an automatic 100% full refund credited directly back to your MASTRIVE wallet or payment account within 3 to 5 business days.
+            In the rare event that an instructor cancels a session or fails to show up for an in-person meeting or live-stream, you will receive an automatic 100% full refund credited directly back to your original payment account within 3 to 5 business days.
           </p>
         </div>
 

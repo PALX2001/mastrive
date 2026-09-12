@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
   User, 
-  Wallet, 
   Calendar, 
   Settings, 
   LogOut, 
@@ -59,6 +58,17 @@ export default function ProfilePage() {
     }
     return 'Learner'
   }, [profileData, user])
+
+  const stats = useMemo(() => {
+    const active = bookings.filter(b => b.status === 'confirmed' || b.status === 'pending')
+    const completed = bookings.filter(b => b.status === 'completed')
+    const totalHrs = completed.reduce((acc, b) => acc + (Number(b.duration_hours) || 1), 0)
+    return {
+      activeCount: active.length,
+      completedCount: completed.length,
+      verifiedHrs: totalHrs
+    }
+  }, [bookings])
 
   useEffect(() => {
     const supabase = createClient()
@@ -526,17 +536,21 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium">Active Bookings</span>
                     <Calendar className="size-5 text-[#e01e37]" />
                   </div>
-                  <div className="text-3xl font-bold text-white">0</div>
-                  <p className="text-xs text-[#8b949e] mt-1">No upcoming sessions scheduled yet.</p>
+                  <div className="text-3xl font-bold text-white">{stats.activeCount}</div>
+                  <p className="text-xs text-[#8b949e] mt-1">
+                    {stats.activeCount > 0 ? `${stats.activeCount} upcoming session(s) scheduled.` : 'No upcoming sessions scheduled yet.'}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
                   <div className="flex items-center justify-between text-[#8b949e] mb-4">
-                    <span className="text-sm font-medium">Wallet Balance</span>
-                    <Wallet className="size-5 text-[#e01e37]" />
+                    <span className="text-sm font-medium">Completed Sessions</span>
+                    <CheckCircle2 className="size-5 text-[#e01e37]" />
                   </div>
-                  <div className="text-3xl font-bold text-white">₹0</div>
-                  <p className="text-xs text-[#8b949e] mt-1">Instant per-session checkout active.</p>
+                  <div className="text-3xl font-bold text-white">{stats.completedCount}</div>
+                  <p className="text-xs text-[#8b949e] mt-1">
+                    {stats.completedCount > 0 ? `${stats.completedCount} session(s) successfully completed.` : 'No completed sessions logged yet.'}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-[#161b22]/40 p-6 backdrop-blur-xl">
@@ -544,18 +558,18 @@ export default function ProfilePage() {
                     <span className="text-sm font-medium">Verified Hours</span>
                     <Shield className="size-5 text-[#e01e37]" />
                   </div>
-                  <div className="text-3xl font-bold text-white">0 hrs</div>
-                  <p className="text-xs text-[#8b949e] mt-1">Logged from completed 1-on-1 sessions.</p>
+                  <div className="text-3xl font-bold text-white">{stats.verifiedHrs} hrs</div>
+                  <p className="text-xs text-[#8b949e] mt-1">Logged from verified 1-on-1 sessions.</p>
                 </div>
               </div>
 
               {/* Progress & Certification Track */}
               <VerifiedProgressTrack
-                verifiedHrs={0}
+                verifiedHrs={stats.verifiedHrs}
                 userName={resolvedName}
                 userSkill={isInstructor ? 'Verified Instructor' : 'Active Learner'}
                 rank={1}
-                xp={100}
+                xp={Math.max(100, stats.verifiedHrs * 50)}
               />
             </>
           )}

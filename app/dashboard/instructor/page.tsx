@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 import { 
   MessageSquare, 
-  Wallet, 
+  CreditCard, 
   Share2, 
   CheckCircle2, 
   Clock, 
@@ -56,7 +56,7 @@ const sidebarNavItems: { id: DashTab; label: string; icon: React.ElementType; ba
   { id: 'dash', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: '2' },
   { id: 'calendar', label: 'Schedule', icon: CalendarIcon },
-  { id: 'earnings', label: 'Earnings', icon: Wallet },
+  { id: 'earnings', label: 'Earnings', icon: CreditCard },
   { id: 'services', label: 'Services', icon: Layers },
 ]
 
@@ -912,7 +912,7 @@ export default function InstructorDashboard() {
                     onClick={() => setActiveModal('payout')}
                     className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/[0.06] active:scale-[0.98]"
                   >
-                    <Wallet className="size-3.5" />
+                    <CreditCard className="size-3.5" />
                     <span>Claim Payout</span>
                   </button>
                 </div>
@@ -1313,7 +1313,7 @@ export default function InstructorDashboard() {
                           <div>
                             <p className="text-xs font-bold text-white">₹{session.price} · {session.learnerName}</p>
                             <p className="text-[10px] text-emerald-400">
-                              {session.status === 'completed' ? 'Released to Wallet' : 'Held in Escrow'}
+                              {session.status === 'completed' ? 'Direct Bank Settlement' : 'Held in Escrow'}
                             </p>
                           </div>
                           {session.status === 'completed' ? (
@@ -1635,7 +1635,7 @@ export default function InstructorDashboard() {
               {/* Top Balance Banner */}
               <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#12161f] to-[#0c0f16] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Available Wallet Balance</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#8b949e]">Available Payout Balance</span>
                   <div className="mt-2 flex items-baseline gap-3">
                     <span className="text-4xl sm:text-5xl font-black text-white">
                       ₹{analyticsData.totalMonthRevenue.toLocaleString('en-IN')}
@@ -1657,7 +1657,7 @@ export default function InstructorDashboard() {
                   onClick={() => setActiveModal('payout')}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3.5 text-sm font-bold text-white shadow-[0_4px_20px_rgba(16,185,129,0.3)] transition hover:brightness-110 active:scale-95"
                 >
-                  <Wallet className="size-4" />
+                  <CreditCard className="size-4" />
                   <span>Withdraw to UPI / Bank</span>
                 </button>
               </div>
@@ -1669,11 +1669,11 @@ export default function InstructorDashboard() {
                 {analyticsData.completedSessionsCount === 0 ? (
                   <div className="py-12 text-center">
                     <div className="flex size-14 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/10 text-[#8b949e] mx-auto mb-3">
-                      <Wallet className="size-7 text-[#e01e37]" />
+                      <CreditCard className="size-7 text-[#e01e37]" />
                     </div>
                     <h4 className="text-sm font-bold text-white">No Escrow Settlements Yet</h4>
                     <p className="text-xs text-[#8b949e] max-w-sm mx-auto mt-1">
-                      As soon as you complete training sessions, settlements are automatically credited to your wallet and logged here.
+                      As soon as you complete training sessions, settlements are automatically credited to your earnings and logged here.
                     </p>
                     <button
                       onClick={() => setActiveModal('share')}
@@ -1876,7 +1876,7 @@ export default function InstructorDashboard() {
                 <form onSubmit={handleProcessPayout} className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="flex size-10 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400">
-                      <Wallet className="size-5" />
+                      <CreditCard className="size-5" />
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-white">Instant Escrow Payout</h3>

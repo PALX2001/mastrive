@@ -101,7 +101,7 @@ export default function TermsPage() {
                 3. Cancellations & Refunds
               </h3>
               <p>
-                Cancellations requested at least 24 hours before a scheduled session start time are eligible for a full refund or wallet credit.
+                Cancellations requested at least 24 hours before a scheduled session start time are eligible for a full refund to your original payment method.
               </p>
             </section>
 
