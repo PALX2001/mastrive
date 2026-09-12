@@ -356,21 +356,6 @@ export default function ProfilePage() {
           <ArrowLeft className="size-4" />
           Back to Explore
         </Link>
-        <div className="flex items-center gap-3">
-          {isInstructor && (
-            <Link
-              href="/dashboard/instructor"
-              className="inline-flex items-center gap-2 rounded-full border border-[#e01e37]/40 bg-[#e01e37]/15 px-3.5 py-1.5 text-xs font-bold text-white shadow-[0_0_15px_rgba(224,30,55,0.3)] transition-all hover:bg-[#e01e37] hover:border-[#e01e37] active:scale-95"
-            >
-              <LayoutDashboard className="size-3.5 text-[#e01e37]" />
-              <span>Instructor Dashboard</span>
-            </Link>
-          )}
-          <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#161b22]/70 px-3.5 py-1.5 backdrop-blur-xl">
-            <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-            <span className="text-xs font-semibold text-[#f0f6fc]">Account Active</span>
-          </div>
-        </div>
       </div>
 
       {/* Main Container */}
@@ -392,6 +377,7 @@ export default function ProfilePage() {
                     fill
                     sizes="80px"
                     className="size-full object-cover"
+                    onError={() => setAvatarUrl(null)}
                   />
                 ) : (
                   resolvedName.substring(0, 2).toUpperCase()
