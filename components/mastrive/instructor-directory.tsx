@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
-import { Star, Quote, ShieldCheck } from 'lucide-react'
+import { Star, Quote } from 'lucide-react'
 import { instructors as fallbackInstructors, type CategoryId, type Instructor } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
@@ -460,112 +460,59 @@ export function InstructorDirectory({
           </div>
         )}
 
-        {/* Automatic Horizontal Reviews Marquee */}
-        <div className="content-auto relative mt-24 border-t border-white/[0.08] pt-14">
-          {/* Subtle ambient crimson spotlight bloom behind marquee */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-16 left-1/2 size-[600px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[#e01e37]/10 via-[#e01e37]/02 to-transparent blur-[140px] transform-gpu"
-          />
-
-          <div className="relative z-10 mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+        {/* Learner Reviews Marquee */}
+        <div className="content-auto mt-20 border-t border-white/[0.07] pt-14">
+          <div className="mb-10 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#e01e37]/30 bg-[#e01e37]/10 px-3.5 py-1 text-[11px] font-bold uppercase tracking-widest text-[#ff4d6d] shadow-[0_0_15px_rgba(224,30,55,0.15)]">
-                <span className="size-1.5 rounded-full bg-[#e01e37] animate-pulse" />
-                Verified Social Proof
-              </div>
-              <h3 className="mt-3 text-2xl font-black tracking-tight text-[#f0f6fc] sm:text-3xl">
-                What Learners Are Saying
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#e01e37]">
+                Learner Reviews
+              </span>
+              <h3 className="mt-1.5 text-2xl font-black tracking-tight text-white">
+                What people are saying
               </h3>
-              <p className="mt-1 text-xs text-[#8b949e] sm:text-sm">
-                Authentic feedback from real 1-on-1 sessions booked on Mastrive.
-              </p>
             </div>
-            <div className="flex items-center gap-2.5 rounded-full border border-white/[0.1] bg-white/[0.03] px-4 py-2 text-xs text-[#8b949e] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-              <Star className="size-4 fill-amber-400 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-              <span className="font-extrabold text-[#f0f6fc]">4.9 / 5.0</span>
-              <span className="hidden sm:inline text-white/30">•</span>
-              <span className="hidden sm:inline">across verified learners</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#6e7681]">
+              <Star className="size-3.5 fill-amber-400 text-amber-400" />
+              <span className="font-bold text-[#f0f6fc]">4.9</span>
+              <span>/ 5 from verified sessions</span>
             </div>
           </div>
 
-          {/* Marquee Wrapper with Vignette Fades */}
-          <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
-            <div className="animate-marquee gap-5 py-4 transform-gpu [animation-duration:42s]">
+          <div className="relative w-full overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+            <div className="animate-marquee gap-4 py-2 transform-gpu [animation-duration:65s]">
               {MARQUEE_REVIEWS.map((rev, idx) => (
                 <div
                   key={`${rev.id}-${idx}`}
-                  className="group relative flex w-[340px] shrink-0 flex-col justify-between rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#131722]/85 via-[#0e121a]/90 to-[#090c12]/95 p-6 backdrop-blur-xl transition-all duration-300 hover:border-[#e01e37]/40 hover:shadow-[0_16px_45px_rgba(224,30,55,0.14)] shadow-[0_10px_35px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] sm:w-[400px]"
+                  className="flex w-[300px] shrink-0 flex-col gap-4 rounded-xl border border-white/[0.07] bg-[#0e1117] p-5 hover:border-white/[0.12] transition-colors duration-300 sm:w-[340px]"
                 >
-                  {/* Subtle top edge glow line on card */}
-                  <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent transition-opacity duration-300 group-hover:via-[#e01e37]/60" />
-
-                  <div>
-                    {/* Top Row: Stars + Verified Badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex items-center gap-0.5 text-amber-400">
-                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
-                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
-                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
-                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
-                          <Star className="size-3.5 fill-current text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]" />
-                        </div>
-                        <span className="text-xs font-black text-white ml-1">5.0</span>
-                      </div>
-
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                        <ShieldCheck className="size-3" />
-                        Verified
-                      </span>
-                    </div>
-
-                    {/* Skill Tag */}
-                    <div className="mt-3.5">
-                      <span className="inline-flex items-center rounded-md border border-[#e01e37]/25 bg-[#e01e37]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#ff4d6d]">
-                        {rev.skill}
-                      </span>
-                    </div>
-
-                    {/* Comment Body */}
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-[#c9d1d9] transition-colors duration-200 group-hover:text-white">
-                      &ldquo;{rev.comment}&rdquo;
-                    </p>
+                  {/* Stars */}
+                  <div className="flex items-center gap-0.5">
+                    {[0,1,2,3,4].map(i => (
+                      <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+                    ))}
                   </div>
 
-                  {/* Bottom Footer: Learner & Coach Attribution */}
-                  <div className="mt-6 flex items-center justify-between border-t border-white/[0.07] pt-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative size-10 shrink-0 overflow-hidden rounded-full border border-white/10 ring-2 ring-[#e01e37]/20">
-                        <Image
-                          src={rev.avatar}
-                          alt={rev.name}
-                          width={40}
-                          height={40}
-                          loading="lazy"
-                          className="size-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="truncate text-sm font-bold text-[#f0f6fc]">
-                          {rev.name}
-                        </h4>
-                        <p className="truncate text-[11px] text-[#8b949e]">
-                          {rev.role}
-                        </p>
-                      </div>
-                    </div>
+                  {/* Quote */}
+                  <p className="text-sm leading-relaxed text-[#8b949e]">
+                    &ldquo;{rev.comment}&rdquo;
+                  </p>
 
-                    {rev.instructor && (
-                      <div className="shrink-0 pl-2 text-right">
-                        <span className="block text-[10px] font-semibold uppercase tracking-wider text-[#6e7681]">
-                          Coach
-                        </span>
-                        <span className="text-xs font-bold text-white transition-colors duration-200 group-hover:text-[#ff4d6d]">
-                          {rev.instructor}
-                        </span>
-                      </div>
-                    )}
+                  {/* Learner */}
+                  <div className="flex items-center gap-3 border-t border-white/[0.06] pt-4">
+                    <div className="size-9 shrink-0 overflow-hidden rounded-full border border-white/[0.08]">
+                      <Image
+                        src={rev.avatar}
+                        alt={rev.name}
+                        width={36}
+                        height={36}
+                        loading="lazy"
+                        className="size-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">{rev.name}</p>
+                      <p className="truncate text-[11px] text-[#6e7681]">{rev.role}</p>
+                    </div>
                   </div>
                 </div>
               ))}
