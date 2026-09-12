@@ -79,48 +79,128 @@ export function TournamentsView() {
   const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardEntry[]>(initialLeaderboard)
   const [userName, setUserName] = useState<string>('')
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (data?.user) {
+
+    const loadLeaderboardData = async () => {
+      // 1. Get current logged in user
+      const { data: authData } = await supabase.auth.getUser()
+      const user = authData?.user
+      const uid = user?.id || null
+      const userEmail = user?.email || null
+      setCurrentUserId(uid)
+
+      let currentName = ''
+      if (user) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('id', data.user.id)
+          .eq('id', user.id)
           .maybeSingle()
 
         if (profile?.full_name?.trim()) {
-          setUserName(profile.full_name.trim())
-        } else if (data.user.user_metadata?.full_name?.trim()) {
-          setUserName(data.user.user_metadata.full_name.trim())
-        } else if (data.user.email) {
-          const raw = data.user.email.split('@')[0]
+          currentName = profile.full_name.trim()
+        } else if (user.user_metadata?.full_name?.trim()) {
+          currentName = user.user_metadata.full_name.trim()
+        } else if (user.email) {
+          const raw = user.email.split('@')[0]
           const cleaned = raw.replace(/^[0-9_]+|[0-9_]+$/g, '').replace(/[._-]/g, ' ').trim()
-          setUserName(cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'Your Profile')
+          currentName = cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : 'Your Profile'
         }
+        setUserName(currentName)
       }
-    })
-  }, [])
 
-  // Real-time live pulse XP simulation (simulating live session completions across India)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveLeaderboard((prev) => {
-        const randomIndex = Math.floor(Math.random() * prev.length)
-        const updated = [...prev]
-        const target = { ...updated[randomIndex] }
-        const xpGain = Math.floor(Math.random() * 25) + 15
-        target.xp += xpGain
-        target.verifiedHrs += Math.random() > 0.6 ? 1 : 0
-        updated[randomIndex] = target
+      // 2. Fetch all profiles from Supabase where role != 'instructor'
+      const { data: dbProfiles } = await supabase
+        .from('profiles')
+        .select('id, email, role, created_at, full_name, city, skill')
+        .order('created_at', { ascending: true })
 
-        // Re-sort dynamically by XP and re-assign rank
-        updated.sort((a, b) => b.xp - a.xp)
-        return updated.map((entry, idx) => ({ ...entry, rank: idx + 1 }))
+      // Filter out instructors strictly — only learners belong on the tournament leaderboard!
+      const learnerProfiles = (dbProfiles || []).filter((p) => p.role !== 'instructor')
+
+      // Map learner profiles to leaderboard entries
+      const realEntries: LeaderboardEntry[] = learnerProfiles.map((p, idx) => {
+        const createdTime = p.created_at ? new Date(p.created_at).getTime() : Date.now()
+        // Account age calculation gives baseline XP
+        const daysOld = Math.max(1, Math.floor((Date.now() - createdTime) / (1000 * 60 * 60 * 24)))
+        // Base XP starting at 1200 + bonus for days registered
+        const xp = 1200 + (learnerProfiles.length - idx) * 350 + daysOld * 12
+
+        const rawName = p.full_name?.trim() || (p.email ? p.email.split('@')[0] : 'Learner')
+        const formattedName = rawName.charAt(0).toUpperCase() + rawName.slice(1)
+        const isMe = Boolean((uid && p.id === uid) || (userEmail && p.email === userEmail))
+
+        return {
+          rank: 0,
+          name: isMe && currentName ? currentName : formattedName,
+          category: 'Fitness & Combat',
+          skill: p.skill?.trim() || 'Strength Training',
+          state: p.city?.trim() || 'Delhi',
+          xp,
+          verifiedHrs: Math.floor(xp / 65),
+          status: xp >= 1500 ? 'certified' : 'rising',
+          isUser: isMe,
+        }
       })
-    }, 4500)
 
-    return () => clearInterval(interval)
+      // Combine with initial seed entries if real count is low, filtering out any instructors
+      let combined = [...realEntries]
+
+      // If the current user logged in is a learner and not in realEntries yet, add them
+      if (uid && userEmail && !combined.some((item) => item.isUser)) {
+        combined.push({
+          rank: 0,
+          name: currentName || 'Your Profile',
+          category: 'Fitness & Combat',
+          skill: 'Strength Training',
+          state: 'Delhi',
+          xp: 1518,
+          verifiedHrs: 22,
+          status: 'certified',
+          isUser: true,
+        })
+      }
+
+      // If less than 3 entries, add fallback non-instructor learners
+      if (combined.length < 3) {
+        initialLeaderboard.forEach((seed) => {
+          if (!combined.some((c) => c.name === seed.name)) {
+            combined.push({ ...seed, isUser: false })
+          }
+        })
+      }
+
+      // Sort descending by XP and assign rank
+      combined.sort((a, b) => b.xp - a.xp)
+      combined = combined.map((entry, idx) => ({
+        ...entry,
+        rank: idx + 1,
+      }))
+
+      setLiveLeaderboard(combined)
+    }
+
+    loadLeaderboardData()
+
+    // 3. Supabase Realtime subscription on public.profiles table
+    // Whenever ANY user registers or updates their profile, re-fetch and auto-update instantly!
+    const channel = supabase
+      .channel('public_profiles_leaderboard')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          loadLeaderboardData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Modal & Registration state

@@ -177,27 +177,28 @@ export type LeaderboardEntry = {
   isUser?: boolean
 }
 
+// Leaderboard contains learners only (instructors excluded).
+// Live leaderboard is auto-populated from Supabase `profiles` (role='user').
 export const leaderboard: LeaderboardEntry[] = [
   {
     rank: 1,
-    name: 'Ikjot Singh',
+    name: 'Aarav Sharma',
     category: 'Fitness & Combat',
-    skill: 'Fitness & Strength Coach',
+    skill: 'Strength Training',
     state: 'Delhi',
-    xp: 5010,
-    verifiedHrs: 288,
+    xp: 2850,
+    verifiedHrs: 64,
     status: 'certified',
   },
   {
     rank: 2,
-    name: 'Your Profile',
+    name: 'Rohan Varma',
     category: 'Fitness & Combat',
-    skill: 'Strength Training',
-    state: 'Delhi',
-    xp: 1200,
-    verifiedHrs: 18,
-    status: 'rising',
-    isUser: true,
+    skill: 'Boxing & Sparring',
+    state: 'Gurgaon',
+    xp: 1920,
+    verifiedHrs: 42,
+    status: 'certified',
   },
 ]
 
