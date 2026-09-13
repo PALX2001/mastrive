@@ -178,16 +178,22 @@ export async function GET(request: Request) {
         }
 
         // Domain origin resolution
+        // Security: Validate forwardedHost against allowed domains to prevent Host Header Injection
         const forwardedHost = request.headers.get('x-forwarded-host')
-        const isLocalEnv = process.env.NODE_ENV === 'development'
+        const isAllowedHost = Boolean(
+          forwardedHost && (
+            forwardedHost === 'mastrive.vercel.app' ||
+            forwardedHost.endsWith('.vercel.app') ||
+            forwardedHost === 'mastrive.com' ||
+            forwardedHost.startsWith('localhost') ||
+            forwardedHost.startsWith('127.0.0.1')
+          )
+        )
         
-        if (isLocalEnv) {
-          return NextResponse.redirect(`${origin}${targetPath}`)
-        } else if (forwardedHost) {
+        if (forwardedHost && isAllowedHost) {
           return NextResponse.redirect(`https://${forwardedHost}${targetPath}`)
-        } else {
-          return NextResponse.redirect(`${origin}${targetPath}`)
         }
+        return NextResponse.redirect(`${origin}${targetPath}`)
       }
     }
 

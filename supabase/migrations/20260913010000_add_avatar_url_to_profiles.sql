@@ -16,11 +16,7 @@ update public.instructors
 set image_urls = array['https://pwxhtxqvlsmspwazkaik.supabase.co/storage/v1/object/public/instructor-images/avatars/a2b4e2c7-02bb-4c48-ba4b-e741ad2e6f7a-1789269167303.jpg']
 where user_id = 'a2b4e2c7-02bb-4c48-ba4b-e741ad2e6f7a';
 
--- 3. Ensure users can update their avatar_url in profiles
+-- 3. Ensure role elevation is blocked while allowing avatar_url updates
 drop policy if exists "Users can update own avatar_url" on public.profiles;
-create policy "Users can update own avatar_url"
-  on public.profiles for update
-  to authenticated
-  using (auth.uid() = id or public.is_admin())
-  with check (auth.uid() = id or public.is_admin());
+
 

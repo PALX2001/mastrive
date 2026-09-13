@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       entry_fee: Number(entry_fee) || 0,
       payment_method: String(payment_method),
       payment_reference: String(payment_reference || `TOUR-${Date.now().toString(36).toUpperCase()}`),
-      status: 'confirmed',
+      status: 'payment_pending',
     }
 
     const { data, error } = await supabase

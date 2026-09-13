@@ -91,14 +91,9 @@ export async function POST(req: Request) {
     }
 
     // 5. Determine booking status based on payment verification
-    // For manual UPI payments with UTR, status is 'payment_pending' until verified in escrow
+    // Security: Default all initial client bookings to 'payment_pending' until verified via escrow settlement or webhook
     const cleanRef = String(payment_reference || '').trim()
-    const bookingStatus =
-      payment_method === 'upi_qr'
-        ? 'payment_pending'
-        : cleanRef && !cleanRef.startsWith('pay_sim_')
-        ? 'confirmed'
-        : 'payment_pending'
+    const bookingStatus = 'payment_pending'
 
     const bookingId = crypto.randomUUID()
 

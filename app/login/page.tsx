@@ -37,9 +37,10 @@ function AuthContent() {
         if (!isMounted) return
 
         if (user) {
-          const explicitNext = searchParams.get('next')
-          if (explicitNext) {
-            router.replace(explicitNext)
+          const rawNext = searchParams.get('next')
+          const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.includes('\\') ? rawNext : null
+          if (safeNext) {
+            router.replace(safeNext)
             return
           }
 
@@ -92,8 +93,9 @@ function AuthContent() {
     setLoading(true)
     setMessage(null)
 
-    const explicitNext = searchParams.get('next')
-    const targetNext = explicitNext || (mode === 'signup' ? '/onboarding' : '/')
+    const rawNext = searchParams.get('next')
+    const safeNext = rawNext && rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.includes('\\') ? rawNext : null
+    const targetNext = safeNext || (mode === 'signup' ? '/onboarding' : '/')
     const targetUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(targetNext)}`
 
     const { error } = await supabase.auth.signInWithOAuth({

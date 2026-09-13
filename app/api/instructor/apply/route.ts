@@ -32,10 +32,10 @@ export async function POST(req: Request) {
       age_groups = [],
       bio = '',
       image_urls = [],
-      user_id = null,
     } = body
 
-    const targetUserId = sessionUser?.id || user_id || null
+    // Security: Only accept authenticated session user ID. Never allow unauthenticated requests to modify arbitrary user accounts.
+    const targetUserId = sessionUser?.id || null
 
     // If no sessionUser but service role key exists, use service role client
     if (!sessionUser && process.env.SUPABASE_SERVICE_ROLE_KEY) {

@@ -27,10 +27,9 @@ export default function AdminApplicationsPage() {
           return
         }
 
-        // Check founder / admin role across app metadata, profile table, and founder email
+        // Check founder / admin role strictly across server app_metadata, founder email, and database profile
         let isAdmin =
           user.app_metadata?.role === 'admin' ||
-          user.user_metadata?.role === 'admin' ||
           user.email?.toLowerCase() === '2001palash@gmail.com'
 
         if (!isAdmin) {
