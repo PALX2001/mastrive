@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, memo } from 'react'
 import Image from 'next/image'
-import { Search, ChevronDown } from 'lucide-react'
+import { Search, ChevronDown, X } from 'lucide-react'
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react'
 import { categories, type CategoryId } from '@/lib/data'
 
@@ -51,9 +51,13 @@ const HERO_BACKGROUND_IMAGES = [
 const HeroSearchBar = memo(function HeroSearchBar({
   query,
   onQueryChange,
+  isSearching,
+  onFocusChange,
 }: {
   query: string
   onQueryChange: (v: string) => void
+  isSearching: boolean
+  onFocusChange: (focused: boolean) => void
 }) {
   const [placeholderText, setPlaceholderText] = useState("Try 'Boxing'")
 
@@ -104,21 +108,48 @@ const HeroSearchBar = memo(function HeroSearchBar({
 
   return (
     <motion.form
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+      layout
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       onSubmit={(e) => e.preventDefault()}
-      className="mx-auto mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] p-2 pl-5 shadow-[0_8px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl focus-within:border-[#e01e37]/40 focus-within:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(224,30,55,0.2),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-300"
+      className={`mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] p-2 pl-5 shadow-[0_8px_40px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl focus-within:border-[#e01e37]/50 focus-within:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(224,30,55,0.25),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-300 ${
+        isSearching ? 'mt-2 sm:mt-3' : 'mt-8'
+      }`}
     >
       <Search className="size-5 shrink-0 text-[#666]" aria-hidden />
       <input
         value={query}
-        onChange={(e) => onQueryChange(e.target.value)}
+        onFocus={() => onFocusChange(true)}
+        onBlur={() => {
+          setTimeout(() => {
+            if (!query.trim()) {
+              onFocusChange(false)
+            }
+          }, 150)
+        }}
+        onChange={(e) => {
+          onQueryChange(e.target.value)
+          if (e.target.value.trim().length > 0) {
+            onFocusChange(true)
+          }
+        }}
         type="text"
         placeholder={placeholderText}
         aria-label="Search skills"
         className="min-w-0 flex-1 bg-transparent text-sm text-[#f5f5f5] outline-none placeholder:text-[#555]"
       />
+      {query && (
+        <button
+          type="button"
+          onClick={() => {
+            onQueryChange('')
+            onFocusChange(false)
+          }}
+          className="rounded-full p-1 text-[#888] hover:bg-white/10 hover:text-white transition"
+          aria-label="Clear search"
+        >
+          <X className="size-4" />
+        </button>
+      )}
       <button
         type="submit"
         className="gloss-btn-primary shrink-0 rounded-full px-6 py-2.5 text-xs font-bold text-white"
@@ -134,16 +165,34 @@ export function Hero({
   onQueryChange,
   activeCategory,
   onCategoryChange,
+  isSearching,
+  setIsSearching,
 }: {
   query: string
   onQueryChange: (v: string) => void
   activeCategory: CategoryId
   onCategoryChange: (id: CategoryId) => void
+  isSearching?: boolean
+  setIsSearching?: (val: boolean) => void
 }) {
+  const [internalSearching, setInternalSearching] = useState(false)
+  const activeIsSearching = isSearching !== undefined ? (isSearching || query.trim().length > 0) : (internalSearching || query.trim().length > 0)
   const [phraseIndex, setPhraseIndex] = useState(0)
   const [bgIndex, setBgIndex] = useState(0)
   const [locationName, setLocationName] = useState<string>('Delhi')
   const containerRef = useRef<HTMLElement>(null)
+
+  const handleFocusChange = (focused: boolean) => {
+    if (setIsSearching) {
+      setIsSearching(focused || query.trim().length > 0)
+    } else {
+      setInternalSearching(focused || query.trim().length > 0)
+    }
+
+    if (focused && typeof window !== 'undefined' && window.scrollY > 30) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
 
   // Scroll fade-out hooks
   const { scrollYProgress } = useScroll({
@@ -223,12 +272,18 @@ export function Hero({
   return (
     <section
       ref={containerRef}
-      className="relative z-10 flex min-h-[72vh] w-full flex-col items-center justify-center overflow-hidden px-4 pb-12 pt-12 sm:pt-16"
+      className={`relative z-10 flex w-full flex-col items-center justify-center overflow-hidden px-4 transition-all duration-500 ease-out ${
+        activeIsSearching
+          ? 'min-h-0 pt-4 pb-6 sm:pt-6 sm:pb-8'
+          : 'min-h-[72vh] pt-12 pb-12 sm:pt-16'
+      }`}
     >
       {/* Dynamic Black & White Skill Imagery Background with Scroll Fade */}
       <motion.div
+        animate={{ opacity: activeIsSearching ? 0.35 : 1 }}
+        transition={{ duration: 0.5 }}
         style={{ opacity: bgOpacity, scale: bgScale }}
-        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden select-none transform-gpu"
+        className="pointer-events-none absolute inset-0 -z-20 overflow-hidden select-none transform-gpu"
         aria-hidden
       >
         <AnimatePresence mode="sync">
@@ -280,71 +335,82 @@ export function Hero({
         </AnimatePresence>
       </motion.div>
 
-      <div className="relative mx-auto max-w-3xl text-center">
-
-        {/* [SAVED FOR REVERT] Red ambient glow bloom:
-        <div aria-hidden className="pointer-events-none">
-          <div className="absolute left-1/2 top-1/2 -z-10 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e01e37]/12 blur-[100px] transform-gpu" />
-          <div className="absolute left-[40%] top-[30%] -z-10 h-[300px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e01e37]/06 blur-[80px] transform-gpu" />
-        </div>
-        */}
-
-        {/* Location Badge — glass style */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-[#888] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl"
-        >
-          {/* Pulsing live dot */}
-          <span className="relative flex size-2.5 items-center justify-center">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70 duration-1000" />
-            <span className="relative inline-flex size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-          </span>
-          <span>{locationName}</span>
-        </motion.div>
-
-        {/* Heading — animated phrase flip */}
-        <div className="relative flex min-h-[70px] sm:h-[80px] w-full items-center justify-center">
-          <AnimatePresence mode="wait">
-            <motion.h1
-              key={HERO_PHRASES[phraseIndex].id}
-              initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -20, filter: 'blur(6px)' }}
-              transition={{
-                duration: 0.5,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 text-center text-3xl font-extrabold leading-tight tracking-tight text-[#f5f5f5] sm:text-6xl"
+      <div className="relative mx-auto max-w-3xl text-center w-full">
+        {/* Upper Heading Block — Collapses seamlessly when searching */}
+        <AnimatePresence>
+          {!activeIsSearching && (
+            <motion.div
+              key="hero-heading-block"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } }}
+              className="overflow-hidden"
             >
-              <span className="shrink-0">{HERO_PHRASES[phraseIndex].line1}</span>
-              <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
-                {HERO_PHRASES[phraseIndex].line2}
-              </span>
-            </motion.h1>
-          </AnimatePresence>
-        </div>
+              {/* Location Badge — glass style */}
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-[#888] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl"
+              >
+                {/* Pulsing live dot */}
+                <span className="relative flex size-2.5 items-center justify-center">
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70 duration-1000" />
+                  <span className="relative inline-flex size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                </span>
+                <span>{locationName}</span>
+              </motion.div>
 
-        {/* Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="mx-auto mt-5 max-w-xl text-pretty text-sm sm:text-base leading-relaxed text-[#777]"
-        >
-          Book in-person sessions nearby or jump into a live 1-on-1 stream. Pay per session or subscribe.
-        </motion.p>
+              {/* Heading — animated phrase flip */}
+              <div className="relative flex min-h-[70px] sm:h-[80px] w-full items-center justify-center">
+                <AnimatePresence mode="wait">
+                  <motion.h1
+                    key={HERO_PHRASES[phraseIndex].id}
+                    initial={{ opacity: 0, y: 20, filter: 'blur(6px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -20, filter: 'blur(6px)' }}
+                    transition={{
+                      duration: 0.5,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 text-center text-3xl font-extrabold leading-tight tracking-tight text-[#f5f5f5] sm:text-6xl"
+                  >
+                    <span className="shrink-0">{HERO_PHRASES[phraseIndex].line1}</span>
+                    <span className="inline-block bg-gradient-to-r from-[#ff8080] via-[#e01e37] to-[#ff4d6d] bg-clip-text font-serif italic text-transparent">
+                      {HERO_PHRASES[phraseIndex].line2}
+                    </span>
+                  </motion.h1>
+                </AnimatePresence>
+              </div>
+
+              {/* Subtitle */}
+              <motion.p
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="mx-auto mt-5 max-w-xl text-pretty text-sm sm:text-base leading-relaxed text-[#777]"
+              >
+                Book in-person sessions nearby or jump into a live 1-on-1 stream. Pay per session or subscribe.
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Search Bar (Isolated Memoized Typewriter) */}
-        <HeroSearchBar query={query} onQueryChange={onQueryChange} />
+        <HeroSearchBar
+          query={query}
+          onQueryChange={onQueryChange}
+          isSearching={activeIsSearching}
+          onFocusChange={handleFocusChange}
+        />
 
         {/* Category Pills — gloss style */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-6 flex flex-wrap items-center justify-center gap-2"
+          layout
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className={`flex flex-wrap items-center justify-center gap-2 ${
+            activeIsSearching ? 'mt-3 sm:mt-4' : 'mt-6'
+          }`}
         >
           {categories.map((cat) => {
             const active = activeCategory === cat.id
@@ -372,17 +438,22 @@ export function Hero({
       </div>
 
       {/* Subtle Animated Scroll Indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.35, y: [0, 6, 0] }}
-        transition={{
-          opacity: { delay: 0.8, duration: 0.5 },
-          y: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
-        }}
-        className="mt-10 text-[#666]"
-      >
-        <ChevronDown className="size-5" />
-      </motion.div>
+      <AnimatePresence>
+        {!activeIsSearching && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.35, y: [0, 6, 0] }}
+            exit={{ opacity: 0, height: 0, marginTop: 0 }}
+            transition={{
+              opacity: { delay: 0.8, duration: 0.5 },
+              y: { repeat: Infinity, duration: 2, ease: 'easeInOut' },
+            }}
+            className="mt-10 text-[#666]"
+          >
+            <ChevronDown className="size-5" />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }

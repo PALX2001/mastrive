@@ -38,6 +38,7 @@ function MainApp() {
   const [tab, setTab] = useState<MainTab>('explore')
   const [category, setCategory] = useState<CategoryId>('fitness')
   const [query, setQuery] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
   const [showWelcomeToast, setShowWelcomeToast] = useState(false)
 
   useEffect(() => {
@@ -103,8 +104,14 @@ function MainApp() {
               onQueryChange={setQuery}
               activeCategory={category}
               onCategoryChange={setCategory}
+              isSearching={isSearching}
+              setIsSearching={setIsSearching}
             />
-            <InstructorDirectory activeCategory={category} query={query} />
+            <InstructorDirectory
+              activeCategory={category}
+              query={query}
+              isSearching={isSearching}
+            />
           </>
         )}
 

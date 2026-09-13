@@ -189,10 +189,13 @@ function InstructorCardSkeleton() {
 export function InstructorDirectory({
   activeCategory,
   query,
+  isSearching,
 }: {
   activeCategory: CategoryId
   query: string
+  isSearching?: boolean
 }) {
+  const activeSearching = Boolean(isSearching || query.trim().length > 0)
   const [selectedInstructor, setSelectedInstructor] = useState<BookingInstructor | null>(null)
   const [activeProfileInstructor, setActiveProfileInstructor] = useState<Instructor | null>(null)
   const [publishedInstructors, setPublishedInstructors] = useState<Instructor[]>([])
@@ -355,11 +358,17 @@ export function InstructorDirectory({
   return (
     <div id="instructors" ref={containerRef} className="perspective-1000 w-full pb-24 overflow-hidden">
       <motion.section
-        style={{
-          opacity,
-          scale,
-          rotateX,
+        animate={{
+          opacity: activeSearching ? 1 : undefined,
+          scale: activeSearching ? 1 : undefined,
+          rotateX: activeSearching ? 0 : undefined,
         }}
+        style={{
+          opacity: activeSearching ? 1 : opacity,
+          scale: activeSearching ? 1 : scale,
+          rotateX: activeSearching ? 0 : rotateX,
+        }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 origin-top transform-gpu will-change-transform"
       >
         {/* Results count */}
@@ -380,12 +389,14 @@ export function InstructorDirectory({
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((instructor, index) => {
               const colTransforms = [col1Y, col2Y, col3Y]
-              const parallaxY = colTransforms[index % 3]
+              const parallaxY = activeSearching ? 0 : colTransforms[index % 3]
 
               return (
                 <motion.div
                   key={instructor.id}
+                  layout
                   style={{ y: parallaxY }}
+                  transition={{ duration: 0.35 }}
                   className="w-full h-full flex flex-col transform-gpu will-change-transform"
                 >
                   <InstructorCard
