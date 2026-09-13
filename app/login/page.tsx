@@ -20,6 +20,7 @@ import {
   RefreshCw,
   ArrowLeft,
   ShieldCheck,
+  ExternalLink,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import { createClient } from '@/lib/supabase/client'
@@ -55,6 +56,7 @@ function AuthContent() {
   // View state
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode)
   const [step, setStep] = useState<'form' | 'otp_verification'>('form')
+  const [showOtpInput, setShowOtpInput] = useState(false)
 
   // Form fields
   const [email, setEmail] = useState('')
@@ -91,7 +93,7 @@ function AuthContent() {
     else if (qMode === 'signin') setMode('signin')
   }, [searchParams])
 
-  // Countdown timer for OTP resend
+  // Countdown timer for OTP / link resend
   useEffect(() => {
     if (resendCountdown <= 0) return
     const timer = setInterval(() => {
@@ -100,14 +102,46 @@ function AuthContent() {
     return () => clearInterval(timer)
   }, [resendCountdown])
 
-  // Auto-focus OTP input when switching to verification step
+  // Auto-focus OTP input when toggling OTP code field
   useEffect(() => {
-    if (step === 'otp_verification') {
+    if (showOtpInput) {
       setTimeout(() => {
         otpInputRef.current?.focus()
       }, 200)
     }
-  }, [step])
+  }, [showOtpInput])
+
+  // Listen for active auth changes (e.g. user clicked magic link in Gmail in another tab)
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setMessage({
+          type: 'success',
+          text: 'Verified successfully! Redirecting to your dashboard...',
+        })
+        const rawNext = searchParams.get('next')
+        const safeNext =
+          rawNext &&
+          rawNext.startsWith('/') &&
+          !rawNext.startsWith('//') &&
+          !rawNext.includes('\\')
+            ? rawNext
+            : null
+
+        setTimeout(() => {
+          if (safeNext) {
+            router.replace(safeNext)
+          } else {
+            router.replace('/profile')
+          }
+        }, 600)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router, searchParams, supabase])
 
   // Check if already signed in
   useEffect(() => {
@@ -314,7 +348,7 @@ function AuthContent() {
       })
       setMessage({
         type: 'info',
-        text: 'Account found. Click "Send Sign-In Code" to log in.',
+        text: 'Account found. Click "Send Sign-In Link" to log in.',
       })
       return
     }
@@ -396,24 +430,24 @@ function AuthContent() {
           'No account exists with this email yet. Please register below with your name and details.'
       } else if (error.message.includes('rate_limit')) {
         friendlyError =
-          'Too many verification requests. Please wait a minute before requesting another code.'
+          'Too many requests. Please wait a minute before requesting another sign-in link.'
       }
       setMessage({ type: 'error', text: friendlyError })
     } else {
-      // Transition to OTP code entry step
+      // Transition to verification confirmation step
       setStep('otp_verification')
       setResendCountdown(45)
       setMessage({
         type: 'success',
         text:
           mode === 'signup'
-            ? `We sent a 6-digit verification code & link to ${cleanEmail}. Enter the code below to launch your account!`
-            : `A 6-digit sign-in code & magic link have been sent to ${cleanEmail}. Enter your code below!`,
+            ? `We sent a sign-in link to ${cleanEmail}. Open your email to complete registration!`
+            : `A sign-in link has been sent to ${cleanEmail}. Open your email to log in!`,
       })
     }
   }
 
-  // Handle direct 6-Digit OTP Verification
+  // Handle direct 6-Digit OTP Verification (if user enters code)
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     const cleanEmail = email.trim().toLowerCase()
@@ -445,7 +479,7 @@ function AuthContent() {
         error.message.includes('Token is invalid')
       ) {
         friendlyError =
-          'The 6-digit code is incorrect or has expired. Please check your latest email or click "Resend Code".'
+          'The 6-digit code is incorrect or has expired. Please check your latest email or click "Resend link".'
       }
       setMessage({ type: 'error', text: friendlyError })
       return
@@ -503,7 +537,7 @@ function AuthContent() {
     }, 600)
   }
 
-  // Resend OTP Code
+  // Resend Link / Code
   const handleResendOtp = async () => {
     if (resendCountdown > 0 || loading) return
     const cleanEmail = email.trim().toLowerCase()
@@ -541,7 +575,7 @@ function AuthContent() {
       setResendCountdown(45)
       setMessage({
         type: 'success',
-        text: `Fresh verification code sent to ${cleanEmail}!`,
+        text: `Fresh sign-in link sent to ${cleanEmail}!`,
       })
     }
   }
@@ -549,10 +583,15 @@ function AuthContent() {
   const switchMode = (newMode: 'signin' | 'signup') => {
     setMode(newMode)
     setStep('form')
+    setShowOtpInput(false)
     setMessage(null)
     setAccountBanner(null)
     setOtpCode('')
   }
+
+  const isGmail =
+    email.toLowerCase().endsWith('@gmail.com') ||
+    email.toLowerCase().endsWith('@googlemail.com')
 
   return (
     <div className="radial-glow-crimson relative flex min-h-screen w-full overflow-hidden text-[#f5f5f5] selection:bg-[#e01e37] selection:text-white">
@@ -638,7 +677,7 @@ function AuthContent() {
               </div>
               <div>
                 <p className="text-xs font-bold text-white">Passwordless &amp; Secure</p>
-                <p className="text-[11px] text-[#666]">Direct 6-digit code or magic link</p>
+                <p className="text-[11px] text-[#666]">1-click sign in link via email</p>
               </div>
             </div>
             <span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400">
@@ -721,7 +760,7 @@ function AuthContent() {
             </div>
           ) : step === 'otp_verification' ? (
             /* ─────────────────────────────────────────────────────────────
-               STEP 2: 6-DIGIT OTP VERIFICATION
+               STEP 2: CHECK EMAIL / INSTANT SIGN-IN CONFIRMATION
             ───────────────────────────────────────────────────────────── */
             <motion.div
               initial={{ opacity: 0, scale: 0.96 }}
@@ -731,24 +770,28 @@ function AuthContent() {
             >
               <button
                 type="button"
-                onClick={() => setStep('form')}
+                onClick={() => {
+                  setStep('form')
+                  setShowOtpInput(false)
+                  setMessage(null)
+                }}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#888] hover:text-white transition"
               >
                 <ArrowLeft className="size-3.5" />
-                <span>Edit email address</span>
+                <span>Change email ({email})</span>
               </button>
 
               <div>
-                <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 mb-4 shadow-lg shadow-emerald-500/10">
-                  <ShieldCheck className="size-6" />
+                <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-[#e01e37]/15 border border-[#e01e37]/30 text-[#e01e37] mb-4 shadow-xl shadow-[#e01e37]/20">
+                  <Mail className="size-7" />
                 </div>
                 <h2 className="text-2xl font-black text-white leading-tight">
-                  Enter Verification Code
+                  Check Your Email
                 </h2>
-                <p className="mt-1.5 text-xs text-[#888] leading-relaxed">
-                  We sent a 6-digit code and secure link to{' '}
-                  <span className="font-bold text-white">{email}</span>. Enter
-                  the code below to verify immediately.
+                <p className="mt-2 text-xs text-[#aaa] leading-relaxed">
+                  We've sent your instant sign-in link to{' '}
+                  <span className="font-bold text-white">{email}</span>. Click
+                  the link in your inbox to authenticate immediately.
                 </p>
               </div>
 
@@ -767,67 +810,110 @@ function AuthContent() {
                 </div>
               )}
 
-              <form onSubmit={handleVerifyOtp} className="space-y-5">
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#888]">
-                    6-Digit Code
-                  </label>
-                  <input
-                    ref={otpInputRef}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    placeholder="123456"
-                    value={otpCode}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                      setOtpCode(val)
-                    }}
-                    className="gloss-input h-14 w-full text-center font-mono text-2xl font-black tracking-[0.4em] text-white placeholder-[#333] outline-none transition focus:border-[#e01e37]"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || otpCode.length < 6}
-                  className="gloss-btn-primary flex h-13 w-full items-center justify-center gap-2 rounded-2xl text-sm font-bold text-white shadow-xl shadow-[#e01e37]/25 transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+              {/* Primary 1-Click Action: Open Email Provider */}
+              <div className="space-y-3">
+                <a
+                  href={isGmail ? 'https://mail.google.com' : 'mailto:'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="gloss-btn-primary flex h-13 w-full items-center justify-center gap-2.5 rounded-2xl text-sm font-bold text-white shadow-xl shadow-[#e01e37]/30 transition hover:brightness-110 active:scale-[0.98]"
                 >
-                  {loading ? (
-                    <div className="size-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <>
-                      <span>Verify &amp; Enter</span>
-                      <ArrowRight className="size-4" />
-                    </>
-                  )}
-                </button>
-              </form>
+                  <span>{isGmail ? 'Open Gmail Inbox' : 'Open Mail App'}</span>
+                  <ExternalLink className="size-4" />
+                </a>
 
-              {/* Resend & alternative link actions */}
-              <div className="pt-2 border-t border-white/[0.06] flex flex-col gap-3 text-center">
-                <div className="flex items-center justify-between text-xs text-[#888]">
-                  <span>Didn't receive the code?</span>
-                  {resendCountdown > 0 ? (
-                    <span className="font-mono text-[#666]">
-                      Resend in {resendCountdown}s
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleResendOtp}
-                      className="inline-flex items-center gap-1 font-bold text-[#e01e37] hover:underline"
-                    >
-                      <RefreshCw className="size-3" />
-                      <span>Resend code</span>
-                    </button>
-                  )}
+                {/* Real-time sync indicator */}
+                <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 text-xs text-[#888]">
+                  <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>
+                    Auto-detecting: clicking the link in your email will log in
+                    this tab automatically.
+                  </span>
                 </div>
-                <p className="text-[11px] text-[#555] leading-relaxed">
-                  Tip: You can also click the login link inside the email to
-                  authenticate instantly.
-                </p>
+              </div>
+
+              {/* Optional: Enter 6-digit code accordion */}
+              <div className="pt-2 border-t border-white/[0.06]">
+                {!showOtpInput ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowOtpInput(true)}
+                    className="w-full text-center text-xs font-medium text-[#777] hover:text-white transition py-1"
+                  >
+                    Have a 6-digit verification code instead?{' '}
+                    <span className="text-[#e01e37] underline underline-offset-4">
+                      Enter code
+                    </span>
+                  </button>
+                ) : (
+                  <motion.form
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    onSubmit={handleVerifyOtp}
+                    className="space-y-3 pt-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[#888]">
+                        6-Digit Verification Code
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowOtpInput(false)}
+                        className="text-[11px] text-[#666] hover:text-white"
+                      >
+                        Hide
+                      </button>
+                    </div>
+                    <input
+                      ref={otpInputRef}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      placeholder="123456"
+                      value={otpCode}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 6)
+                        setOtpCode(val)
+                      }}
+                      className="gloss-input h-12 w-full text-center font-mono text-xl font-black tracking-[0.4em] text-white placeholder-[#333] outline-none transition focus:border-[#e01e37]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={loading || otpCode.length < 6}
+                      className="gloss-btn-secondary flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <>
+                          <ShieldCheck className="size-4 text-emerald-400" />
+                          <span>Verify &amp; Enter</span>
+                        </>
+                      )}
+                    </button>
+                  </motion.form>
+                )}
+              </div>
+
+              {/* Resend actions */}
+              <div className="flex items-center justify-between text-xs text-[#888] pt-1">
+                <span>Didn't receive email?</span>
+                {resendCountdown > 0 ? (
+                  <span className="font-mono text-[#666]">
+                    Resend in {resendCountdown}s
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleResendOtp}
+                    className="inline-flex items-center gap-1 font-bold text-[#e01e37] hover:underline"
+                  >
+                    <RefreshCw className="size-3" />
+                    <span>Resend link</span>
+                  </button>
+                )}
               </div>
             </motion.div>
           ) : (
@@ -1091,8 +1177,8 @@ function AuthContent() {
 
                     <p className="text-[11px] leading-relaxed text-[#666] pt-1">
                       {mode === 'signup'
-                        ? 'We will send a 6-digit code and instant access link to your email.'
-                        : 'We will send a 6-digit sign-in code and magic link to your email.'}
+                        ? 'We will send a secure 1-click access link to your email.'
+                        : 'We will send a secure passwordless sign-in link to your email.'}
                     </p>
 
                     <button
@@ -1106,8 +1192,8 @@ function AuthContent() {
                         <>
                           <span>
                             {mode === 'signin'
-                              ? 'Send Sign-In Code'
-                              : 'Create Account & Send Code'}
+                              ? 'Send Sign-In Link'
+                              : 'Create Account & Send Link'}
                           </span>
                           <ArrowRight className="size-4" />
                         </>
