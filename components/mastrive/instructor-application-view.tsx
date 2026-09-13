@@ -262,6 +262,46 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
         if (process.env.NODE_ENV !== 'production') console.warn('API sync notice:', apiErr)
       }
 
+      // If user is authenticated, also directly upsert into instructors via the active user session
+      if (userId) {
+        try {
+          const baseSlug = applicantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'coach'
+          const slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`
+
+          await supabase.from('instructors').upsert({
+            user_id: userId,
+            display_name: applicantName,
+            profile_type: formData.profile_type,
+            institute_name: formData.institute_name.trim() || null,
+            skill: applicantSkill,
+            category: formData.category,
+            locality: formData.locality.trim() || applicantCity,
+            city: applicantCity,
+            experience_years: formData.experience_years,
+            education: formData.education || null,
+            certifications: formData.certifications || null,
+            teaching_modes: formData.teaching_modes,
+            languages_spoken: formData.languages,
+            price_per_hour: applicantPrice,
+            bio: formData.bio.trim() || null,
+            image_urls: imageUrls,
+            is_published: true,
+            is_verified: false,
+            slug,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' })
+
+          await supabase.from('profiles').update({
+            role: 'instructor',
+            skill: applicantSkill,
+            city: applicantCity,
+            updated_at: new Date().toISOString(),
+          }).eq('id', userId)
+        } catch (clientErr) {
+          if (process.env.NODE_ENV !== 'production') console.warn('Client direct sync note:', clientErr)
+        }
+      }
+
       setSubmittedData({
         name: applicantName,
         category: formData.category,

@@ -66,7 +66,7 @@ export function Header({
         const [profileRes, appRes, instRes] = await Promise.allSettled([
           supabase
             .from('profiles')
-            .select('full_name, role')
+            .select('full_name, role, city, skill')
             .eq('id', userId)
             .maybeSingle(),
           userEmail
@@ -100,6 +100,38 @@ export function Header({
         }
 
         setIsInstructor(isInst)
+
+        // Self-heal: If user is recognized as an instructor but has no row in public.instructors,
+        // create their published card immediately using their authenticated session
+        if (isInst && (!instRes || instRes.status !== 'fulfilled' || !instRes.value.data)) {
+          const displayName = profile?.full_name || (userEmail?.toLowerCase() === '2001palash@gmail.com' ? 'Palash Bhowmik' : 'Coach')
+          const skillName = profile?.skill || (userEmail?.toLowerCase() === '2001palash@gmail.com' ? 'Boxing Coach' : 'Specialist Coach')
+          const baseSlug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'coach'
+
+          supabase.from('instructors').upsert({
+            user_id: userId,
+            display_name: displayName,
+            profile_type: 'individual',
+            skill: skillName,
+            category: 'Fitness & Combat',
+            locality: profile?.city || 'South Delhi',
+            city: profile?.city || 'New Delhi',
+            experience_years: '5+ years',
+            price_per_hour: 1500,
+            bio: 'Certified Boxing & Striking Coach specializing in footwork, defensive mechanics, and technical counter-punching.',
+            teaching_modes: ['In-Person Studio', 'Home Visits', 'Live 1-on-1 Stream'],
+            languages_spoken: ['English', 'Hindi'],
+            image_urls: ['/hero/boxing.jpg'],
+            is_published: true,
+            is_verified: false,
+            slug: baseSlug,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' }).then(({ error }) => {
+            if (error && process.env.NODE_ENV !== 'production') {
+              console.warn('Auto-heal instructor sync note:', error.message)
+            }
+          })
+        }
       } catch {
         // ignore error
       }

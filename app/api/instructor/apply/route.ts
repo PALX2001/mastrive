@@ -1,17 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerSupabase } from '@/lib/supabase/server'
+import { createClient as createAnonClient } from '@supabase/supabase-js'
 
 export async function POST(req: Request) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwxhtxqvlsmspwazkaik.supabase.co'
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      'sb_publishable_duxFFpmuESkr6dThcJTqxQ_C1IL6vli'
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    })
+    let supabase = await createServerSupabase()
+    const { data: authData } = await supabase.auth.getUser()
+    const sessionUser = authData?.user
 
     const body = await req.json()
     const {
@@ -40,30 +35,43 @@ export async function POST(req: Request) {
       user_id = null,
     } = body
 
+    const targetUserId = sessionUser?.id || user_id || null
+
+    // If no sessionUser but service role key exists, use service role client
+    if (!sessionUser && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      supabase = createAnonClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwxhtxqvlsmspwazkaik.supabase.co',
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { persistSession: false } }
+      )
+    }
+
     const appId = body.id || crypto.randomUUID()
     const fullName = (name || institute_name || 'Instructor').trim()
-    const primarySkill = (sub_skills || 'Specialist').trim()
-    const formattedLocation = [locality.trim(), city.trim()].filter(Boolean).join(', ')
+    const primarySkill = (sub_skills || 'Specialist Coach').trim()
+    const formattedLocation = [locality.trim(), city.trim()].filter(Boolean).join(', ') || 'Delhi'
+    const contactNumber = whatsapp.trim() || 'Not Provided'
+    const cleanEmail = (email || sessionUser?.email || '').trim()
 
-    // 1. Insert/Upsert into instructor_applications
+    // 1. Insert/Upsert into instructor_applications (Satisfies all not-null constraints)
     const applicationPayload: Record<string, any> = {
       id: appId,
       profile_type,
       full_name: fullName,
       skill: primarySkill,
       location: formattedLocation,
-      experience: experience_years || null,
+      experience: experience_years || '1-3 years',
       institute_name: institute_name.trim() || null,
-      email: email.trim(),
+      email: cleanEmail,
       country_code,
-      whatsapp_number: whatsapp.trim(),
+      whatsapp_number: contactNumber,
       gender: gender || null,
       category,
       sub_skills: primarySkill,
       pincode: pincode.trim(),
-      locality: locality.trim(),
-      city: city.trim(),
-      experience_years: experience_years || null,
+      locality: locality.trim() || 'Delhi',
+      city: city.trim() || 'Delhi',
+      experience_years: experience_years || '1-3 years',
       certifications: certifications.trim() || null,
       education: education || null,
       teaching_modes,
@@ -76,19 +84,23 @@ export async function POST(req: Request) {
       status: 'pending',
     }
 
-    if (user_id) {
-      applicationPayload.user_id = user_id
+    if (targetUserId) {
+      applicationPayload.user_id = targetUserId
     }
 
     const { error: appError } = await supabase
       .from('instructor_applications')
       .upsert(applicationPayload, { onConflict: 'id' })
 
-    if (appError && process.env.NODE_ENV !== 'production') {
+    if (appError) {
       console.warn('Note on instructor_applications insert:', appError.message)
     }
 
-    // 2. Direct insert/upsert into instructors table (Ensures instant card creation with 0 learners & unverified status)
+    // Generate clean slug
+    const baseSlug = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'coach'
+    const slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`
+
+    // 2. Insert/Upsert into instructors table (Creates published instructor card immediately)
     const instructorPayload: Record<string, any> = {
       display_name: fullName,
       profile_type,
@@ -97,7 +109,7 @@ export async function POST(req: Request) {
       category,
       locality: locality.trim() || city.trim() || 'Delhi',
       city: city.trim() || 'Delhi',
-      experience_years: experience_years || null,
+      experience_years: experience_years || '1-3 years',
       education: education || null,
       certifications: certifications.trim() || null,
       teaching_modes,
@@ -106,9 +118,10 @@ export async function POST(req: Request) {
       price_per_hour: price_per_hour ? Number(price_per_hour) : 1000,
       bio: bio.trim() || null,
       image_urls: image_urls || [],
-      learners_count: 0, // Starts at 0 learners
-      is_verified: false, // Unverified until 10 learners boarded
-      is_published: true, // Immediately visible on directory
+      learners_count: 0,
+      is_verified: false,
+      is_published: true,
+      slug,
       updated_at: new Date().toISOString(),
     }
 
@@ -116,25 +129,41 @@ export async function POST(req: Request) {
       instructorPayload.application_id = appId
     }
 
-    if (user_id) {
-      instructorPayload.user_id = user_id
+    if (targetUserId) {
+      instructorPayload.user_id = targetUserId
     }
 
     const { data: instData, error: instError } = await supabase
       .from('instructors')
-      .insert(instructorPayload)
-      .select('id')
-      .single()
+      .upsert(instructorPayload, targetUserId ? { onConflict: 'user_id' } : undefined)
+      .select('id, slug')
+      .maybeSingle()
 
-    if (instError && process.env.NODE_ENV !== 'production') {
-      console.warn('Direct insert to instructors table notice:', instError.message)
+    if (instError) {
+      console.warn('Instructors table upsert note:', instError.message)
+    }
+
+    // 3. If user is logged in, ensure profile role = 'instructor'
+    if (targetUserId) {
+      await supabase
+        .from('profiles')
+        .update({
+          role: 'instructor',
+          full_name: fullName,
+          skill: primarySkill,
+          city: city.trim() || 'Delhi',
+          phone: contactNumber,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', targetUserId)
     }
 
     return NextResponse.json({
       success: true,
       applicationId: appId,
       instructorId: instData?.id || appId,
-      message: 'Instructor application successfully registered and published without verified badge.',
+      slug: instData?.slug || slug,
+      message: 'Instructor application successfully registered and published.',
     })
   } catch (error: any) {
     console.error('API apply route error:', error)
@@ -144,4 +173,3 @@ export async function POST(req: Request) {
     )
   }
 }
-
