@@ -441,7 +441,7 @@ export function InstructorDirectory({
                 <div className="relative h-64 md:h-auto md:col-span-5 overflow-hidden bg-[#0a0a0a]">
                   <Image
                     src="/how-it-works/step-book.jpg"
-                    alt="Athlete preparing hand wraps for a private training session"
+                    alt="Athlete preparing barbell for a private training session"
                     fill
                     className="object-cover object-center"
                   />
@@ -457,7 +457,7 @@ export function InstructorDirectory({
 
                   {/* Bottom Info Overlay */}
                   <div className="absolute bottom-4 left-4 right-4">
-                    <div className="text-sm font-bold text-white">Direct Mentor Selection</div>
+                    <div className="text-sm font-bold text-white">Direct Coach Selection</div>
                     <p className="text-xs font-semibold text-[#e01e37]">Verified Local & Online Mentors</p>
                     <p className="mt-1 text-xs text-[#aaa]">1-on-1 Sessions · Transparent Hourly Rates</p>
                   </div>
@@ -557,7 +557,7 @@ export function InstructorDirectory({
                 <div className="relative h-64 md:h-auto md:col-span-5 overflow-hidden bg-[#0a0a0a]">
                   <Image
                     src="/how-it-works/step-earn.jpg"
-                    alt="Championship trophy and athletic medal recognition"
+                    alt="Track athlete at starting blocks with relay baton"
                     fill
                     className="object-cover object-center"
                   />
