@@ -25,10 +25,48 @@ const instrumentSerif = Instrument_Serif({
 })
 
 export const metadata: Metadata = {
-  title: 'MASTRIVE — Find your perfect skill',
+  metadataBase: new URL('https://mastrive.com'),
+  title: 'Mastrive — Master Anything',
   description:
     'Book in-person skill sessions nearby or jump into a live 1-on-1 stream. Pay per session, no subscriptions. Compete in tournaments and climb the leaderboard.',
-  generator: 'v0.app',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-48x48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: [
+      { url: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  manifest: '/manifest.json',
+  openGraph: {
+    title: 'Mastrive — Master Anything',
+    description:
+      'Book in-person skill sessions nearby or jump into a live 1-on-1 stream. Pay per session, no subscriptions.',
+    url: 'https://mastrive.com',
+    siteName: 'Mastrive',
+    images: [
+      {
+        url: '/icon-512x512.png',
+        width: 512,
+        height: 512,
+        alt: 'Mastrive Logo',
+      },
+    ],
+    locale: 'en_IN',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Mastrive — Master Anything',
+    description:
+      'Book in-person skill sessions nearby or jump into a live 1-on-1 stream.',
+    images: ['/icon-512x512.png'],
+  },
 }
 
 export const viewport: Viewport = {
@@ -47,6 +85,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} bg-background`}
     >
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="icon" type="image/png" sizes="48x48" href="/icon-48x48.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />
+        <link rel="apple-touch-icon" href="/apple-icon.png" />
+        <link rel="manifest" href="/manifest.json" />
         <link rel="preconnect" href="https://pwxhtxqvlsmspwazkaik.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://pwxhtxqvlsmspwazkaik.supabase.co" />
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
