@@ -417,9 +417,9 @@ export function InstructorDirectory({
           </div>
         )}
 
-        {/* 3 Steps: Book, Learn, Earn (Vertical Timeline) */}
-        <div className="content-auto mt-20 border-t border-white/[0.07] pt-14">
-          <div className="mb-12 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        {/* How It Works (Book, Learn, Earn) */}
+        <div className="content-auto mt-24 border-t border-white/[0.07] pt-16">
+          <div className="mb-14 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-widest text-[#e01e37]">
                 How It Works
@@ -428,160 +428,203 @@ export function InstructorDirectory({
                 Book. Learn. Earn.
               </h3>
             </div>
-            <div className="flex items-center gap-2 text-xs text-[#8b949e]">
-              <span className="inline-block size-1.5 rounded-full bg-[#e01e37] animate-pulse" />
-              <span>Direct 1-on-1 coaching · Zero subscriptions · Verified progress</span>
-            </div>
+            <p className="text-xs text-[#8b949e] max-w-sm sm:text-right">
+              Direct private coaching. Zero subscriptions. Verifiable progress.
+            </p>
           </div>
 
-          <div className="relative mx-auto max-w-4xl">
-            {/* Vertical glowing timeline rail */}
-            <div className="absolute left-[19px] sm:left-[23px] top-6 bottom-8 w-[2px] bg-gradient-to-b from-[#e01e37] via-[#e01e37]/40 to-transparent pointer-events-none" />
-
-            <div className="space-y-6 sm:space-y-8">
-              {/* Step 1: Book */}
-              <div className="group relative flex items-start gap-4 sm:gap-6">
-                {/* Glowing Node */}
-                <div className="relative z-10 flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-xl border border-[#e01e37]/40 bg-[#0c0e14] text-sm font-mono font-black text-[#e01e37] shadow-[0_0_20px_rgba(224,30,55,0.25)] transition-all duration-300 group-hover:scale-105 group-hover:border-[#e01e37] group-hover:bg-[#e01e37]/10 select-none">
-                  01
+          <div className="space-y-12 sm:space-y-16">
+            {/* Step 1: Book */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+              <div className="lg:col-span-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#e01e37]">01</span>
+                  <span className="text-white/20">/</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[#8b949e]">Book</span>
                 </div>
-
-                {/* Card */}
-                <div className="flex-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-r from-[#11141b]/95 via-[#0e1117]/90 to-[#0a0c10]/95 p-6 sm:p-7 backdrop-blur-xl transition-all duration-300 group-hover:border-[#e01e37]/40 group-hover:shadow-[0_0_30px_rgba(224,30,55,0.08)]">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex size-8 items-center justify-center rounded-lg border border-[#e01e37]/30 bg-[#e01e37]/10 text-[#e01e37]">
-                          <CalendarCheck className="size-4" />
-                        </div>
-                        <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#e01e37]">
-                          Step 01 · Discovery & Scheduling
-                        </span>
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-400 font-mono">
-                        <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Instant Slot Booking
-                      </span>
-                    </div>
-
-                    <div>
-                      <h4 className="text-xl font-bold tracking-tight text-white">
-                        Book Your Mentor
-                      </h4>
-                      <p className="mt-2 text-sm leading-relaxed text-[#8b949e]">
-                        Browse verified master instructors across parkour, calisthenics, boxing, chess, and more. Compare real ratings, pick an open slot that fits your schedule, and pay transparently per session—zero subscriptions, lock-ins, or hidden gym fees.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.04]">
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        ⚡ Transparent Hourly Rates
-                      </span>
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        📍 In-Person or 1-on-1 Online
-                      </span>
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        🛡️ Zero Subscription Lock-In
-                      </span>
-                    </div>
+                <h4 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  Find a coach who actually walks the talk.
+                </h4>
+                <p className="text-sm leading-relaxed text-[#8b949e]">
+                  No sales desks, no locked-in 12-month gym contracts, and no pre-recorded videos. Browse active coaches in your city across calisthenics, boxing, parkour, powerlifting, or chess. Pick an open slot that fits your day, book instantly, and pay only for that single hour.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-2 text-xs text-[#c9d1d9]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>Direct hourly rates</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>In-person or 1-on-1 online</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>No memberships required</span>
                   </div>
                 </div>
               </div>
 
-              {/* Step 2: Learn */}
-              <div className="group relative flex items-start gap-4 sm:gap-6">
-                {/* Glowing Node */}
-                <div className="relative z-10 flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-xl border border-[#e01e37]/40 bg-[#0c0e14] text-sm font-mono font-black text-[#e01e37] shadow-[0_0_20px_rgba(224,30,55,0.25)] transition-all duration-300 group-hover:scale-105 group-hover:border-[#e01e37] group-hover:bg-[#e01e37]/10 select-none">
-                  02
-                </div>
+              {/* Step 1 UI Artifact */}
+              <div className="lg:col-span-6">
+                <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#131722]/90 to-[#0b0d13]/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 text-[11px] font-mono">
+                    <span className="text-[#8b949e]">SESSION PASS #MST-8419</span>
+                    <span className="text-emerald-400 font-medium">SLOT CONFIRMED</span>
+                  </div>
 
-                {/* Card */}
-                <div className="flex-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-r from-[#11141b]/95 via-[#0e1117]/90 to-[#0a0c10]/95 p-6 sm:p-7 backdrop-blur-xl transition-all duration-300 group-hover:border-[#e01e37]/40 group-hover:shadow-[0_0_30px_rgba(224,30,55,0.08)]">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex size-8 items-center justify-center rounded-lg border border-[#e01e37]/30 bg-[#e01e37]/10 text-[#e01e37]">
-                          <Flame className="size-4" />
-                        </div>
-                        <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#e01e37]">
-                          Step 02 · Intensive Mastery
-                        </span>
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-400 font-mono">
-                        <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        Direct 1-on-1 Drills
-                      </span>
+                  <div className="mt-4 flex items-center gap-3.5">
+                    <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-white/[0.1] bg-[#161b22]">
+                      <Image
+                        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=faces"
+                        alt="Ikjot Singh"
+                        fill
+                        className="object-cover"
+                      />
                     </div>
-
                     <div>
-                      <h4 className="text-xl font-bold tracking-tight text-white">
-                        Train 1-on-1
-                      </h4>
-                      <p className="mt-2 text-sm leading-relaxed text-[#8b949e]">
-                        Step into high-intent training with complete, undivided attention. Your coach breaks down your mechanics in real time, corrects dangerous form habits, and pushes you through progressive drills tailored specifically to your physical baseline.
-                      </p>
+                      <div className="text-sm font-bold text-white">Ikjot Singh</div>
+                      <div className="text-xs text-[#8b949e]">Calisthenics & Strength · Siri Fort, Delhi</div>
                     </div>
+                  </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.04]">
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        🎯 Real-Time Biomechanical Feedback
-                      </span>
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        🔥 Progressive Muscle Memory
-                      </span>
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        🥋 Zero Cookie-Cutter Routines
-                      </span>
+                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-white/[0.02] border border-white/[0.04] p-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#6e7681]">Date & Time</span>
+                      <div className="mt-0.5 font-medium text-white">Sat, 7:30 AM (60 min)</div>
                     </div>
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#6e7681]">Price</span>
+                      <div className="mt-0.5 font-medium text-white">₹1,500 · 1 Session</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-[11px] text-[#6e7681]">
+                    <span>Direct chat unlocked with coach</span>
+                    <span className="text-[#8b949e] font-mono">100% Refundable up to 6h before</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Learn */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center border-t border-white/[0.06] pt-12 sm:pt-16">
+              <div className="lg:col-span-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#e01e37]">02</span>
+                  <span className="text-white/20">/</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[#8b949e]">Learn</span>
+                </div>
+                <h4 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  Get coached rep-by-rep, not through a screen.
+                </h4>
+                <p className="text-sm leading-relaxed text-[#8b949e]">
+                  Skip the trial-and-error of teaching yourself. Your coach spots the biomechanical hitches you can&apos;t feel—hip angle, hand placement, breathing cadence—and cues the fix while you&apos;re still in the set. You walk away with muscle memory that sticks and zero wasted reps.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-2 text-xs text-[#c9d1d9]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>Real-time technical feedback</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>Drills scaled to your current level</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>Direct coach notes saved to profile</span>
                   </div>
                 </div>
               </div>
 
-              {/* Step 3: Earn */}
-              <div className="group relative flex items-start gap-4 sm:gap-6">
-                {/* Glowing Node */}
-                <div className="relative z-10 flex size-10 sm:size-12 shrink-0 items-center justify-center rounded-xl border border-[#e01e37]/40 bg-[#0c0e14] text-sm font-mono font-black text-[#e01e37] shadow-[0_0_20px_rgba(224,30,55,0.25)] transition-all duration-300 group-hover:scale-105 group-hover:border-[#e01e37] group-hover:bg-[#e01e37]/10 select-none">
-                  03
+              {/* Step 2 UI Artifact */}
+              <div className="lg:col-span-6">
+                <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#131722]/90 to-[#0b0d13]/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 text-[11px] font-mono">
+                    <span className="text-[#8b949e]">SESSION #4 LOG</span>
+                    <span className="text-amber-400 font-medium">COACH CUE ACTIVE</span>
+                  </div>
+
+                  <div className="mt-4">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-[#6e7681]">Focus Movement</span>
+                    <div className="mt-0.5 text-sm font-bold text-white">Ring Muscle-Up · Strict Transition</div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl border-l-2 border-[#e01e37] bg-white/[0.03] p-3.5 text-xs text-[#c9d1d9] leading-relaxed">
+                    <span className="text-[10px] font-mono uppercase text-[#e01e37] block mb-1">Live Cue from Ikjot:</span>
+                    &ldquo;Keep your false grip locked tight at the apex. On the transition, pull the rings toward your sternum before punching through. Don&apos;t kick the legs.&rdquo;
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-xs text-[#8b949e] border-t border-white/[0.04] pt-3">
+                    <span>Logged: <strong className="text-white">4 sets x 3 reps</strong></span>
+                    <span className="font-mono text-emerald-400">Form Score: 94%</span>
+                  </div>
                 </div>
+              </div>
+            </div>
 
-                {/* Card */}
-                <div className="flex-1 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-r from-[#11141b]/95 via-[#0e1117]/90 to-[#0a0c10]/95 p-6 sm:p-7 backdrop-blur-xl transition-all duration-300 group-hover:border-[#e01e37]/40 group-hover:shadow-[0_0_30px_rgba(224,30,55,0.08)]">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex size-8 items-center justify-center rounded-lg border border-[#e01e37]/30 bg-[#e01e37]/10 text-[#e01e37]">
-                          <Trophy className="size-4" />
-                        </div>
-                        <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#e01e37]">
-                          Step 03 · Proof of Work
-                        </span>
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e01e37]/30 bg-[#e01e37]/10 px-3 py-1 text-[11px] font-medium text-[#ff4d6d] font-mono">
-                        <span className="size-1.5 rounded-full bg-[#e01e37] animate-pulse" />
-                        Official Accreditation
-                      </span>
-                    </div>
+            {/* Step 3: Earn */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center border-t border-white/[0.06] pt-12 sm:pt-16">
+              <div className="lg:col-span-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#e01e37]">03</span>
+                  <span className="text-white/20">/</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[#8b949e]">Earn</span>
+                </div>
+                <h4 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+                  Turn sweat into verifiable recognition.
+                </h4>
+                <p className="text-sm leading-relaxed text-[#8b949e]">
+                  Every completed hour logs to your verified athlete record. Complete benchmark challenges to earn officially endorsed skill certifications, earn your rank on regional leaderboards, and qualify for invitationals and tournaments hosted by Mastrive.
+                </p>
+                <div className="flex flex-wrap gap-4 pt-2 text-xs text-[#c9d1d9]">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>Official skill certifications</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>City & national leaderboard ranks</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[#e01e37] font-bold">✓</span>
+                    <span>Tournament eligibility</span>
+                  </div>
+                </div>
+              </div>
 
+              {/* Step 3 UI Artifact */}
+              <div className="lg:col-span-6">
+                <div className="relative rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#131722]/90 to-[#0b0d13]/95 p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-3 text-[11px] font-mono">
+                    <span className="text-[#8b949e]">ATHLETE PASSPORT</span>
+                    <span className="text-[#e01e37] font-medium font-mono">OFFICIAL SEAL</span>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between">
                     <div>
-                      <h4 className="text-xl font-bold tracking-tight text-white">
-                        Earn Recognition & Certifications
-                      </h4>
-                      <p className="mt-2 text-sm leading-relaxed text-[#8b949e]">
-                        Clock verified hours on your athletic profile as you progress through skill milestones. Unlock official accredited certifications, climb regional and national tournament leaderboards, and earn real recognition in your discipline.
-                      </p>
+                      <div className="text-[10px] font-mono uppercase tracking-wider text-[#e01e37]">Certified Achievement</div>
+                      <div className="text-sm font-bold text-white mt-0.5">Advanced Bar & Ring Mastery</div>
+                      <div className="text-xs text-[#8b949e] mt-1">Issued by Mastrive Athletic Board · ID #MST-9042</div>
                     </div>
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-[#e01e37]/30 bg-[#e01e37]/10 text-[#e01e37]">
+                      <Trophy className="size-6" />
+                    </div>
+                  </div>
 
-                    <div className="flex flex-wrap gap-2 pt-2 border-t border-white/[0.04]">
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        📜 Verified Skill Certifications
-                      </span>
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        🏆 Tournament Leaderboard Points
-                      </span>
-                      <span className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1 text-xs text-[#c9d1d9]">
-                        🎖️ Permanent Athletic Resume
-                      </span>
+                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-white/[0.02] border border-white/[0.04] p-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#6e7681]">Verified Hours</span>
+                      <div className="mt-0.5 font-medium text-white">18 Hours Logged</div>
                     </div>
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#6e7681]">Tournament Rank</span>
+                      <div className="mt-0.5 font-medium text-emerald-400">#2 in Delhi NCR</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between text-[11px] text-[#6e7681]">
+                    <span>Qualified for: Mastrive Autumn Open 2026</span>
+                    <span className="text-white font-medium">View Certificate →</span>
                   </div>
                 </div>
               </div>
