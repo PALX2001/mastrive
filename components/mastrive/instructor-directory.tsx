@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
-import { Star, Quote, BadgeCheck, MapPin, Video, Trophy } from 'lucide-react'
+import { Star, Quote, Calendar, Target, Trophy } from 'lucide-react'
 import { instructors as fallbackInstructors, type CategoryId, type Instructor } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
@@ -440,35 +440,26 @@ export function InstructorDirectory({
                 {/* Visual */}
                 <div className="relative h-64 md:h-auto md:col-span-5 overflow-hidden bg-[#0a0a0a]">
                   <Image
-                    src="/instructors/ikjot-1.jpeg"
-                    alt="Verified Instructor Ikjot Singh"
+                    src="/how-it-works/step-book.jpg"
+                    alt="Athlete preparing hand wraps for a private training session"
                     fill
-                    className="object-cover object-[50%_25%]"
+                    className="object-cover object-center"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent md:bg-gradient-to-r md:from-transparent md:to-black/70" />
                   
                   {/* Top Badge */}
                   <div className="absolute left-4 top-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
-                      <MapPin className="size-3 text-[#e01e37]" />
-                      Siri Fort, Delhi · In-Person
+                      <Calendar className="size-3 text-[#e01e37]" />
+                      On-Demand Booking
                     </span>
                   </div>
 
                   {/* Bottom Info Overlay */}
                   <div className="absolute bottom-4 left-4 right-4">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-bold text-white">Ikjot Singh</span>
-                      <BadgeCheck className="size-4 text-[#3fb950]" />
-                    </div>
-                    <p className="text-xs font-semibold text-[#e01e37]">Strength & Calisthenics Coach</p>
-                    <div className="mt-1 flex items-center justify-between text-xs text-[#aaa]">
-                      <span className="flex items-center gap-1">
-                        <Star className="size-3 fill-[#e01e37] text-[#e01e37]" />
-                        4.9 (128 sessions)
-                      </span>
-                      <span className="font-bold text-white">₹1,200/hr</span>
-                    </div>
+                    <div className="text-sm font-bold text-white">Direct Mentor Selection</div>
+                    <p className="text-xs font-semibold text-[#e01e37]">Verified Local & Online Mentors</p>
+                    <p className="mt-1 text-xs text-[#aaa]">1-on-1 Sessions · Transparent Hourly Rates</p>
                   </div>
                 </div>
 
@@ -507,8 +498,8 @@ export function InstructorDirectory({
                 {/* Visual */}
                 <div className="relative h-64 md:h-auto md:col-span-5 overflow-hidden bg-[#0a0a0a]">
                   <Image
-                    src="/hero/boxing.jpg"
-                    alt="1-on-1 Intensive Training Session"
+                    src="/how-it-works/step-learn.jpg"
+                    alt="1-on-1 boxing pad work and technique breakdown"
                     fill
                     className="object-cover object-center"
                   />
@@ -517,8 +508,8 @@ export function InstructorDirectory({
                   {/* Top Badge */}
                   <div className="absolute left-4 top-4">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
-                      <Video className="size-3 text-[#e01e37]" />
-                      Private 1-on-1 Session
+                      <Target className="size-3 text-[#e01e37]" />
+                      Intensive 1-on-1 Coaching
                     </span>
                   </div>
 
@@ -565,8 +556,8 @@ export function InstructorDirectory({
                 {/* Visual */}
                 <div className="relative h-64 md:h-auto md:col-span-5 overflow-hidden bg-[#0a0a0a]">
                   <Image
-                    src="/hero/athletics.jpg"
-                    alt="Verified Recognition and Milestones"
+                    src="/how-it-works/step-earn.jpg"
+                    alt="Championship trophy and athletic medal recognition"
                     fill
                     className="object-cover object-center"
                   />
