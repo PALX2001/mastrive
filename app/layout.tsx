@@ -67,6 +67,9 @@ export const metadata: Metadata = {
       'Book in-person skill sessions nearby or jump into a live 1-on-1 stream.',
     images: ['/icon-512x512.png'],
   },
+  verification: {
+    google: '377b3p9X8apuI8JOnkMwxl1su7iKyrvAbLbpYu6-Wn4',
+  },
 }
 
 export const viewport: Viewport = {
@@ -85,6 +88,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} bg-background`}
     >
       <head>
+        <meta name="google-site-verification" content="377b3p9X8apuI8JOnkMwxl1su7iKyrvAbLbpYu6-Wn4" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/icon.svg" type="image/svg+xml" />
         <link rel="icon" type="image/png" sizes="48x48" href="/icon-48x48.png" />
