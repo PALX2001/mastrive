@@ -144,7 +144,7 @@ export const tournaments: Tournament[] = [
     name: 'NCR Rapid Chess Open',
     entryFee: 300,
     prizePool: 18000,
-    date: 'Announced Soon',
+    date: 'To be announced',
     image: '/hero/chess.jpg',
     tag: 'ANNOUNCED SOON: DELHI NCR',
     description: 'Official rapid chess championship. 5 rounds Swiss system with verified FIDE arbiters, digital clocks, and live electronic boards.',
