@@ -203,8 +203,18 @@ export default function InstructorDashboard() {
 
   // Avatar states
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarError, setAvatarError] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const dashAvatarInputRef = useRef<HTMLInputElement>(null)
+
+  const userInitials = useMemo(() => {
+    if (!profileName || profileName === 'Instructor' || profileName === 'Coach') return 'IN'
+    const parts = profileName.trim().split(/\s+/)
+    if (parts.length >= 2 && parts[0][0] && parts[1][0]) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return profileName.slice(0, 2).toUpperCase()
+  }, [profileName])
 
   // Card & Media Customization States
   const [cardId, setCardId] = useState<string | null>(null)
@@ -367,7 +377,7 @@ export default function InstructorDashboard() {
           // 1. Fetch profile
           supabase
             .from('profiles')
-            .select('full_name, skill, role')
+            .select('*')
             .eq('id', user.id)
             .maybeSingle(),
           // 2. Fetch instructor application
@@ -405,7 +415,7 @@ export default function InstructorDashboard() {
         if (!profile && user.email) {
           const { data: pEmail } = await supabase
             .from('profiles')
-            .select('full_name, skill, role')
+            .select('*')
             .eq('email', user.email)
             .maybeSingle()
           if (pEmail) profile = pEmail
@@ -415,9 +425,6 @@ export default function InstructorDashboard() {
           if (profile.skill) setProfileSkill(profile.skill)
         }
 
-        const profilePic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-        setAvatarUrl(profilePic)
-
         // Process application
         const appData = appRes.status === 'fulfilled' ? appRes.value.data : null
         if (appData) {
@@ -425,8 +432,48 @@ export default function InstructorDashboard() {
           if (appData.skill && !profile?.skill) setProfileSkill(appData.skill)
         }
 
-        // Process instructor card data
+        // Process instructor card data & resolve avatar
         const instData = instructorRes.status === 'fulfilled' ? instructorRes.value.data : null
+
+        // 1. Check local cached avatar
+        let resolvedAvatar: string | null = null
+        if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem(`mastrive_avatar_${user.id}`)
+          if (cached && !cached.includes('/hero/') && !cached.includes('/instructors/ikjot')) {
+            resolvedAvatar = cached
+          }
+        }
+
+        // 2. Look for any custom uploaded photo in instructor images
+        let customUploadedPhoto: string | null = null
+        if (instData && Array.isArray(instData.image_urls) && instData.image_urls.length > 0) {
+          customUploadedPhoto = instData.image_urls.find((u: string) =>
+            typeof u === 'string' && (u.includes('supabase.co') || u.includes('/cards/') || u.includes('/avatars/'))
+          ) || null
+        }
+
+        // 3. Check user auth metadata
+        const metaPic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+
+        // 4. Check profile row
+        const profileAvatar = (profile as any)?.avatar_url || null
+
+        // Priority resolution
+        resolvedAvatar =
+          customUploadedPhoto ||
+          resolvedAvatar ||
+          metaPic ||
+          profileAvatar ||
+          (instData?.image_urls?.[0] ? instData.image_urls[0] : null)
+
+        if (resolvedAvatar) {
+          setAvatarUrl(resolvedAvatar)
+          setAvatarError(false)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`mastrive_avatar_${user.id}`, resolvedAvatar)
+          }
+        }
+
         if (instData) {
           setCardId(instData.id)
           setCardDisplayName(instData.display_name || profile?.full_name || appData?.full_name || initialName || 'Instructor')
@@ -452,9 +499,16 @@ export default function InstructorDashboard() {
           if (instData.experience_years) setCardExperience(String(instData.experience_years))
           
           if (Array.isArray(instData.image_urls) && instData.image_urls.length > 0) {
-            setCardImages(instData.image_urls)
-          } else if (profilePic) {
-            setCardImages([profilePic])
+            if (customUploadedPhoto && instData.image_urls.includes(customUploadedPhoto)) {
+              setCardImages([
+                customUploadedPhoto,
+                ...instData.image_urls.filter((u: string) => u !== customUploadedPhoto)
+              ])
+            } else {
+              setCardImages(instData.image_urls)
+            }
+          } else if (resolvedAvatar) {
+            setCardImages([resolvedAvatar])
           } else {
             setCardImages(['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200'])
           }
@@ -472,8 +526,8 @@ export default function InstructorDashboard() {
           setCardDisplayName(fallbackName)
           setCardSkill(fallbackSkill)
           setCardPrice(fallbackPrice)
-          if (profilePic) {
-            setCardImages([profilePic])
+          if (resolvedAvatar) {
+            setCardImages([resolvedAvatar])
           } else {
             setCardImages(['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200'])
           }
@@ -747,8 +801,14 @@ export default function InstructorDashboard() {
     const file = e.target.files?.[0]
     if (!file || !user) return
 
-    if (!file.type.startsWith('image/')) return
-    if (file.size > 5 * 1024 * 1024) return
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPEG, PNG, WebP).')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file size exceeds 5MB limit. Please choose a smaller photo.')
+      return
+    }
 
     setUploadingAvatar(true)
     const supabase = createClient()
@@ -756,6 +816,7 @@ export default function InstructorDashboard() {
     try {
       const localPreview = URL.createObjectURL(file)
       setAvatarUrl(localPreview)
+      setAvatarError(false)
 
       const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
       const path = `avatars/${user.id}-${Date.now()}.${ext}`
@@ -764,40 +825,74 @@ export default function InstructorDashboard() {
       try {
         const { error: uploadErr } = await supabase.storage
           .from('instructor-images')
-          .upload(path, file, { contentType: file.type, upsert: true })
+          .upload(path, file, { contentType: file.type, upsert: false })
 
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
           publicUrl = urlData.publicUrl
+        } else {
+          console.warn('Storage upload note:', uploadErr.message)
         }
       } catch (err) {
         console.warn('Storage upload error:', err)
       }
 
-      if (publicUrl) {
-        setAvatarUrl(publicUrl)
-
-        await supabase.auth.updateUser({
-          data: { avatar_url: publicUrl }
-        })
-
-        try {
-          const updatedImages = cardImages.length > 0
-            ? [publicUrl, ...cardImages.filter((u) => u !== publicUrl)]
-            : [publicUrl]
-          setCardImages(updatedImages)
-          await supabase
-            .from('instructors')
-            .update({ image_urls: updatedImages })
-            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
-        } catch {
-          // Non-critical
+      // If upload failed, fallback to base64
+      if (!publicUrl) {
+        const reader = new FileReader()
+        reader.onload = (evt) => {
+          const base64 = evt.target?.result as string
+          if (base64) {
+            setAvatarUrl(base64)
+            setAvatarError(false)
+            setCardImages((prev) => [base64, ...prev.filter((u) => u !== base64)])
+          }
         }
+        reader.readAsDataURL(file)
+        return
       }
+
+      setAvatarUrl(publicUrl)
+      setAvatarError(false)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`mastrive_avatar_${user.id}`, publicUrl)
+      }
+
+      await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl }
+      })
+
+      const updatedImages = cardImages.length > 0
+        ? [publicUrl, ...cardImages.filter((u) => u !== publicUrl)]
+        : [publicUrl]
+      setCardImages(updatedImages)
+
+      // Persist to database via API route
+      await fetch('/api/instructor/card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: cardDisplayName.trim() || profileName,
+          skill: cardSkill.trim() || profileSkill,
+          category: cardCategory,
+          pricePerHour: cardPrice,
+          locality: cardLocality,
+          city: cardCity,
+          teachingModes: cardTeachingModes,
+          bio: cardBio,
+          experienceYears: cardExperience,
+          imageUrls: updatedImages,
+          isPublished: cardIsPublished,
+          slug: cardSlug,
+        }),
+      }).catch((err) => console.warn('Card persist note:', err))
     } catch (err) {
       console.warn('Avatar upload notice:', err)
     } finally {
       setUploadingAvatar(false)
+      if (dashAvatarInputRef.current) {
+        dashAvatarInputRef.current.value = ''
+      }
     }
   }
 
@@ -958,7 +1053,7 @@ export default function InstructorDashboard() {
 
       const { error: uploadErr } = await supabase.storage
         .from('instructor-images')
-        .upload(path, file, { contentType: file.type, upsert: true })
+        .upload(path, file, { contentType: file.type, upsert: false })
 
       if (uploadErr) {
         console.warn('Storage upload note:', uploadErr.message)
@@ -966,7 +1061,9 @@ export default function InstructorDashboard() {
         reader.onload = (evt) => {
           const base64 = evt.target?.result as string
           if (base64) {
-            setCardImages((prev) => [...prev, base64])
+            setCardImages((prev) => [base64, ...prev.filter((u) => u !== base64)])
+            setAvatarUrl(base64)
+            setAvatarError(false)
           }
         }
         reader.readAsDataURL(file)
@@ -975,7 +1072,14 @@ export default function InstructorDashboard() {
 
       const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
       if (urlData?.publicUrl) {
-        setCardImages((prev) => [...prev, urlData.publicUrl])
+        const newUrl = urlData.publicUrl
+        setCardImages((prev) => [newUrl, ...prev.filter((u) => u !== newUrl)])
+        setAvatarUrl(newUrl)
+        setAvatarError(false)
+        if (typeof window !== 'undefined' && user?.id) {
+          localStorage.setItem(`mastrive_avatar_${user.id}`, newUrl)
+        }
+        supabase.auth.updateUser({ data: { avatar_url: newUrl } }).catch(() => {})
       }
     } catch (err) {
       console.error('Failed to upload image:', err)
@@ -1044,6 +1148,12 @@ export default function InstructorDashboard() {
       setProfileSkill(cardSkill.trim())
       if (cardImages[0]) {
         setAvatarUrl(cardImages[0])
+        setAvatarError(false)
+        if (typeof window !== 'undefined' && user?.id) {
+          localStorage.setItem(`mastrive_avatar_${user.id}`, cardImages[0])
+        }
+        const supabase = createClient()
+        supabase.auth.updateUser({ data: { avatar_url: cardImages[0] } }).catch(() => {})
       }
 
       setCardSaveStatus('success')
@@ -1294,10 +1404,25 @@ export default function InstructorDashboard() {
                 className="group relative flex size-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#e01e37] to-[#900d1f] text-xs font-bold text-white cursor-pointer"
                 title="Click to change profile picture"
               >
-                {avatarUrl ? (
-                  <Image src={avatarUrl} alt={profileName} fill sizes="32px" className="size-full object-cover" />
+                {avatarUrl && !avatarError ? (
+                  <Image
+                    src={avatarUrl}
+                    alt="Profile"
+                    fill
+                    sizes="32px"
+                    className="size-full object-cover"
+                    onError={() => {
+                      setAvatarError(true)
+                      if (user?.id && typeof window !== 'undefined') {
+                        localStorage.removeItem(`mastrive_avatar_${user.id}`)
+                      }
+                    }}
+                    unoptimized
+                  />
                 ) : (
-                  profileName.substring(0, 2).toUpperCase()
+                  <span className="text-[11px] font-black leading-none text-white tracking-tight">
+                    {userInitials}
+                  </span>
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                   {uploadingAvatar ? (
