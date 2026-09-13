@@ -56,7 +56,7 @@ export async function GET(request: Request) {
         try {
           const { data: existingProfile } = await supabase
             .from('profiles')
-            .select('full_name')
+            .select('full_name, phone, city')
             .eq('id', user.id)
             .maybeSingle()
 
@@ -65,8 +65,13 @@ export async function GET(request: Request) {
             user.user_metadata?.name ||
             null
 
+          const metaPhone = user.user_metadata?.phone || null
+          const metaCity = user.user_metadata?.city || null
+
           // Only assign full_name if real name is provided; never dump raw email usernames like 2001palash into database
           finalFullName = existingProfile?.full_name || metaName || null
+          const finalPhone = existingProfile?.phone || metaPhone || null
+          const finalCity = existingProfile?.city || metaCity || null
 
           await supabase
             .from('profiles')
@@ -75,7 +80,8 @@ export async function GET(request: Request) {
                 id: user.id,
                 full_name: finalFullName,
                 email: user.email,
-                // NOTE: profiles table has no avatar_url column — avatar lives in auth.user_metadata only
+                phone: finalPhone,
+                city: finalCity,
                 updated_at: new Date().toISOString(),
               },
               { onConflict: 'id' }
@@ -213,6 +219,8 @@ export async function GET(request: Request) {
             forwardedHost === 'mastrive.vercel.app' ||
             forwardedHost.endsWith('.vercel.app') ||
             forwardedHost === 'mastrive.com' ||
+            forwardedHost === 'www.mastrive.com' ||
+            forwardedHost.endsWith('.mastrive.com') ||
             forwardedHost.startsWith('localhost') ||
             forwardedHost.startsWith('127.0.0.1')
           )
