@@ -23,3 +23,4 @@ create policy "Users can update own avatar_url"
   to authenticated
   using (auth.uid() = id or public.is_admin())
   with check (auth.uid() = id or public.is_admin());
+

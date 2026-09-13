@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { motion, useScroll, useTransform, useSpring } from 'motion/react'
-import { Star, Quote } from 'lucide-react'
+import { Star, Quote, CalendarCheck, Flame, Trophy } from 'lucide-react'
 import { instructors as fallbackInstructors, type CategoryId, type Instructor } from '@/lib/data'
 import { createClient } from '@/lib/supabase/client'
 import { InstructorCard } from './instructor-card'
@@ -416,6 +416,76 @@ export function InstructorDirectory({
             </p>
           </div>
         )}
+
+        {/* 3 Steps: Book, Learn, Earn */}
+        <div className="content-auto mt-20 border-t border-white/[0.07] pt-14">
+          <div className="mb-10 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#e01e37]">
+                How It Works
+              </span>
+              <h3 className="mt-1.5 text-2xl font-black tracking-tight text-white">
+                Book. Learn. Earn.
+              </h3>
+            </div>
+            <div className="text-xs text-[#8b949e]">
+              Direct 1-on-1 coaching · Zero subscriptions · Verified progress
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Step 1: Book */}
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#11141b]/90 to-[#0b0d12]/95 p-6 sm:p-7 transition-all duration-300 hover:border-[#e01e37]/40 hover:-translate-y-1">
+              <span className="pointer-events-none absolute top-4 right-5 font-mono text-5xl font-black text-white/[0.04] transition-colors group-hover:text-[#e01e37]/10 select-none">
+                01
+              </span>
+              <div>
+                <div className="mb-5 flex size-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#e01e37] transition-colors group-hover:border-[#e01e37]/30 group-hover:bg-[#e01e37]/10">
+                  <CalendarCheck className="size-6" />
+                </div>
+                <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#e01e37]">Step 01</span>
+                <h4 className="mt-1 text-lg font-bold tracking-tight text-white">Book Your Mentor</h4>
+                <p className="mt-2.5 text-sm leading-relaxed text-[#8b949e]">
+                  Find verified local coaches in your city or connect online. Lock in your exact time slot with transparent per-session pricing—zero subscriptions, lock-ins, or hidden gym fees.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 2: Learn */}
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#11141b]/90 to-[#0b0d12]/95 p-6 sm:p-7 transition-all duration-300 hover:border-[#e01e37]/40 hover:-translate-y-1">
+              <span className="pointer-events-none absolute top-4 right-5 font-mono text-5xl font-black text-white/[0.04] transition-colors group-hover:text-[#e01e37]/10 select-none">
+                02
+              </span>
+              <div>
+                <div className="mb-5 flex size-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#e01e37] transition-colors group-hover:border-[#e01e37]/30 group-hover:bg-[#e01e37]/10">
+                  <Flame className="size-6" />
+                </div>
+                <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#e01e37]">Step 02</span>
+                <h4 className="mt-1 text-lg font-bold tracking-tight text-white">Train 1-on-1</h4>
+                <p className="mt-2.5 text-sm leading-relaxed text-[#8b949e]">
+                  Hit the ground running with direct, hands-on attention. Get your technique corrected in real time, run high-intent drills, and build raw muscle memory under veteran guidance.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3: Earn */}
+            <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-[#11141b]/90 to-[#0b0d12]/95 p-6 sm:p-7 transition-all duration-300 hover:border-[#e01e37]/40 hover:-translate-y-1">
+              <span className="pointer-events-none absolute top-4 right-5 font-mono text-5xl font-black text-white/[0.04] transition-colors group-hover:text-[#e01e37]/10 select-none">
+                03
+              </span>
+              <div>
+                <div className="mb-5 flex size-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-[#e01e37] transition-colors group-hover:border-[#e01e37]/30 group-hover:bg-[#e01e37]/10">
+                  <Trophy className="size-6" />
+                </div>
+                <span className="text-[11px] font-mono font-semibold uppercase tracking-wider text-[#e01e37]">Step 03</span>
+                <h4 className="mt-1 text-lg font-bold tracking-tight text-white">Earn Recognition</h4>
+                <p className="mt-2.5 text-sm leading-relaxed text-[#8b949e]">
+                  Clock verified training hours, unlock milestone certifications, and build your accredited athletic profile. Climb the tournament leaderboards and earn true community respect.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Learner Reviews Marquee */}
         <div className="content-auto mt-20 border-t border-white/[0.07] pt-14">
