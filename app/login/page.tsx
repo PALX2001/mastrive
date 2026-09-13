@@ -1228,6 +1228,24 @@ function AuthContent() {
                     )}
                   </div>
 
+                  {/* Demo Instructor Access Card */}
+                  <div className="mt-6 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#12161f] to-[#161c28] p-4 text-center space-y-2">
+                    <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-white">
+                      <Sparkles className="size-3.5 text-[#e01e37]" />
+                      <span>Want to verify the Instructor Dashboard?</span>
+                    </div>
+                    <p className="text-[11px] text-[#8b949e] max-w-xs mx-auto">
+                      Explore all dashboard features and test Card &amp; Media customizations with the unpublished demo account.
+                    </p>
+                    <Link
+                      href="/dashboard/instructor?demo=true"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e01e37]/20 to-[#e01e37]/10 border border-[#e01e37]/30 px-4 py-2 text-xs font-bold text-[#e01e37] hover:bg-[#e01e37] hover:text-white transition active:scale-95"
+                    >
+                      <span>Enter as Demo Coach Alex</span>
+                      <ArrowRight className="size-3.5" />
+                    </Link>
+                  </div>
+
                   {/* Back to Explore */}
                   <div className="mt-4 text-center">
                     <Link
