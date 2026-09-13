@@ -41,6 +41,7 @@ export function Header({
 
   const [profileName, setProfileName] = useState<string | null>(null)
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
+  const [avatarError, setAvatarError] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -50,7 +51,11 @@ export function Header({
       // 1. Instant check from localStorage (zero flash!)
       if (typeof window !== 'undefined') {
         const cached = localStorage.getItem(`mastrive_avatar_${userId}`)
-        if (cached) setProfileAvatarUrl(cached)
+        if (cached && !cached.includes('/hero/') && !cached.includes('/instructors/')) {
+          setProfileAvatarUrl(cached)
+        } else if (cached) {
+          localStorage.removeItem(`mastrive_avatar_${userId}`)
+        }
       }
 
       if (lastFetchedUserId === userId && profileName) return
@@ -107,21 +112,23 @@ export function Header({
 
         setIsInstructor(isInst)
 
-        const instData = instRes.status === 'fulfilled' ? instRes.value.data : null
-
-        // Resolve avatar through robust fallback chain
+        // Resolve avatar through robust user profile fallback chain (never promotional card banners)
         const resolvedAvatar =
           profile?.avatar_url ||
-          (typeof window !== 'undefined' ? localStorage.getItem(`mastrive_avatar_${userId}`) : null) ||
-          instData?.image_urls?.[0] ||
           user?.user_metadata?.avatar_url ||
           user?.user_metadata?.picture ||
           null
 
         if (resolvedAvatar) {
           setProfileAvatarUrl(resolvedAvatar)
+          setAvatarError(false)
           if (typeof window !== 'undefined') {
             localStorage.setItem(`mastrive_avatar_${userId}`, resolvedAvatar)
+          }
+        } else {
+          setProfileAvatarUrl(null)
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem(`mastrive_avatar_${userId}`)
           }
         }
 
@@ -210,6 +217,22 @@ export function Header({
   }, [user, profileName])
 
   const userAvatarUrl = profileAvatarUrl || user?.user_metadata?.avatar_url || user?.user_metadata?.picture
+
+  const userInitials = useMemo(() => {
+    if (!displayName || displayName === 'My Account' || displayName === 'Learner') return null
+    const parts = displayName.trim().split(/\s+/)
+    if (parts.length >= 2 && parts[0][0] && parts[1][0]) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return displayName.slice(0, 1).toUpperCase()
+  }, [displayName])
+
+  const handleAvatarError = () => {
+    setAvatarError(true)
+    if (user?.id && typeof window !== 'undefined') {
+      localStorage.removeItem(`mastrive_avatar_${user.id}`)
+    }
+  }
 
   return (
     <header
@@ -303,16 +326,23 @@ export function Header({
                         aria-label="User Profile"
                         className="flex size-7 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#e01e37]/10 text-white transition-all hover:bg-[#e01e37] hover:shadow-[0_2px_12px_rgba(224,30,55,0.4)]"
                       >
-                        {userAvatarUrl ? (
+                        {userAvatarUrl && !avatarError ? (
                           <Image
                             src={userAvatarUrl}
                             alt="Profile"
                             width={28}
                             height={28}
                             className="size-full object-cover"
+                            onError={handleAvatarError}
                           />
                         ) : (
-                          <User className="size-4" />
+                          <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e01e37] to-[#800016] text-white select-none">
+                            {userInitials ? (
+                              <span className="text-[10px] font-black leading-none">{userInitials}</span>
+                            ) : (
+                              <User className="size-3.5 text-white" />
+                            )}
+                          </div>
                         )}
                       </Link>
                     </div>
@@ -343,17 +373,22 @@ export function Header({
                   className="gloss-pill relative flex size-10 items-center justify-center rounded-full p-0.5 shadow-[0_4px_16px_rgba(0,0,0,0.5)] active:scale-95"
                 >
                   <div className="flex size-full items-center justify-center overflow-hidden rounded-full bg-[#0a0a0a]">
-                    {userAvatarUrl ? (
+                    {userAvatarUrl && !avatarError ? (
                       <Image
                         src={userAvatarUrl}
                         alt="Profile Avatar"
                         width={36}
                         height={36}
                         className="size-full object-cover"
+                        onError={handleAvatarError}
                       />
                     ) : user ? (
-                      <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e01e37] to-[#800016] text-white">
-                        <User className="size-5" />
+                      <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e01e37] to-[#800016] text-white font-bold select-none">
+                        {userInitials ? (
+                          <span className="text-xs font-black leading-none">{userInitials}</span>
+                        ) : (
+                          <User className="size-4 text-white" />
+                        )}
                       </div>
                     ) : (
                       <div className="flex size-full items-center justify-center bg-[#111] text-[#e01e37]">
@@ -438,16 +473,23 @@ export function Header({
                   >
                     <div className="flex items-center gap-3">
                       <div className="flex size-9 items-center justify-center rounded-full bg-[#e01e37]/20 text-[#e01e37] overflow-hidden">
-                        {userAvatarUrl ? (
+                        {userAvatarUrl && !avatarError ? (
                           <Image
                             src={userAvatarUrl}
                             alt="Profile"
                             width={36}
                             height={36}
                             className="size-full object-cover"
+                            onError={handleAvatarError}
                           />
                         ) : (
-                          <User className="size-4" />
+                          <div className="flex size-full items-center justify-center bg-gradient-to-br from-[#e01e37] to-[#800016] text-white font-bold select-none">
+                            {userInitials ? (
+                              <span className="text-xs font-black leading-none">{userInitials}</span>
+                            ) : (
+                              <User className="size-4 text-white" />
+                            )}
+                          </div>
                         )}
                       </div>
                       <div>
