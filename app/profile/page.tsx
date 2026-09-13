@@ -86,12 +86,18 @@ export default function ProfilePage() {
         setUser(user)
         setNameInput(user.user_metadata?.full_name || '')
 
+        // Check localStorage cache first for zero latency
+        if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem(`mastrive_avatar_${user.id}`)
+          if (cached) setAvatarUrl(cached)
+        }
+
         // Fetch profile, bookings, applications, and instructor records concurrently
         setLoadingBookings(true)
         const [profileRes, bookingsRes, appRes, instRes] = await Promise.allSettled([
           supabase
             .from('profiles')
-            .select('id, email, role, full_name, city, phone, skill')
+            .select('*')
             .eq('id', user.id)
             .maybeSingle(),
           supabase
@@ -108,7 +114,7 @@ export default function ProfilePage() {
             : Promise.resolve({ data: null } as any),
           supabase
             .from('instructors')
-            .select('id')
+            .select('id, image_urls')
             .or(`id.eq.${user.id},user_id.eq.${user.id}`)
             .maybeSingle(),
         ])
@@ -120,7 +126,7 @@ export default function ProfilePage() {
         if (!profile && user.email) {
           const { data: profileByEmail } = await supabase
             .from('profiles')
-            .select('id, email, role, full_name, city, phone, skill')
+            .select('*')
             .eq('email', user.email)
             .maybeSingle()
           if (profileByEmail) profile = profileByEmail
@@ -138,8 +144,21 @@ export default function ProfilePage() {
           setBookings(userBookings)
         }
 
-        const resolvedAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-        setAvatarUrl(resolvedAvatar)
+        const instRow = instRes.status === 'fulfilled' ? instRes.value.data : null
+        const resolvedAvatar =
+          profile?.avatar_url ||
+          (typeof window !== 'undefined' ? localStorage.getItem(`mastrive_avatar_${user.id}`) : null) ||
+          instRow?.image_urls?.[0] ||
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          null
+
+        if (resolvedAvatar) {
+          setAvatarUrl(resolvedAvatar)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`mastrive_avatar_${user.id}`, resolvedAvatar)
+          }
+        }
 
         // Comprehensive instructor role check
         let isInst = false
@@ -281,17 +300,39 @@ export default function ProfilePage() {
 
       setAvatarUrl(publicUrl)
 
-      // 3. Persist to Auth user metadata
-      await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl }
-      })
+      // 3. Persist to localStorage immediately (Survives sign out and sign in)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`mastrive_avatar_${user.id}`, publicUrl)
+      }
 
-      // 4. If user is an instructor, also update instructors table image_urls
+      // 4. Persist to public.profiles table
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            avatar_url: publicUrl,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+      } catch (profErr) {
+        console.warn('Profile avatar_url update note:', profErr)
+      }
+
+      // 5. Persist to Auth user metadata
+      try {
+        await supabase.auth.updateUser({
+          data: { avatar_url: publicUrl }
+        })
+      } catch (authErr) {
+        console.warn('Auth user metadata avatar update note:', authErr)
+      }
+
+      // 6. If user is an instructor, also update instructors table image_urls
       if (isInstructor) {
         try {
           await supabase
             .from('instructors')
-            .update({ image_urls: [publicUrl] })
+            .update({ image_urls: [publicUrl], updated_at: new Date().toISOString() })
             .or(`id.eq.${user.id},user_id.eq.${user.id}`)
         } catch {
           // Non-critical

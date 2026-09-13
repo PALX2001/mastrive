@@ -47,6 +47,12 @@ export function Header({
     let lastFetchedUserId: string | null = null
 
     const fetchUserProfile = async (userId: string, userEmail?: string) => {
+      // 1. Instant check from localStorage (zero flash!)
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(`mastrive_avatar_${userId}`)
+        if (cached) setProfileAvatarUrl(cached)
+      }
+
       if (lastFetchedUserId === userId && profileName) return
       lastFetchedUserId = userId
 
@@ -66,7 +72,7 @@ export function Header({
         const [profileRes, appRes, instRes] = await Promise.allSettled([
           supabase
             .from('profiles')
-            .select('full_name, role, city, skill')
+            .select('*')
             .eq('id', userId)
             .maybeSingle(),
           userEmail
@@ -78,7 +84,7 @@ export function Header({
             : Promise.resolve({ data: null } as any),
           supabase
             .from('instructors')
-            .select('id')
+            .select('id, image_urls')
             .or(`id.eq.${userId},user_id.eq.${userId}`)
             .maybeSingle(),
         ])
@@ -100,6 +106,24 @@ export function Header({
         }
 
         setIsInstructor(isInst)
+
+        const instData = instRes.status === 'fulfilled' ? instRes.value.data : null
+
+        // Resolve avatar through robust fallback chain
+        const resolvedAvatar =
+          profile?.avatar_url ||
+          (typeof window !== 'undefined' ? localStorage.getItem(`mastrive_avatar_${userId}`) : null) ||
+          instData?.image_urls?.[0] ||
+          user?.user_metadata?.avatar_url ||
+          user?.user_metadata?.picture ||
+          null
+
+        if (resolvedAvatar) {
+          setProfileAvatarUrl(resolvedAvatar)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(`mastrive_avatar_${userId}`, resolvedAvatar)
+          }
+        }
 
         // Self-heal: If user is recognized as an instructor but has no row in public.instructors,
         // create their published card immediately using their authenticated session
