@@ -47,13 +47,25 @@ import {
   LayoutDashboard,
   Mail,
   CircleDot,
-  Camera
+  Camera,
+  Trash2,
+  Upload,
+  ArrowLeftRight,
+  ArrowUp,
+  ArrowDown,
+  ArrowRight,
+  Eye,
+  GripVertical,
+  Image as ImageIcon
 } from 'lucide-react'
+import { InstructorCard } from '@/components/mastrive/instructor-card'
+import type { Instructor, CategoryId } from '@/lib/data'
 
-type DashTab = 'dash' | 'inbox' | 'calendar' | 'earnings' | 'services'
+type DashTab = 'dash' | 'card' | 'inbox' | 'calendar' | 'earnings' | 'services'
 
 const sidebarNavItems: { id: DashTab; label: string; icon: React.ElementType; badge?: string }[] = [
   { id: 'dash', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'card', label: 'My Card & Media', icon: Sparkles },
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: '2' },
   { id: 'calendar', label: 'Schedule', icon: CalendarIcon },
   { id: 'earnings', label: 'Earnings', icon: CreditCard },
@@ -127,6 +139,15 @@ function DonutChart({ percentage, label }: { percentage: number; label: string }
   )
 }
 
+const PRESET_SPORTS_IMAGES = [
+  { label: 'Boxing Sparring', category: 'Combat', url: 'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200' },
+  { label: 'Pad Work & Striking', category: 'Combat', url: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1200' },
+  { label: 'Athletic Strength', category: 'Fitness', url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=1200' },
+  { label: 'Chess Grandmaster', category: 'Strategy', url: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?auto=format&fit=crop&q=80&w=1200' },
+  { label: 'Studio Guitar', category: 'Music', url: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&q=80&w=1200' },
+  { label: 'Mindful Yoga', category: 'Lifestyle', url: 'https://images.unsplash.com/photo-1545205597-3d9d02c29597?auto=format&fit=crop&q=80&w=1200' },
+]
+
 export default function InstructorDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<SupabaseUser | null>(null)
@@ -184,6 +205,30 @@ export default function InstructorDashboard() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const dashAvatarInputRef = useRef<HTMLInputElement>(null)
+
+  // Card & Media Customization States
+  const [cardId, setCardId] = useState<string | null>(null)
+  const [cardDisplayName, setCardDisplayName] = useState<string>('')
+  const [cardSkill, setCardSkill] = useState<string>('')
+  const [cardCategory, setCardCategory] = useState<CategoryId>('fitness')
+  const [cardPrice, setCardPrice] = useState<number>(1000)
+  const [cardLocality, setCardLocality] = useState<string>('Delhi')
+  const [cardCity, setCardCity] = useState<string>('Delhi')
+  const [cardTeachingModes, setCardTeachingModes] = useState<string[]>(['In-Person', 'Online'])
+  const [cardBio, setCardBio] = useState<string>('')
+  const [cardExperience, setCardExperience] = useState<string>('3+ Years')
+  const [cardImages, setCardImages] = useState<string[]>([])
+  const [cardRating, setCardRating] = useState<number>(5.0)
+  const [cardReviews, setCardReviews] = useState<number>(0)
+  const [cardLearners, setCardLearners] = useState<number>(0)
+  const [cardIsPublished, setCardIsPublished] = useState<boolean>(true)
+  const [cardSlug, setCardSlug] = useState<string>('')
+  const [savingCard, setSavingCard] = useState<boolean>(false)
+  const [cardSaveStatus, setCardSaveStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [cardSaveMessage, setCardSaveMessage] = useState<string>('')
+  const [uploadingCardImage, setUploadingCardImage] = useState<boolean>(false)
+  const [newImageUrlInput, setNewImageUrlInput] = useState<string>('')
+  const cardImageFileInputRef = useRef<HTMLInputElement>(null)
 
   // Chat thread states
   const [selectedThreadId, setSelectedThreadId] = useState<string>('')
@@ -318,7 +363,7 @@ export default function InstructorDashboard() {
         setBookingSlug(slug)
 
         // Parallel concurrent fetching for all dashboard resources (5x faster load)
-        const [profileRes, appRes, servicesRes, slotsRes, bookingsRes] = await Promise.allSettled([
+        const [profileRes, appRes, servicesRes, slotsRes, bookingsRes, instructorRes] = await Promise.allSettled([
           // 1. Fetch profile
           supabase
             .from('profiles')
@@ -347,6 +392,12 @@ export default function InstructorDashboard() {
             .select('*')
             .or(`instructor_id.eq.${user.id},instructor_name.ilike.%${initialName || ''}%,customer_email.eq.${user.email}`)
             .order('created_at', { ascending: false }),
+          // 6. Fetch instructor public card data
+          supabase
+            .from('instructors')
+            .select('*')
+            .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+            .maybeSingle(),
         ])
 
         // Process profile
@@ -372,6 +423,60 @@ export default function InstructorDashboard() {
         if (appData) {
           if (appData.full_name && !profile?.full_name) setProfileName(appData.full_name)
           if (appData.skill && !profile?.skill) setProfileSkill(appData.skill)
+        }
+
+        // Process instructor card data
+        const instData = instructorRes.status === 'fulfilled' ? instructorRes.value.data : null
+        if (instData) {
+          setCardId(instData.id)
+          setCardDisplayName(instData.display_name || profile?.full_name || appData?.full_name || initialName || 'Instructor')
+          setCardSkill(instData.skill || profile?.skill || appData?.skill || 'Boxing & Combat Fitness')
+          
+          if (instData.category) {
+            const cat = instData.category.toLowerCase()
+            if (cat.includes('fitness')) setCardCategory('fitness')
+            else if (cat.includes('music')) setCardCategory('music')
+            else if (cat.includes('strategy')) setCardCategory('strategy')
+            else if (cat.includes('lifestyle')) setCardCategory('lifestyle')
+          }
+          
+          if (instData.price_per_hour) setCardPrice(Number(instData.price_per_hour))
+          else if (appData?.price_per_hour) setCardPrice(Number(appData.price_per_hour))
+          
+          if (instData.locality) setCardLocality(instData.locality)
+          if (instData.city) setCardCity(instData.city)
+          if (Array.isArray(instData.teaching_modes) && instData.teaching_modes.length > 0) {
+            setCardTeachingModes(instData.teaching_modes)
+          }
+          if (instData.bio) setCardBio(instData.bio)
+          if (instData.experience_years) setCardExperience(String(instData.experience_years))
+          
+          if (Array.isArray(instData.image_urls) && instData.image_urls.length > 0) {
+            setCardImages(instData.image_urls)
+          } else if (profilePic) {
+            setCardImages([profilePic])
+          } else {
+            setCardImages(['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200'])
+          }
+          
+          if (instData.rating != null) setCardRating(Number(instData.rating))
+          if (instData.reviews_count != null) setCardReviews(Number(instData.reviews_count))
+          if (instData.learners_count != null) setCardLearners(Number(instData.learners_count))
+          if (instData.is_published != null) setCardIsPublished(instData.is_published)
+          if (instData.slug) setCardSlug(instData.slug)
+        } else {
+          // Initialize card state from profile/application
+          const fallbackName = profile?.full_name || appData?.full_name || initialName || 'Instructor'
+          const fallbackSkill = profile?.skill || appData?.skill || 'Boxing & Combat Fitness'
+          const fallbackPrice = appData?.price_per_hour ? Number(appData.price_per_hour) : 1000
+          setCardDisplayName(fallbackName)
+          setCardSkill(fallbackSkill)
+          setCardPrice(fallbackPrice)
+          if (profilePic) {
+            setCardImages([profilePic])
+          } else {
+            setCardImages(['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200'])
+          }
         }
 
         // Process services
@@ -677,9 +782,13 @@ export default function InstructorDashboard() {
         })
 
         try {
+          const updatedImages = cardImages.length > 0
+            ? [publicUrl, ...cardImages.filter((u) => u !== publicUrl)]
+            : [publicUrl]
+          setCardImages(updatedImages)
           await supabase
             .from('instructors')
-            .update({ image_urls: [publicUrl] })
+            .update({ image_urls: updatedImages })
             .or(`id.eq.${user.id},user_id.eq.${user.id}`)
         } catch {
           // Non-critical
@@ -733,6 +842,221 @@ export default function InstructorDashboard() {
           .eq('id', slotId)
           .or(`user_id.eq.${user.id},instructor_id.eq.${user.id}`)
       } catch {}
+    }
+  }
+
+  // Live Preview Instructor Object for Card Preview
+  const previewInstructor = useMemo<Instructor & { image?: string; images?: string[] }>(() => {
+    const isOnline = cardTeachingModes.some((m) => /online|stream|video/i.test(m))
+    const isPerson = cardTeachingModes.some((m) => /in-person/i.test(m))
+    const area = isOnline && !isPerson ? 'Live Stream' : (cardLocality || cardCity || 'Delhi')
+    const validImages = cardImages.length > 0
+      ? cardImages
+      : ['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200']
+
+    return {
+      id: cardId || user?.id || 'preview-instructor',
+      name: cardDisplayName.trim() || profileName || 'Instructor Name',
+      verified: true,
+      totalStudents: cardLearners || 0,
+      skill: cardSkill.trim() || profileSkill || 'Elite Combat Fitness',
+      category: cardCategory,
+      mode: isOnline && !isPerson ? 'online' : 'in-person',
+      area,
+      city: cardCity.trim() || 'Delhi',
+      rating: cardRating || 5.0,
+      reviews: cardReviews || 0,
+      price: Number(cardPrice) || 1000,
+      tag: `${isOnline && !isPerson ? 'LIVE ONLINE' : 'IN-PERSON'}: ${(cardCity || area).toUpperCase()}`,
+      image: validImages[0],
+      images: validImages,
+      description: cardBio || `${cardSkill || 'Instructor'} available for personalised coaching on Mastrive.`,
+      experienceYears: Number.parseInt(cardExperience || '3', 10) || 3,
+    }
+  }, [
+    cardId,
+    user?.id,
+    cardDisplayName,
+    profileName,
+    cardLearners,
+    cardSkill,
+    profileSkill,
+    cardCategory,
+    cardTeachingModes,
+    cardLocality,
+    cardCity,
+    cardRating,
+    cardReviews,
+    cardPrice,
+    cardImages,
+    cardBio,
+    cardExperience,
+  ])
+
+  // Set selected photo as primary cover photo (index 0)
+  const handleSetCoverImage = (index: number) => {
+    if (index === 0 || index >= cardImages.length) return
+    setCardImages((prev) => {
+      const target = prev[index]
+      const remaining = prev.filter((_, i) => i !== index)
+      return [target, ...remaining]
+    })
+  }
+
+  // Reorder photos: move left or right
+  const handleMoveImage = (fromIndex: number, direction: 'left' | 'right') => {
+    const toIndex = direction === 'left' ? fromIndex - 1 : fromIndex + 1
+    if (toIndex < 0 || toIndex >= cardImages.length) return
+    setCardImages((prev) => {
+      const copy = [...prev]
+      const [item] = copy.splice(fromIndex, 1)
+      copy.splice(toIndex, 0, item)
+      return copy
+    })
+  }
+
+  // Remove photo from card
+  const handleRemoveImage = (index: number) => {
+    setCardImages((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // Add high-res curated preset
+  const handleAddPresetImage = (url: string) => {
+    if (cardImages.includes(url)) return
+    setCardImages((prev) => [...prev, url])
+  }
+
+  // Add image by URL
+  const handleAddUrlImage = () => {
+    const url = newImageUrlInput.trim()
+    if (!url) return
+    if (!/^https?:\/\//i.test(url)) {
+      alert('Please enter a valid image URL starting with http:// or https://')
+      return
+    }
+    if (!cardImages.includes(url)) {
+      setCardImages((prev) => [...prev, url])
+    }
+    setNewImageUrlInput('')
+  }
+
+  // Upload image file to Supabase storage bucket instructor-images
+  const handleUploadCardImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image file size exceeds 5MB limit. Please choose a smaller photo.')
+      return
+    }
+
+    setUploadingCardImage(true)
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const path = `cards/${user.id}-${Date.now()}.${ext}`
+      const supabase = createClient()
+
+      const { error: uploadErr } = await supabase.storage
+        .from('instructor-images')
+        .upload(path, file, { contentType: file.type, upsert: true })
+
+      if (uploadErr) {
+        console.warn('Storage upload note:', uploadErr.message)
+        const reader = new FileReader()
+        reader.onload = (evt) => {
+          const base64 = evt.target?.result as string
+          if (base64) {
+            setCardImages((prev) => [...prev, base64])
+          }
+        }
+        reader.readAsDataURL(file)
+        return
+      }
+
+      const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
+      if (urlData?.publicUrl) {
+        setCardImages((prev) => [...prev, urlData.publicUrl])
+      }
+    } catch (err) {
+      console.error('Failed to upload image:', err)
+    } finally {
+      setUploadingCardImage(false)
+      if (cardImageFileInputRef.current) {
+        cardImageFileInputRef.current.value = ''
+      }
+    }
+  }
+
+  // Toggle teaching mode
+  const toggleTeachingMode = (mode: string) => {
+    setCardTeachingModes((prev) => {
+      if (prev.includes(mode)) {
+        if (prev.length === 1) return prev
+        return prev.filter((m) => m !== mode)
+      } else {
+        return [...prev, mode]
+      }
+    })
+  }
+
+  // Save Card Changes to API & Supabase
+  const handleSaveCard = async () => {
+    if (!user) return
+    if (!cardDisplayName.trim()) {
+      setCardSaveStatus('error')
+      setCardSaveMessage('Display name cannot be empty.')
+      return
+    }
+
+    setSavingCard(true)
+    setCardSaveStatus('idle')
+    setCardSaveMessage('')
+
+    try {
+      const res = await fetch('/api/instructor/card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: cardDisplayName.trim(),
+          skill: cardSkill.trim(),
+          category: cardCategory,
+          pricePerHour: cardPrice,
+          locality: cardLocality.trim(),
+          city: cardCity.trim(),
+          teachingModes: cardTeachingModes,
+          bio: cardBio.trim(),
+          experienceYears: cardExperience.trim(),
+          imageUrls: cardImages,
+          isPublished: cardIsPublished,
+          slug: cardSlug,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to save card changes')
+      }
+
+      if (data.instructor?.id) setCardId(data.instructor.id)
+      if (data.instructor?.slug) setCardSlug(data.instructor.slug)
+      setProfileName(cardDisplayName.trim())
+      setProfileSkill(cardSkill.trim())
+      if (cardImages[0]) {
+        setAvatarUrl(cardImages[0])
+      }
+
+      setCardSaveStatus('success')
+      setCardSaveMessage('Your instructor card & media order have been updated and are live on Mastrive!')
+      setTimeout(() => {
+        setCardSaveStatus('idle')
+      }, 5000)
+    } catch (err: any) {
+      console.error('Save card error:', err)
+      setCardSaveStatus('error')
+      setCardSaveMessage(err.message || 'Something went wrong while saving.')
+    } finally {
+      setSavingCard(false)
     }
   }
 
@@ -1046,6 +1370,33 @@ export default function InstructorDashboard() {
                   </button>
                 </div>
               )}
+
+              {/* Public Card & Media Customization Banner */}
+              <div className="relative overflow-hidden rounded-2xl border border-white/[0.1] bg-gradient-to-r from-[#161b26] via-[#12161f] to-[#12161f] p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#e01e37]/15 text-[#e01e37] border border-[#e01e37]/30 shadow-inner">
+                    <Sparkles className="size-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white">Customize Your Public Card & Media</h3>
+                      <span className="rounded-full bg-[#e01e37]/20 border border-[#e01e37]/30 px-2 py-0.5 text-[10px] font-bold text-[#e01e37]">
+                        Live on Directory
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8b949e] mt-0.5">
+                      Choose which photos appear on your card, reorder them, set your primary cover image, and update your pricing or bio.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab('card')}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#e01e37] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#e01e37]/25 transition hover:brightness-110 active:scale-95 shrink-0"
+                >
+                  <span>Edit My Card</span>
+                  <ChevronRight className="size-3.5" />
+                </button>
+              </div>
 
               {/* ===== DYNAMIC STAT CARDS ROW ===== */}
               {anyStatVisible && (
@@ -1972,6 +2323,551 @@ export default function InstructorDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MY PUBLIC CARD & MEDIA TAB */}
+          {/* ========================================================================= */}
+          {activeTab === 'card' && (
+            <div className="space-y-6">
+              
+              {/* Header Title & CTA Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-black text-white tracking-tight">My Public Card & Media</h1>
+                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Live Sync
+                    </span>
+                  </div>
+                  <p className="text-sm text-[#8b949e] mt-1 max-w-2xl">
+                    Choose which images appear on your Instructor Card, rearrange their order, select your primary cover photo, and customize how learners discover you.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <Link
+                    href={`/instructor/${cardSlug || 'coach'}`}
+                    target="_blank"
+                    className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#12161f] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/[0.06] active:scale-[0.98]"
+                  >
+                    <ExternalLink className="size-3.5 text-[#8b949e]" />
+                    <span>View Public Page</span>
+                  </Link>
+
+                  <button
+                    onClick={handleSaveCard}
+                    disabled={savingCard}
+                    className="flex items-center gap-2 rounded-xl bg-[#e01e37] px-5 py-2.5 text-xs font-bold text-white shadow-[0_4px_16px_rgba(224,30,55,0.3)] transition hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {savingCard ? (
+                      <>
+                        <RefreshCw className="size-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="size-3.5" />
+                        <span>Save Card Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Banner (Success / Error) */}
+              <AnimatePresence>
+                {cardSaveStatus === 'success' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-medium text-emerald-300 shadow-lg"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+                      <span>{cardSaveMessage || 'Your card changes have been saved and are live on Mastrive!'}</span>
+                    </div>
+                    <Link
+                      href="/"
+                      target="_blank"
+                      className="font-bold underline hover:text-white shrink-0 ml-4"
+                    >
+                      Check Explore Directory →
+                    </Link>
+                  </motion.div>
+                )}
+
+                {cardSaveStatus === 'error' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex items-center justify-between rounded-xl border border-[#e01e37]/30 bg-[#e01e37]/10 p-4 text-xs font-medium text-red-300 shadow-lg"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <AlertCircle className="size-4 text-[#e01e37] shrink-0" />
+                      <span>{cardSaveMessage || 'Failed to save changes. Please try again.'}</span>
+                    </div>
+                    <button
+                      onClick={() => setCardSaveStatus('idle')}
+                      className="text-white hover:underline shrink-0 ml-4 font-bold"
+                    >
+                      Dismiss
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Main Two-Column Layout: Left Controls & Details, Right Live Card Preview */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* LEFT COLUMN: Media Manager & Card Customization Form (lg:col-span-7) */}
+                <div className="lg:col-span-7 space-y-6">
+
+                  {/* 1. MEDIA & IMAGE ORDERING SECTION */}
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f]/80 p-5 sm:p-6 backdrop-blur-xl shadow-lg space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="size-4 text-[#e01e37]" />
+                          <h2 className="text-base font-bold text-white">Card Images & Ordering</h2>
+                        </div>
+                        <p className="text-xs text-[#8b949e] mt-0.5">
+                          Image <strong className="text-amber-400">#1 (Cover)</strong> is displayed on your card in the directory. Other photos show on your profile.
+                        </p>
+                      </div>
+
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-[#8b949e]">
+                        {cardImages.length} {cardImages.length === 1 ? 'image' : 'images'}
+                      </span>
+                    </div>
+
+                    {/* Image Cards Grid */}
+                    {cardImages.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {cardImages.map((imgUrl, idx) => {
+                          const isCover = idx === 0
+                          return (
+                            <div
+                              key={`${imgUrl}-${idx}`}
+                              className={`relative group rounded-xl overflow-hidden border transition-all duration-200 ${
+                                isCover
+                                  ? 'border-[#e01e37] bg-black/40 ring-1 ring-[#e01e37]/40 shadow-[0_4px_20px_rgba(224,30,55,0.15)]'
+                                  : 'border-white/10 bg-black/20 hover:border-white/20'
+                              }`}
+                            >
+                              {/* Thumbnail */}
+                              <div className="relative aspect-[16/10] w-full bg-[#0a0a0a] overflow-hidden">
+                                <Image
+                                  src={imgUrl}
+                                  alt={`Card Photo ${idx + 1}`}
+                                  fill
+                                  sizes="(max-width: 640px) 100vw, 320px"
+                                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+
+                                {/* Badge */}
+                                <div className="absolute left-2.5 top-2.5 z-10">
+                                  {isCover ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#e01e37] to-[#b0142b] px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+                                      <Star className="size-3 fill-amber-300 text-amber-300" />
+                                      Primary Cover
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-black/70 backdrop-blur-md px-2 py-0.5 text-[10px] font-bold text-white/90 border border-white/10">
+                                      Photo #{idx + 1}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Delete button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveImage(idx)}
+                                  title="Remove this photo"
+                                  className="absolute right-2.5 top-2.5 z-10 flex size-7 items-center justify-center rounded-full bg-black/70 backdrop-blur-md text-[#8b949e] hover:text-red-400 hover:bg-black/90 transition border border-white/10"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Action controls footer */}
+                              <div className="flex items-center justify-between p-2.5 bg-[#0d1017] border-t border-white/[0.06] text-xs">
+                                {!isCover ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetCoverImage(idx)}
+                                    className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition"
+                                  >
+                                    <Star className="size-3 fill-amber-400" />
+                                    <span>Make Cover</span>
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                                    <Check className="size-3" />
+                                    <span>Current Cover</span>
+                                  </span>
+                                )}
+
+                                <div className="flex items-center gap-1 ml-auto">
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => handleMoveImage(idx, 'left')}
+                                    title="Move earlier in gallery"
+                                    className="flex size-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                  >
+                                    <ArrowUp className="size-3.5 sm:hidden" />
+                                    <ArrowLeft className="size-3.5 hidden sm:block" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={idx === cardImages.length - 1}
+                                    onClick={() => handleMoveImage(idx, 'right')}
+                                    title="Move later in gallery"
+                                    className="flex size-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                  >
+                                    <ArrowDown className="size-3.5 sm:hidden" />
+                                    <ArrowRight className="size-3.5 hidden sm:block" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-white/15 bg-black/20 p-8 text-center space-y-2">
+                        <ImageIcon className="size-8 text-[#8b949e] mx-auto opacity-50" />
+                        <p className="text-sm font-semibold text-white">No custom images added yet</p>
+                        <p className="text-xs text-[#8b949e]">Upload photos or pick from the high-res sports presets below.</p>
+                      </div>
+                    )}
+
+                    {/* Add Image Options */}
+                    <div className="pt-3 border-t border-white/[0.06] space-y-4">
+                      
+                      {/* Upload from device & Add by URL */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Device Upload */}
+                        <div>
+                          <input
+                            type="file"
+                            ref={cardImageFileInputRef}
+                            onChange={handleUploadCardImage}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            disabled={uploadingCardImage}
+                            onClick={() => cardImageFileInputRef.current?.click()}
+                            className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-bold text-white hover:bg-white/[0.08] transition active:scale-[0.98] disabled:opacity-50"
+                          >
+                            {uploadingCardImage ? (
+                              <>
+                                <RefreshCw className="size-3.5 animate-spin" />
+                                <span>Uploading...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="size-3.5 text-[#e01e37]" />
+                                <span>Upload Photo from Device</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Direct URL Input */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="url"
+                            value={newImageUrlInput}
+                            onChange={(e) => setNewImageUrlInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleAddUrlImage()
+                              }
+                            }}
+                            placeholder="Paste image URL (https://...)"
+                            className="h-10 flex-1 rounded-xl border border-white/10 bg-[#0b0e14] px-3 text-xs text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddUrlImage}
+                            className="h-10 rounded-xl bg-white/[0.08] px-3 text-xs font-bold text-white hover:bg-white/15 transition active:scale-95 shrink-0"
+                          >
+                            Add URL
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Presets Row */}
+                      <div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#8b949e] block mb-2">
+                          Quick Presets (1-Click Add)
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {PRESET_SPORTS_IMAGES.map((preset) => {
+                            const isAdded = cardImages.includes(preset.url)
+                            return (
+                              <button
+                                key={preset.url}
+                                type="button"
+                                onClick={() => handleAddPresetImage(preset.url)}
+                                disabled={isAdded}
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                                  isAdded
+                                    ? 'bg-white/[0.04] text-[#6e7681] cursor-default'
+                                    : 'bg-[#181d28] border border-white/10 text-white hover:border-[#e01e37] hover:text-[#e01e37]'
+                                }`}
+                              >
+                                <span>{preset.label}</span>
+                                {isAdded ? <Check className="size-3 text-emerald-400" /> : <Plus className="size-3" />}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* 2. CARD CONTENT & DETAILS FORM */}
+                  <div className="rounded-2xl border border-white/[0.08] bg-[#12161f]/80 p-5 sm:p-6 backdrop-blur-xl shadow-lg space-y-5">
+                    <div>
+                      <h2 className="text-base font-bold text-white">Instructor Card Details</h2>
+                      <p className="text-xs text-[#8b949e] mt-0.5">
+                        These details appear directly on your card across the Mastrive instructor directory.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      
+                      {/* Name & Skill */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">Display Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={cardDisplayName}
+                            onChange={(e) => setCardDisplayName(e.target.value)}
+                            placeholder="e.g. Amit Sharma"
+                            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">Skill / Title</label>
+                          <input
+                            type="text"
+                            required
+                            value={cardSkill}
+                            onChange={(e) => setCardSkill(e.target.value)}
+                            placeholder="e.g. Boxing & Combat Fitness"
+                            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Category & Hourly Price */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">Category</label>
+                          <select
+                            value={cardCategory}
+                            onChange={(e) => setCardCategory(e.target.value as CategoryId)}
+                            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3 text-sm text-white outline-none focus:border-[#e01e37]"
+                          >
+                            <option value="fitness">Fitness & Combat</option>
+                            <option value="music">Music & Arts</option>
+                            <option value="strategy">Strategy & Tech</option>
+                            <option value="lifestyle">Lifestyle & Wellness</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">Hourly Fee (₹ / Session)</label>
+                          <div className="relative mt-1.5">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-[#8b949e]">₹</span>
+                            <input
+                              type="number"
+                              min={100}
+                              step={50}
+                              required
+                              value={cardPrice}
+                              onChange={(e) => setCardPrice(Number(e.target.value))}
+                              placeholder="1200"
+                              className="h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] pl-8 pr-3.5 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Locality & City */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">Locality / Area</label>
+                          <input
+                            type="text"
+                            value={cardLocality}
+                            onChange={(e) => setCardLocality(e.target.value)}
+                            placeholder="e.g. Hauz Khas, Bandra, Koramangala"
+                            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">City</label>
+                          <input
+                            type="text"
+                            value={cardCity}
+                            onChange={(e) => setCardCity(e.target.value)}
+                            placeholder="e.g. Delhi"
+                            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Teaching Modes & Experience */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e] mb-2">Teaching Modes</label>
+                          <div className="flex items-center gap-3">
+                            <label className="inline-flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={cardTeachingModes.includes('In-Person')}
+                                onChange={() => toggleTeachingMode('In-Person')}
+                                className="size-4 rounded accent-[#e01e37]"
+                              />
+                              <span>In-Person</span>
+                            </label>
+                            <label className="inline-flex items-center gap-2 text-xs text-white cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={cardTeachingModes.includes('Online')}
+                                onChange={() => toggleTeachingMode('Online')}
+                                className="size-4 rounded accent-[#e01e37]"
+                              />
+                              <span>Live Online</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#8b949e]">Experience</label>
+                          <input
+                            type="text"
+                            value={cardExperience}
+                            onChange={(e) => setCardExperience(e.target.value)}
+                            placeholder="e.g. 5+ Years"
+                            className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-[#0b0e14] px-3.5 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Bio / Summary */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#8b949e]">Card Summary / Headline</label>
+                        <textarea
+                          rows={3}
+                          value={cardBio}
+                          onChange={(e) => setCardBio(e.target.value)}
+                          placeholder="Brief description of your coaching style, accomplishments, and what learners can expect in sessions..."
+                          className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0b0e14] p-3 text-sm text-white placeholder:text-[#6e7681] outline-none focus:border-[#e01e37]"
+                        />
+                      </div>
+
+                      {/* Public Directory Visibility Toggle */}
+                      <div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#0b0e14] p-4">
+                        <div>
+                          <p className="text-xs font-bold text-white">Publish on Mastrive Directory</p>
+                          <p className="text-[11px] text-[#8b949e]">Make your instructor card visible to prospective learners</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cardIsPublished}
+                            onChange={(e) => setCardIsPublished(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#e01e37]" />
+                        </label>
+                      </div>
+
+                      {/* Bottom Save Button */}
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveCard}
+                          disabled={savingCard}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e01e37] to-[#b0142b] py-3 text-sm font-bold text-white shadow-lg shadow-[#e01e37]/25 transition hover:brightness-110 active:scale-[0.99] disabled:opacity-50"
+                        >
+                          {savingCard ? (
+                            <>
+                              <RefreshCw className="size-4 animate-spin" />
+                              <span>Saving Card Changes...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="size-4" />
+                              <span>Save Card Changes</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* RIGHT COLUMN: Interactive Sticky Live Card Preview (lg:col-span-5) */}
+                <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
+                  
+                  {/* Preview Box Header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Eye className="size-4 text-[#e01e37]" />
+                      <h2 className="text-sm font-bold text-white uppercase tracking-wider">Live Card Preview</h2>
+                    </div>
+                    <span className="rounded-full bg-white/[0.04] border border-white/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#8b949e]">
+                      Directory View
+                    </span>
+                  </div>
+
+                  {/* Real Card Render */}
+                  <div className="max-w-sm mx-auto lg:max-w-none">
+                    <InstructorCard
+                      instructor={previewInstructor}
+                      onBook={() => {}}
+                      booked={false}
+                    />
+                  </div>
+
+                  {/* Explanatory Helper Tips */}
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-[11px] text-[#8b949e] space-y-2">
+                    <p className="font-semibold text-white flex items-center gap-1.5">
+                      <Sparkles className="size-3 text-amber-400" />
+                      Card Preview Tips
+                    </p>
+                    <ul className="space-y-1.5 list-disc list-inside text-[#8b949e]">
+                      <li>The <strong className="text-white">Primary Cover Photo</strong> is what learners see first when browsing.</li>
+                      <li>Setting competitive pricing (₹800 – ₹1,500) can increase initial booking inquiries.</li>
+                      <li>Changes saved here automatically update your public profile at <span className="text-[#e01e37] font-mono">/instructor/{cardSlug || 'you'}</span>.</li>
+                    </ul>
+                  </div>
+
+                </div>
+
+              </div>
+
             </div>
           )}
 
