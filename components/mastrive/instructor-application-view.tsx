@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -18,6 +18,10 @@ import {
   User,
   BookOpen,
   Camera,
+  Mail,
+  AlertCircle,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 
@@ -74,6 +78,7 @@ const EDUCATION_OPTIONS = [
 ]
 
 type SubmittedData = {
+  id?: string
   name: string
   category: string
   skill: string
@@ -127,9 +132,46 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
 
   const [submitted, setSubmitted] = useState(false)
   const [submittedData, setSubmittedData] = useState<SubmittedData | null>(null)
+  const [isVerified, setIsVerified] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
+  const [verificationError, setVerificationError] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resending, setResending] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
+
+  // Resend countdown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000)
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
+
+  // Real-time listener & polling to detect if applicant clicks email verification link in another tab or window
+  useEffect(() => {
+    if (!submitted || isVerified || !submittedData?.id) return
+
+    const supabase = createClient()
+
+    const checkVerificationStatus = async () => {
+      try {
+        const { data: appRow } = await supabase
+          .from('instructor_applications')
+          .select('verified_at, status')
+          .eq('id', submittedData.id)
+          .maybeSingle()
+
+        if (appRow?.verified_at || appRow?.status === 'verified') {
+          setIsVerified(true)
+        }
+      } catch {}
+    }
+
+    const interval = setInterval(checkVerificationStatus, 3500)
+    return () => clearInterval(interval)
+  }, [submitted, isVerified, submittedData])
 
   const toggleArray = (arr: string[], value: string) =>
     arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
@@ -262,47 +304,30 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
         if (process.env.NODE_ENV !== 'production') console.warn('API sync notice:', apiErr)
       }
 
-      // If user is authenticated, also directly upsert into instructors via the active user session
-      if (userId) {
-        try {
-          const baseSlug = applicantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'coach'
-          const slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`
-
-          await supabase.from('instructors').upsert({
-            user_id: userId,
-            display_name: applicantName,
-            profile_type: formData.profile_type,
-            institute_name: formData.institute_name.trim() || null,
-            skill: applicantSkill,
-            category: formData.category,
-            locality: formData.locality.trim() || applicantCity,
-            city: applicantCity,
-            experience_years: formData.experience_years,
-            education: formData.education || null,
-            certifications: formData.certifications || null,
-            teaching_modes: formData.teaching_modes,
-            languages_spoken: formData.languages,
-            price_per_hour: applicantPrice,
-            bio: formData.bio.trim() || null,
-            image_urls: imageUrls,
-            is_published: true,
-            is_verified: false,
-            slug,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' })
-
-          await supabase.from('profiles').update({
-            role: 'instructor',
-            skill: applicantSkill,
-            city: applicantCity,
-            updated_at: new Date().toISOString(),
-          }).eq('id', userId)
-        } catch (clientErr) {
-          if (process.env.NODE_ENV !== 'production') console.warn('Client direct sync note:', clientErr)
+      // Send verification email via Supabase Auth OTP
+      try {
+        const redirectUrl = `${window.location.origin}/auth/callback?instructor_app_id=${appId}&next=/dashboard/instructor`
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email: formData.email.trim().toLowerCase(),
+          options: {
+            emailRedirectTo: redirectUrl,
+            shouldCreateUser: true,
+            data: {
+              full_name: applicantName,
+              role: 'instructor',
+              instructor_app_id: appId,
+            },
+          },
+        })
+        if (otpError) {
+          if (process.env.NODE_ENV !== 'production') console.warn('Email OTP notice:', otpError.message)
         }
+      } catch (otpErr) {
+        if (process.env.NODE_ENV !== 'production') console.warn('OTP trigger notice:', otpErr)
       }
 
       setSubmittedData({
+        id: appId,
         name: applicantName,
         category: formData.category,
         skill: applicantSkill,
@@ -315,6 +340,8 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
       })
 
       setSubmitted(true)
+      setIsVerified(false)
+      setResendCooldown(60)
     } catch (err: any) {
       if (process.env.NODE_ENV !== 'production') console.error('Application error:', err)
       const msg = err?.message || String(err)
@@ -326,9 +353,83 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
     }
   }
 
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!submittedData?.email || !otpCode.trim()) return
+
+    setVerifyingOtp(true)
+    setVerificationError('')
+
+    try {
+      const supabase = createClient()
+      const { error: verifyErr } = await supabase.auth.verifyOtp({
+        email: submittedData.email.trim().toLowerCase(),
+        token: otpCode.trim(),
+        type: 'email',
+      })
+
+      if (verifyErr) {
+        throw new Error(verifyErr.message || 'Invalid or expired verification code.')
+      }
+
+      // Call server endpoint to activate application and publish card
+      const res = await fetch('/api/instructor/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          applicationId: submittedData.id,
+          email: submittedData.email,
+        }),
+      })
+
+      const resJson = await res.json()
+      if (!res.ok && resJson.error) {
+        throw new Error(resJson.error)
+      }
+
+      setIsVerified(true)
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Verification failed. Please check the code and try again.')
+    } finally {
+      setVerifyingOtp(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    if (!submittedData?.email || resendCooldown > 0) return
+    setResending(true)
+    setVerificationError('')
+    try {
+      const supabase = createClient()
+      const redirectUrl = `${window.location.origin}/auth/callback?instructor_app_id=${submittedData.id}&next=/dashboard/instructor`
+      const { error } = await supabase.auth.signInWithOtp({
+        email: submittedData.email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: redirectUrl,
+          shouldCreateUser: true,
+          data: {
+            full_name: submittedData.name,
+            role: 'instructor',
+            instructor_app_id: submittedData.id,
+          },
+        },
+      })
+      if (error) throw error
+      setResendCooldown(60)
+    } catch (err: any) {
+      setVerificationError(err?.message || 'Failed to resend email. Please try again.')
+    } finally {
+      setResending(false)
+    }
+  }
+
   const handleReset = () => {
     setSubmitted(false)
     setSubmittedData(null)
+    setIsVerified(false)
+    setOtpCode('')
+    setVerificationError('')
+    setResendCooldown(0)
     setPhotos([])
     setStep(1)
     setDirection(1)
@@ -425,6 +526,161 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
 
   // ── SUBMITTED state ──
   if (submitted && submittedData) {
+    if (!isVerified) {
+      return (
+        <section className="min-h-screen radial-glow-crimson px-4 py-16 text-white sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="gloss-card rounded-3xl p-7 sm:p-10 space-y-6"
+            >
+              {/* Verification Header */}
+              <div className="text-center pb-4 border-b border-white/[0.07]">
+                <div className="mx-auto mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-[#e01e37]/15 border border-[#e01e37]/30 text-[#e01e37] shadow-[0_0_24px_rgba(224,30,55,0.25)]">
+                  <Mail className="size-7" />
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                  <Clock className="size-3" /> Email Verification Required
+                </span>
+                <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl tracking-tight">
+                  Verify Your Email to Go Live
+                </h2>
+                <p className="mt-2 text-sm text-[#8b949e] max-w-md mx-auto leading-relaxed">
+                  We sent a confirmation link and 6-digit verification code to{' '}
+                  <span className="font-bold text-white">{submittedData.email}</span>.
+                  Your instructor card will only be stored and published in the public directory once your email is confirmed.
+                </p>
+              </div>
+
+              {/* OTP Form */}
+              <div className="rounded-2xl border border-white/[0.08] bg-[#0b0e14]/60 p-5">
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#aaa] uppercase tracking-wider mb-2">
+                      Enter 6-Digit Code
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => {
+                          setOtpCode(e.target.value.replace(/\D/g, ''))
+                          setVerificationError('')
+                        }}
+                        placeholder="123456"
+                        className="gloss-input flex-1 h-12 px-4 text-center font-mono text-lg font-bold tracking-[0.3em] text-white placeholder-[#444] outline-none"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={verifyingOtp || otpCode.length < 6}
+                        className="gloss-btn-primary h-12 px-6 rounded-2xl text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <ShieldCheck className="size-4" />
+                        {verifyingOtp ? 'Verifying...' : 'Verify & Publish'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {verificationError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 p-3 text-xs text-red-400"
+                    >
+                      <AlertCircle className="size-4 shrink-0" />
+                      <span>{verificationError}</span>
+                    </motion.div>
+                  )}
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-white/[0.06] text-xs text-[#8b949e]">
+                    <span>Or click the verification link sent to your inbox.</span>
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={resendCooldown > 0 || resending}
+                      className="font-semibold text-[#e01e37] hover:underline disabled:text-[#666] disabled:no-underline text-left sm:text-right cursor-pointer"
+                    >
+                      {resendCooldown > 0
+                        ? `Resend code in ${resendCooldown}s`
+                        : resending
+                        ? 'Sending...'
+                        : "Didn't receive email? Resend"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Pending Card Preview */}
+              <div className="gloss-card rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[#777]">
+                    Card Preview
+                  </p>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                    <Clock className="size-3" /> Pending Verification
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-4 rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 opacity-75">
+                  {submittedData.imageUrl ? (
+                    <div className="relative size-20 sm:size-24 shrink-0 overflow-hidden rounded-xl">
+                      <Image src={submittedData.imageUrl} alt={submittedData.name} fill className="object-cover" />
+                    </div>
+                  ) : (
+                    <div className="flex size-20 sm:size-24 shrink-0 items-center justify-center rounded-xl bg-[#111] text-3xl">🥊</div>
+                  )}
+                  <div className="flex-1 text-center sm:text-left">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <h3 className="text-base font-bold text-white">{submittedData.name}</h3>
+                      <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                        Pending
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-semibold text-[#e01e37]">
+                      {submittedData.skill} · <span className="text-[#666]">{submittedData.category}</span>
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-3 text-[11px] text-[#666]">
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="size-3" />{submittedData.locality || submittedData.city}
+                      </span>
+                      <span>·</span>
+                      <span className="font-bold text-white">₹{submittedData.price.toLocaleString('en-IN')}/hr</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-2.5 text-[11px] text-[#666] text-center">
+                  ⚠️ This card is not stored or visible to learners until your email is confirmed.
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-between items-center pt-2">
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-xs text-[#8b949e] hover:text-white transition cursor-pointer"
+                >
+                  ← Edit Application Info
+                </button>
+                <Link
+                  href="/"
+                  className="text-xs text-[#8b949e] hover:text-white transition"
+                >
+                  Back to Homepage
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      )
+    }
+
     return (
       <section className="min-h-screen radial-glow-crimson px-4 py-16 text-white sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
@@ -446,7 +702,7 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                 Thank You, {submittedData.name}!
               </h2>
               <p className="mt-2 text-sm text-[#777] max-w-md mx-auto">
-                Your instructor card is now live in our public directory. Students can start discovering and booking you right away.
+                Your email is verified and your instructor card is now live in our public directory. Students can start discovering and booking you right away.
               </p>
             </div>
 
@@ -521,7 +777,7 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                     document.getElementById('instructors')?.scrollIntoView({ behavior: 'smooth' })
                   }, 100)
                 }}
-                className="gloss-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white"
+                className="gloss-btn-primary flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold text-white cursor-pointer"
               >
                 <span>Explore Directory & Find Your Card</span>
                 <ArrowRight className="size-4" />
@@ -530,7 +786,7 @@ export default function InstructorApplicationView({ onExploreDirectory }: Instru
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="gloss-btn-secondary flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-[#888] hover:text-white"
+                  className="gloss-btn-secondary flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-[#888] hover:text-white cursor-pointer"
                 >
                   <RefreshCw className="size-3.5" />
                   <span>Apply for Another Skill</span>

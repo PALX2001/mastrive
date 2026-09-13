@@ -234,10 +234,12 @@ export function InstructorDirectory({
         const { data: dbInstructors, error: instErr } = await supabase
           .from('instructors')
           .select('*')
+          .eq('is_published', true)
           .order('published_at', { ascending: false })
 
         if (!instErr && dbInstructors && dbInstructors.length > 0) {
           for (const row of dbInstructors) {
+            if (row.is_published === false) continue
             const mapped = toInstructor(row)
             const normalizedName = mapped.name?.toLowerCase().trim()
             if (!seenIds.has(mapped.id) && !seenNames.has(normalizedName)) {

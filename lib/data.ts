@@ -128,40 +128,30 @@ export type Tournament = {
   entryFee: number
   prizePool: number
   date: string
+  image?: string
+  tag?: string
+  description?: string
+  rating?: number
+  registeredCount?: number
+  location?: string
+  format?: string
 }
 
 export const tournaments: Tournament[] = [
-  {
-    id: 't1',
-    category: 'FITNESS & COMBAT',
-    name: 'Capital Strength & Sparring Challenge',
-    entryFee: 750,
-    prizePool: 40000,
-    date: 'Upcoming • Registrations Open',
-  },
   {
     id: 't2',
     category: 'STRATEGY & TECH',
     name: 'NCR Rapid Chess Open',
     entryFee: 300,
     prizePool: 18000,
-    date: 'Upcoming • Registrations Open',
-  },
-  {
-    id: 't3',
-    category: 'MUSIC & ARTS',
-    name: 'Acoustic & Solo Showcase',
-    entryFee: 500,
-    prizePool: 25000,
-    date: 'Upcoming • Registrations Open',
-  },
-  {
-    id: 't4',
-    category: 'LIFESTYLE',
-    name: 'Mindful Movement & Wellness Meet',
-    entryFee: 200,
-    prizePool: 12000,
-    date: 'Upcoming • Registrations Open',
+    date: 'Announced Soon',
+    image: '/hero/chess.jpg',
+    tag: 'ANNOUNCED SOON: DELHI NCR',
+    description: 'Official rapid chess championship. 5 rounds Swiss system with verified FIDE arbiters, digital clocks, and live electronic boards.',
+    rating: 4.9,
+    registeredCount: 24,
+    location: 'Delhi NCR / Online',
+    format: 'Swiss System · 5 Rounds',
   },
 ]
 

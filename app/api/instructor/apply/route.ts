@@ -81,7 +81,8 @@ export async function POST(req: Request) {
       age_groups_taught: age_groups,
       bio: bio.trim() || null,
       image_urls: image_urls || [],
-      status: 'pending',
+      status: 'pending_verification',
+      verified_at: null,
     }
 
     if (targetUserId) {
@@ -100,7 +101,10 @@ export async function POST(req: Request) {
     const baseSlug = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'coach'
     const slug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`
 
-    // 2. Insert/Upsert into instructors table (Creates published instructor card immediately)
+    const languages_spoken = languages
+    const age_groups_taught = age_groups
+
+    // 2. Insert/Upsert into instructors table (Created with is_published: false until email verification)
     const instructorPayload: Record<string, any> = {
       display_name: fullName,
       profile_type,
@@ -113,14 +117,14 @@ export async function POST(req: Request) {
       education: education || null,
       certifications: certifications.trim() || null,
       teaching_modes,
-      languages_spoken: languages,
-      age_groups_taught: age_groups,
+      languages_spoken,
+      age_groups_taught,
       price_per_hour: price_per_hour ? Number(price_per_hour) : 1000,
       bio: bio.trim() || null,
       image_urls: image_urls || [],
       learners_count: 0,
       is_verified: false,
-      is_published: true,
+      is_published: false,
       slug,
       updated_at: new Date().toISOString(),
     }
@@ -143,27 +147,12 @@ export async function POST(req: Request) {
       console.warn('Instructors table upsert note:', instError.message)
     }
 
-    // 3. If user is logged in, ensure profile role = 'instructor'
-    if (targetUserId) {
-      await supabase
-        .from('profiles')
-        .update({
-          role: 'instructor',
-          full_name: fullName,
-          skill: primarySkill,
-          city: city.trim() || 'Delhi',
-          phone: contactNumber,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', targetUserId)
-    }
-
     return NextResponse.json({
       success: true,
       applicationId: appId,
       instructorId: instData?.id || appId,
       slug: instData?.slug || slug,
-      message: 'Instructor application successfully registered and published.',
+      message: 'Instructor application registered. Email verification required before publishing.',
     })
   } catch (error: any) {
     console.error('API apply route error:', error)

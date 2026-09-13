@@ -86,23 +86,51 @@ export async function GET(request: Request) {
           }
         }
 
-        // ——— POST VERIFICATION HOOK: Link instructor application + set role ———
+        // ——— POST VERIFICATION HOOK: Link instructor application + set role + publish card ———
         try {
-          // Prefer explicit app_id from magic-link params, then fall back to user metadata
-          const appId = instructorAppId || (user.user_metadata?.instructor_app_id as string | undefined)
+          // Prefer explicit app_id from magic-link params, then fall back to user metadata, then check by email
+          let appId = instructorAppId || (user.user_metadata?.instructor_app_id as string | undefined)
+
+          if (!appId && user.email) {
+            const { data: matchedApp } = await supabase
+              .from('instructor_applications')
+              .select('id')
+              .eq('email', user.email.trim().toLowerCase())
+              .is('verified_at', null)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (matchedApp?.id) {
+              appId = matchedApp.id
+            }
+          }
 
           if (appId) {
-            // Attach verified user id to the application row, promote status to 'verified'
+            const nowIso = new Date().toISOString()
+
+            // 1. Attach verified user id to the application row, promote status to 'verified'
             await supabase
               .from('instructor_applications')
               .update({
                 user_id: user.id,
-                verified_at: new Date().toISOString(),
+                verified_at: nowIso,
                 status: user.user_metadata?.role === 'instructor' ? 'approved' : 'verified',
               })
               .eq('id', appId)
 
-            // Upsert profile with instructor role
+            // 2. Publish instructor card in instructors table so it appears in the live directory
+            await supabase
+              .from('instructors')
+              .update({
+                user_id: user.id,
+                is_published: true,
+                published_at: nowIso,
+                updated_at: nowIso,
+              })
+              .or(`application_id.eq.${appId},user_id.eq.${user.id}`)
+
+            // 3. Upsert profile with instructor role
             const profileName =
               user.user_metadata?.full_name ||
               finalFullName ||
@@ -118,7 +146,7 @@ export async function GET(request: Request) {
                   role: 'instructor',
                   phone: user.user_metadata?.whatsapp_number || null,
                   city: user.user_metadata?.city || null,
-                  updated_at: new Date().toISOString(),
+                  updated_at: nowIso,
                 },
                 { onConflict: 'id' }
               )

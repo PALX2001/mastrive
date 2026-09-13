@@ -1,22 +1,14 @@
 'use client'
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { Flame, X, ShieldCheck, Trophy, Filter, Check } from 'lucide-react'
+import Image from 'next/image'
+import { Flame, X, ShieldCheck, Trophy, Filter, Check, BadgeCheck, Star, Calendar, MapPin } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
-import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry } from '@/lib/data'
+import { leaderboard as initialLeaderboard, tournaments, type LeaderboardEntry, type Tournament } from '@/lib/data'
 import { TierBadge, XPMetric } from './leaderboard-tiers'
 import { VerifiedProgressTrack } from './verified-progress-track'
 import { createClient } from '@/lib/supabase/client'
 import { loadRazorpayScript } from '@/lib/razorpay'
-
-interface Tournament {
-  id: string
-  name: string
-  category: string
-  entryFee: number
-  prizePool: number
-  date: string
-}
 
 const SKILLS_LIST = [
   'All Skills',
@@ -365,7 +357,8 @@ export function TournamentsView() {
       </div>
 
       {/* Tournament Cards */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Tournament Cards */}
+      <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl">
         {tournaments.map((t, idx) => {
           const isRegistered = registered.has(t.id)
           return (
@@ -373,48 +366,105 @@ export function TournamentsView() {
               key={t.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: idx * 0.05 }}
-              className="flex flex-col justify-between h-full rounded-3xl border border-white/10 bg-[#12161f]/90 p-6 shadow-xl backdrop-blur-xl"
+              transition={{ duration: 0.3, delay: idx * 0.05 }}
+              onClick={() => handleOpenRegistration(t)}
+              className="group gloss-card gloss-card-hover flex h-full min-h-[420px] flex-col justify-between overflow-hidden rounded-2xl will-change-transform transform-gpu cursor-pointer"
             >
               <div className="flex flex-col flex-1">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-[#e01e37]">
-                  {t.category}
-                </span>
-                <h3 className="mt-2 text-lg font-bold leading-snug text-[#f0f6fc] min-h-[52px] flex items-start">
-                  {t.name}
-                </h3>
+                {/* Media / Image Container */}
+                <div className="relative h-48 w-full shrink-0 overflow-hidden bg-[#0a0a0a]">
+                  {/* Tag badge */}
+                  <div className="absolute left-3 top-3 z-10">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-black/50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                      <Trophy className="size-3 text-[#e01e37]" aria-hidden />
+                      {t.tag || 'ANNOUNCED SOON: DELHI NCR'}
+                    </span>
+                  </div>
 
-                <dl className="mt-4 space-y-2 text-sm border-t border-white/5 pt-3">
-                  <div className="flex items-center justify-between">
-                    <dt className="text-[#8b949e]">Entry Fee</dt>
-                    <dd className="font-semibold text-[#f0f6fc]">
-                      ₹{t.entryFee.toLocaleString('en-IN')}
-                    </dd>
+                  {t.image ? (
+                    <Image
+                      src={t.image}
+                      alt={t.name}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 360px"
+                      loading="lazy"
+                      className="object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105 will-change-transform"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#111] to-[#0a0a0a]">
+                      <span className="select-none text-4xl">♟️</span>
+                    </div>
+                  )}
+
+                  {/* Bottom gradient overlay for readability */}
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+                </div>
+
+                <div className="flex flex-col flex-1 justify-between p-4">
+                  <div>
+                    <div className="flex items-center gap-1.5 min-h-[22px]">
+                      <h3 className="text-sm font-bold text-[#f5f5f5] group-hover:text-white transition-colors truncate">
+                        {t.name}
+                      </h3>
+                      <BadgeCheck
+                        className="size-4 shrink-0 text-[#3fb950]"
+                        aria-label="Official championship"
+                      />
+                    </div>
+
+                    <p className="mt-0.5 text-xs font-semibold text-[#e01e37] truncate">
+                      {t.category} • {t.format || 'Swiss System · 5 Rounds'}
+                    </p>
+
+                    <p className="mt-2.5 text-xs leading-relaxed text-[#777] line-clamp-3 min-h-[3.35rem]">
+                      {t.description || 'Official rapid chess championship. 5 rounds Swiss system with verified FIDE arbiters, digital clocks, and live electronic boards.'}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="text-[#8b949e]">Prize Pool</dt>
-                    <dd className="font-extrabold text-[#e01e37]">
-                      ₹{t.prizePool.toLocaleString('en-IN')}
-                    </dd>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[#666] pt-1">
+                    <span className="inline-flex items-center gap-1 font-semibold text-[#f5f5f5]">
+                      <Star className="size-3 fill-[#e01e37] text-[#e01e37]" aria-hidden />
+                      {(t.rating || 4.9).toFixed(1)}
+                      <span className="font-normal text-[#666]">
+                        ({t.registeredCount || 24} registered)
+                      </span>
+                    </span>
+                    <span className="text-[#444]">•</span>
+                    <span className="inline-flex items-center gap-1 truncate max-w-[150px]">
+                      <Calendar className="size-3 shrink-0 text-[#555]" aria-hidden />
+                      <span className="truncate text-[#777]">{t.date}</span>
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <dt className="text-[#8b949e]">Date</dt>
-                    <dd className="font-medium text-[#f0f6fc]">{t.date}</dd>
-                  </div>
-                </dl>
+                </div>
               </div>
 
-              <button
-                onClick={() => handleOpenRegistration(t)}
-                disabled={isRegistered}
-                className={`mt-6 w-full rounded-2xl px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all active:scale-95 ${
-                  isRegistered
-                    ? 'cursor-default border border-emerald-500/30 bg-emerald-500/15 text-emerald-400'
-                    : 'bg-[#e01e37] text-white shadow-lg shadow-[#e01e37]/25 hover:bg-[#c0182f]'
-                }`}
-              >
-                {isRegistered ? 'Registered ✓' : 'Register Now'}
-              </button>
+              {/* Price + CTA */}
+              <div className="mx-4 mb-4 flex shrink-0 items-center justify-between border-t border-white/[0.06] pt-3">
+                <div>
+                  <p className="text-sm font-extrabold text-[#f5f5f5]">
+                    ₹{t.entryFee.toLocaleString('en-IN')}
+                    <span className="text-[10px] font-normal text-[#666]"> entry</span>
+                  </p>
+                  <p className="text-[10px] font-bold text-[#e01e37]">
+                    ₹{t.prizePool.toLocaleString('en-IN')} Prize Pool
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleOpenRegistration(t)
+                  }}
+                  disabled={isRegistered}
+                  className={`rounded-full px-4 py-1.5 text-[11px] font-bold text-white transition-all active:scale-95 ${
+                    isRegistered
+                      ? 'bg-[#3fb950] shadow-[0_2px_12px_rgba(63,185,80,0.35)] cursor-default'
+                      : 'gloss-btn-primary'
+                  }`}
+                >
+                  {isRegistered ? 'Registered ✓' : 'Register Now'}
+                </button>
+              </div>
             </motion.article>
           )
         })}
