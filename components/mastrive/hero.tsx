@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useEffect, useState, memo } from 'react'
+import React, { useEffect, useState, useRef, memo } from 'react'
+import Image from 'next/image'
 import { Search, ChevronDown } from 'lucide-react'
-import { motion, AnimatePresence } from 'motion/react'
+import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react'
 import { categories, type CategoryId } from '@/lib/data'
 
 const SKILLS = ['Boxing', 'Chess', 'Guitar', 'Pottery', 'Salsa', 'Web Dev']
@@ -10,6 +11,40 @@ const SKILLS = ['Boxing', 'Chess', 'Guitar', 'Pottery', 'Salsa', 'Web Dev']
 const HERO_PHRASES = [
   { id: 'find', line1: 'Find your', line2: 'perfect skill.' },
   { id: 'master', line1: 'and', line2: 'master it.' },
+]
+
+// Curated Black & White skill disciplines for ambient hero background
+const HERO_BACKGROUND_IMAGES = [
+  {
+    id: 'athletics',
+    src: '/hero/athletics.jpg',
+    alt: 'Athletics & Track Training',
+    skillLabel: 'Track & Athletics',
+  },
+  {
+    id: 'boxing',
+    src: '/hero/boxing.jpg',
+    alt: 'Boxing Sparring & Conditioning',
+    skillLabel: 'Boxing & Combat',
+  },
+  {
+    id: 'guitar',
+    src: '/hero/guitar.jpg',
+    alt: 'Acoustic Guitar Mentorship',
+    skillLabel: 'Acoustic Guitar',
+  },
+  {
+    id: 'chess',
+    src: '/hero/chess.jpg',
+    alt: 'Tournament Chess Strategy',
+    skillLabel: 'Tournament Chess',
+  },
+  {
+    id: 'craft',
+    src: '/hero/craft.jpg',
+    alt: 'Pottery & Sculptural Craft',
+    skillLabel: 'Art & Pottery',
+  },
 ]
 
 // Isolated Typewriter Search Bar: Prevents full Hero re-rendering on every character tick (60ms)
@@ -106,7 +141,27 @@ export function Hero({
   onCategoryChange: (id: CategoryId) => void
 }) {
   const [phraseIndex, setPhraseIndex] = useState(0)
+  const [bgIndex, setBgIndex] = useState(0)
   const [locationName, setLocationName] = useState<string>('Delhi')
+  const containerRef = useRef<HTMLElement>(null)
+
+  // Scroll fade-out hooks
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start start', 'end start'],
+  })
+
+  // Fades away smoothly as user scrolls down through the hero section
+  const bgOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0])
+  const bgScale = useTransform(scrollYProgress, [0, 0.65], [1, 1.05])
+
+  // Crossfade between black & white skill backgrounds
+  useEffect(() => {
+    const bgTimer = setInterval(() => {
+      setBgIndex((prev) => (prev + 1) % HERO_BACKGROUND_IMAGES.length)
+    }, 5200)
+    return () => clearInterval(bgTimer)
+  }, [])
 
   // Loop Hero Phrases
   useEffect(() => {
@@ -166,7 +221,65 @@ export function Hero({
   }, [])
 
   return (
-    <section className="relative z-10 flex min-h-[70vh] w-full flex-col items-center justify-center overflow-visible px-4 pb-6 pt-12 sm:pt-16">
+    <section
+      ref={containerRef}
+      className="relative z-10 flex min-h-[72vh] w-full flex-col items-center justify-center overflow-hidden px-4 pb-12 pt-12 sm:pt-16"
+    >
+      {/* Dynamic Black & White Skill Imagery Background with Scroll Fade */}
+      <motion.div
+        style={{ opacity: bgOpacity, scale: bgScale }}
+        className="pointer-events-none absolute inset-0 -z-10 overflow-hidden select-none transform-gpu"
+        aria-hidden
+      >
+        <AnimatePresence mode="sync">
+          <motion.div
+            key={HERO_BACKGROUND_IMAGES[bgIndex].id}
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 size-full"
+          >
+            <Image
+              src={HERO_BACKGROUND_IMAGES[bgIndex].src}
+              alt={HERO_BACKGROUND_IMAGES[bgIndex].alt}
+              fill
+              priority={bgIndex === 0}
+              sizes="100vw"
+              className="object-cover object-center filter grayscale contrast-[1.22] brightness-[0.22]"
+            />
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Top Vignette Fade into Navbar */}
+        <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
+
+        {/* Central Radial Focus Vignette for Maximum Foreground Contrast */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(10,10,10,0.3)_0%,rgba(10,10,10,0.8)_65%,#0a0a0a_100%)]" />
+
+        {/* Bottom Fade into Directory */}
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/85 to-transparent" />
+      </motion.div>
+
+      {/* Discrete Ambient Skill Watermark (Editorial Touch) */}
+      <motion.div
+        style={{ opacity: bgOpacity }}
+        className="pointer-events-none absolute bottom-4 right-6 hidden md:flex items-center gap-2 rounded-full border border-white/[0.08] bg-black/40 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[#888] backdrop-blur-md"
+      >
+        <span className="size-1.5 rounded-full bg-[#e01e37]" />
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={HERO_BACKGROUND_IMAGES[bgIndex].id}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.35 }}
+          >
+            {HERO_BACKGROUND_IMAGES[bgIndex].skillLabel}
+          </motion.span>
+        </AnimatePresence>
+      </motion.div>
+
       <div className="relative mx-auto max-w-3xl text-center">
 
         {/* [SAVED FOR REVERT] Red ambient glow bloom:
