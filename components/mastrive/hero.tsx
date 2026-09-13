@@ -246,19 +246,19 @@ export function Hero({
               fill
               priority={bgIndex === 0}
               sizes="100vw"
-              className="object-cover object-center filter grayscale contrast-[1.22] brightness-[0.22]"
+              className="object-cover object-center filter grayscale contrast-[1.18] brightness-[0.38]"
             />
           </motion.div>
         </AnimatePresence>
 
         {/* Top Vignette Fade into Navbar */}
-        <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/50 to-transparent" />
 
-        {/* Central Radial Focus Vignette for Maximum Foreground Contrast */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(10,10,10,0.3)_0%,rgba(10,10,10,0.8)_65%,#0a0a0a_100%)]" />
+        {/* Central Radial Focus Vignette for Balanced Foreground Contrast */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(10,10,10,0.2)_0%,rgba(10,10,10,0.6)_65%,#0a0a0a_100%)]" />
 
         {/* Bottom Fade into Directory */}
-        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/85 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
       </motion.div>
 
       {/* Discrete Ambient Skill Watermark (Editorial Touch) */}
