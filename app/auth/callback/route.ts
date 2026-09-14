@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { verifyInstructorApplication } from '@/lib/instructor-verification'
 
 function authErrorRedirect(origin: string, reason: string) {
   const errorUrl = new URL('/auth/auth-code-error', origin)
@@ -92,79 +93,26 @@ export async function GET(request: Request) {
           }
         }
 
-        // ——— POST VERIFICATION HOOK: Link instructor application + set role + publish card ———
-        try {
-          // Prefer explicit app_id from magic-link params, then fall back to user metadata, then check by email
-          let appId = instructorAppId || (user.user_metadata?.instructor_app_id as string | undefined)
-
-          if (!appId && user.email) {
-            const { data: matchedApp } = await supabase
-              .from('instructor_applications')
-              .select('id')
-              .eq('email', user.email.trim().toLowerCase())
-              .is('verified_at', null)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle()
-
-            if (matchedApp?.id) {
-              appId = matchedApp.id
+        // Complete email verification only after the signed-in account's email has
+        // been matched to this exact application by the server-side verification helper.
+        let verifiedApplication = false
+        if (instructorAppId) {
+          try {
+            const verification = await verifyInstructorApplication(instructorAppId, user)
+            verifiedApplication = verification.ok
+          } catch (syncErr) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.warn('[auth/callback] Instructor verification notice:', syncErr)
             }
-          }
-
-          if (appId) {
-            const nowIso = new Date().toISOString()
-
-            // 1. Attach verified user id to the application row, promote status to 'verified'
-            await supabase
-              .from('instructor_applications')
-              .update({
-                user_id: user.id,
-                verified_at: nowIso,
-                status: user.user_metadata?.role === 'instructor' ? 'approved' : 'verified',
-              })
-              .eq('id', appId)
-
-            // 2. Publish instructor card in instructors table so it appears in the live directory
-            await supabase
-              .from('instructors')
-              .update({
-                user_id: user.id,
-                is_published: true,
-                published_at: nowIso,
-                updated_at: nowIso,
-              })
-              .or(`application_id.eq.${appId},user_id.eq.${user.id}`)
-
-            // 3. Upsert profile with instructor role
-            const profileName =
-              user.user_metadata?.full_name ||
-              finalFullName ||
-              'Instructor'
-
-            await supabase
-              .from('profiles')
-              .upsert(
-                {
-                  id: user.id,
-                  full_name: profileName,
-                  email: user.email,
-                  role: 'instructor',
-                  phone: user.user_metadata?.whatsapp_number || null,
-                  city: user.user_metadata?.city || null,
-                  updated_at: nowIso,
-                },
-                { onConflict: 'id' }
-              )
-          }
-        } catch (syncErr) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn('[auth/callback] Profile sync notice:', syncErr)
           }
         }
 
-        // Check instructor role across multiple indicators
-        let isInstructor = user.user_metadata?.role === 'instructor' || user.app_metadata?.role === 'instructor'
+        if (!verifiedApplication && instructorAppId && process.env.NODE_ENV !== 'production') {
+          console.warn('[auth/callback] Instructor application was not verified for this account.')
+        }
+
+        // Check instructor role from trusted app metadata or persisted server data.
+        let isInstructor = user.app_metadata?.role === 'instructor' || verifiedApplication
 
         if (!isInstructor) {
           // Fetch role from profiles table
@@ -179,12 +127,8 @@ export async function GET(request: Request) {
           }
         }
 
-        if (!isInstructor && instructorAppId) {
-          isInstructor = true
-        }
-
         if (!isInstructor) {
-          // Check approved instructor applications
+          // Check applications already verified for this authenticated user.
           const { data: application } = await supabase
             .from('instructor_applications')
             .select('status')

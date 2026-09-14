@@ -17,15 +17,15 @@ type PageProps = {
 
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwxhtxqvlsmspwazkaik.supabase.co'
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    'sb_publishable_duxFFpmuESkr6dThcJTqxQ_C1IL6vli'
+  // Public pages must always use the anon key so database RLS remains effective.
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_duxFFpmuESkr6dThcJTqxQ_C1IL6vli'
 
   return createClient(url, key, {
     auth: { persistSession: false },
   })
 }
+
+const PUBLIC_INSTRUCTOR_COLUMNS = 'id, display_name, is_verified, teaching_modes, locality, city, learners_count, price_per_hour, image_urls, skill, category, rating, reviews_count, headline, bio, experience_years, languages_spoken, education, certifications'
 
 const categoryIdFor = (category: string): Exclude<CategoryId, 'all'> => {
   const normalized = (category || '').toLowerCase()
@@ -60,8 +60,9 @@ async function resolveInstructor(rawSlug: string): Promise<InstructorProfileData
     // 2a. Query by slug
     let query = supabase
       .from('instructors')
-      .select('*')
+      .select(PUBLIC_INSTRUCTOR_COLUMNS)
       .eq('slug', hyphenSlug)
+      .eq('is_published', true)
       .maybeSingle()
 
     let { data: matchedDb, error } = await query
@@ -72,8 +73,9 @@ async function resolveInstructor(rawSlug: string): Promise<InstructorProfileData
       if (isUuid) {
         const { data: byId } = await supabase
           .from('instructors')
-          .select('*')
+          .select(PUBLIC_INSTRUCTOR_COLUMNS)
           .eq('id', decoded)
+          .eq('is_published', true)
           .maybeSingle()
         matchedDb = byId
       }
@@ -83,8 +85,9 @@ async function resolveInstructor(rawSlug: string): Promise<InstructorProfileData
     if (!matchedDb) {
       const { data: byName } = await supabase
         .from('instructors')
-        .select('*')
+        .select(PUBLIC_INSTRUCTOR_COLUMNS)
         .ilike('display_name', decoded.replace(/-/g, ' '))
+        .eq('is_published', true)
         .limit(1)
         .maybeSingle()
       matchedDb = byName
@@ -95,13 +98,13 @@ async function resolveInstructor(rawSlug: string): Promise<InstructorProfileData
       const [{ data: dbServices }, { data: dbSlots }] = await Promise.all([
         supabase
           .from('instructor_services')
-          .select('*')
+          .select('id, name, duration, price')
           .eq('instructor_id', matchedDb.id)
           .eq('active', true)
           .order('price', { ascending: true }),
         supabase
           .from('instructor_slots')
-          .select('*')
+          .select('id, day, time, title, type, status')
           .eq('instructor_id', matchedDb.id)
           .eq('status', 'open')
           .order('created_at', { ascending: true }),
