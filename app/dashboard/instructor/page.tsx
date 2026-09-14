@@ -475,6 +475,8 @@ export default function InstructorDashboard() {
           return
         }
 
+        if (!user) return
+
         setUser(user)
 
         const rawMetaName = user.user_metadata?.full_name || user.user_metadata?.name
