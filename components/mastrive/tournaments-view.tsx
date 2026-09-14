@@ -377,7 +377,7 @@ export function TournamentsView() {
                   <div className="absolute left-3 top-3 z-10">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.12] bg-black/50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
                       <Trophy className="size-3 text-[#e01e37]" aria-hidden />
-                      {t.tag || 'ANNOUNCED SOON: DELHI NCR'}
+                      {t.tag || 'To be Announced : DELHI NCR'}
                     </span>
                   </div>
 

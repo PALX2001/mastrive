@@ -155,6 +155,7 @@ export default function InstructorDashboard() {
   const [profileSkill, setProfileSkill] = useState<string>('Boxing & Combat Fitness')
   const [bookingSlug, setBookingSlug] = useState<string>('instructor')
   const [loading, setLoading] = useState(true)
+  const [isDemoMode, setIsDemoMode] = useState(false)
 
   const [activeTab, setActiveTab] = useState<DashTab>('dash')
   const [copied, setCopied] = useState(false)
@@ -203,18 +204,8 @@ export default function InstructorDashboard() {
 
   // Avatar states
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [avatarError, setAvatarError] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const dashAvatarInputRef = useRef<HTMLInputElement>(null)
-
-  const userInitials = useMemo(() => {
-    if (!profileName || profileName === 'Instructor' || profileName === 'Coach') return 'IN'
-    const parts = profileName.trim().split(/\s+/)
-    if (parts.length >= 2 && parts[0][0] && parts[1][0]) {
-      return (parts[0][0] + parts[1][0]).toUpperCase()
-    }
-    return profileName.slice(0, 2).toUpperCase()
-  }, [profileName])
 
   // Card & Media Customization States
   const [cardId, setCardId] = useState<string | null>(null)
@@ -350,8 +341,137 @@ export default function InstructorDashboard() {
         const { data: { user }, error } = await supabase.auth.getUser()
         if (!isMounted) return
 
-        if (error || !user) {
+        const isDemo = typeof window !== 'undefined' && (
+          new URLSearchParams(window.location.search).get('demo') === 'true' ||
+          localStorage.getItem('mastrive_demo_instructor') === 'true'
+        )
+
+        if ((error || !user) && !isDemo) {
           router.replace('/login?next=/dashboard/instructor')
+          return
+        }
+
+        if (isDemo && (!user || error)) {
+          setIsDemoMode(true)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('mastrive_demo_instructor', 'true')
+          }
+          
+          setProfileName('Coach Alex Morgan (Demo)')
+          setProfileSkill('Boxing & Combat Fitness')
+          setAvatarUrl('https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200')
+          setBookingSlug('coach-alex-morgan-demo')
+
+          const savedDemoCard = typeof window !== 'undefined' ? localStorage.getItem('mastrive_demo_card') : null
+          if (savedDemoCard) {
+            try {
+              const parsed = JSON.parse(savedDemoCard)
+              setCardDisplayName(parsed.displayName || 'Coach Alex Morgan (Demo)')
+              setCardSkill(parsed.skill || 'Boxing & Combat Fitness')
+              setCardCategory(parsed.category || 'fitness')
+              setCardPrice(parsed.pricePerHour || 1200)
+              setCardLocality(parsed.locality || 'Connaught Place')
+              setCardCity(parsed.city || 'Delhi')
+              setCardTeachingModes(parsed.teachingModes || ['In-Person', 'Online'])
+              setCardBio(parsed.bio || 'Professional boxing coach specializing in stance biomechanics, power generation, defensive slip-drills, and fight conditioning.')
+              setCardExperience(parsed.experienceYears || '6+ Years')
+              setCardImages(parsed.imageUrls || [
+                'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200',
+                'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1200',
+                'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=1200',
+              ])
+              setCardIsPublished(false)
+              setCardRating(5.0)
+              setCardReviews(14)
+              setCardLearners(28)
+              setCardSlug('coach-alex-morgan-demo')
+            } catch {
+              // fallback
+            }
+          } else {
+            setCardDisplayName('Coach Alex Morgan (Demo)')
+            setCardSkill('Boxing & Combat Fitness')
+            setCardCategory('fitness')
+            setCardPrice(1200)
+            setCardLocality('Connaught Place')
+            setCardCity('Delhi')
+            setCardTeachingModes(['In-Person', 'Online'])
+            setCardBio('Professional boxing coach specializing in stance biomechanics, power generation, defensive slip-drills, and fight conditioning.')
+            setCardExperience('6+ Years')
+            setCardImages([
+              'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200',
+              'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&q=80&w=1200',
+              'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=1200',
+            ])
+            setCardIsPublished(false)
+            setCardRating(5.0)
+            setCardReviews(14)
+            setCardLearners(28)
+            setCardSlug('coach-alex-morgan-demo')
+          }
+
+          setServices([
+            { id: 'demo-svc-1', name: '1-on-1 Boxing Technique & Pad Work', duration: '60 min', mode: 'in-person', price: 1200, bookingsCount: 16, active: true },
+            { id: 'demo-svc-2', name: 'Fight Conditioning & Sparring Drills', duration: '90 min', mode: 'in-person', price: 1800, bookingsCount: 8, active: true },
+            { id: 'demo-svc-3', name: 'Online Video Stance Breakdown', duration: '45 min', mode: 'online', price: 900, bookingsCount: 4, active: true },
+          ])
+
+          setCalendarSlots([
+            { id: 'demo-slot-1', day: 'Monday', time: '07:00 AM - 08:00 AM', title: 'Morning Pad Work', type: 'in-person', status: 'booked', student: 'Rahul Sharma' },
+            { id: 'demo-slot-2', day: 'Monday', time: '06:00 PM - 07:00 PM', title: 'Defense & Footwork', type: 'in-person', status: 'open', student: null },
+            { id: 'demo-slot-3', day: 'Wednesday', time: '06:00 PM - 07:00 PM', title: 'Sparring Fundamentals', type: 'in-person', status: 'booked', student: 'Amit Verma' },
+            { id: 'demo-slot-4', day: 'Saturday', time: '10:00 AM - 11:00 AM', title: 'Weekend Combat Conditioning', type: 'in-person', status: 'open', student: null },
+          ])
+
+          setUpcomingSessions([
+            {
+              id: 'demo-b-1',
+              learnerName: 'Rahul Sharma',
+              service: '1-on-1 Boxing Technique & Pad Work',
+              mode: 'in-person',
+              time: 'Today · 07:00 PM',
+              status: 'confirmed',
+              locationOrLink: 'Connaught Place Ring Studio, Delhi',
+              price: 1200,
+            },
+            {
+              id: 'demo-b-2',
+              learnerName: 'Sneha Kapoor',
+              service: 'Fight Conditioning & Sparring Drills',
+              mode: 'in-person',
+              time: 'Tomorrow · 06:00 PM',
+              status: 'confirmed',
+              locationOrLink: 'Connaught Place Ring Studio, Delhi',
+              price: 1800,
+            },
+            {
+              id: 'demo-b-3',
+              learnerName: 'Karan Mehra',
+              service: 'Online Video Stance Breakdown',
+              mode: 'online',
+              time: 'Wed, Sep 16 · 05:00 PM',
+              status: 'completed',
+              locationOrLink: 'https://mastrive.vercel.app/demo',
+              price: 900,
+            },
+          ])
+
+          setRequests([
+            {
+              id: 'req-demo-1',
+              name: 'Vikas Malhotra',
+              service: '1-on-1 Boxing Technique & Pad Work',
+              mode: 'in-person',
+              location: 'Delhi NCR',
+              price: 1200,
+              message: 'Looking to improve my orthodox footwork and counter-punching for amateur sparring.',
+              status: 'pending',
+              time: '06:30 PM',
+              date: 'Thursday, Sep 17',
+            },
+          ])
+
+          setLoading(false)
           return
         }
 
@@ -377,7 +497,7 @@ export default function InstructorDashboard() {
           // 1. Fetch profile
           supabase
             .from('profiles')
-            .select('*')
+            .select('full_name, skill, role')
             .eq('id', user.id)
             .maybeSingle(),
           // 2. Fetch instructor application
@@ -415,7 +535,7 @@ export default function InstructorDashboard() {
         if (!profile && user.email) {
           const { data: pEmail } = await supabase
             .from('profiles')
-            .select('*')
+            .select('full_name, skill, role')
             .eq('email', user.email)
             .maybeSingle()
           if (pEmail) profile = pEmail
@@ -425,6 +545,9 @@ export default function InstructorDashboard() {
           if (profile.skill) setProfileSkill(profile.skill)
         }
 
+        const profilePic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+        setAvatarUrl(profilePic)
+
         // Process application
         const appData = appRes.status === 'fulfilled' ? appRes.value.data : null
         if (appData) {
@@ -432,48 +555,8 @@ export default function InstructorDashboard() {
           if (appData.skill && !profile?.skill) setProfileSkill(appData.skill)
         }
 
-        // Process instructor card data & resolve avatar
+        // Process instructor card data
         const instData = instructorRes.status === 'fulfilled' ? instructorRes.value.data : null
-
-        // 1. Check local cached avatar
-        let resolvedAvatar: string | null = null
-        if (typeof window !== 'undefined') {
-          const cached = localStorage.getItem(`mastrive_avatar_${user.id}`)
-          if (cached && !cached.includes('/hero/') && !cached.includes('/instructors/ikjot')) {
-            resolvedAvatar = cached
-          }
-        }
-
-        // 2. Look for any custom uploaded photo in instructor images
-        let customUploadedPhoto: string | null = null
-        if (instData && Array.isArray(instData.image_urls) && instData.image_urls.length > 0) {
-          customUploadedPhoto = instData.image_urls.find((u: string) =>
-            typeof u === 'string' && (u.includes('supabase.co') || u.includes('/cards/') || u.includes('/avatars/'))
-          ) || null
-        }
-
-        // 3. Check user auth metadata
-        const metaPic = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
-
-        // 4. Check profile row
-        const profileAvatar = (profile as any)?.avatar_url || null
-
-        // Priority resolution
-        resolvedAvatar =
-          customUploadedPhoto ||
-          resolvedAvatar ||
-          metaPic ||
-          profileAvatar ||
-          (instData?.image_urls?.[0] ? instData.image_urls[0] : null)
-
-        if (resolvedAvatar) {
-          setAvatarUrl(resolvedAvatar)
-          setAvatarError(false)
-          if (typeof window !== 'undefined') {
-            localStorage.setItem(`mastrive_avatar_${user.id}`, resolvedAvatar)
-          }
-        }
-
         if (instData) {
           setCardId(instData.id)
           setCardDisplayName(instData.display_name || profile?.full_name || appData?.full_name || initialName || 'Instructor')
@@ -499,16 +582,9 @@ export default function InstructorDashboard() {
           if (instData.experience_years) setCardExperience(String(instData.experience_years))
           
           if (Array.isArray(instData.image_urls) && instData.image_urls.length > 0) {
-            if (customUploadedPhoto && instData.image_urls.includes(customUploadedPhoto)) {
-              setCardImages([
-                customUploadedPhoto,
-                ...instData.image_urls.filter((u: string) => u !== customUploadedPhoto)
-              ])
-            } else {
-              setCardImages(instData.image_urls)
-            }
-          } else if (resolvedAvatar) {
-            setCardImages([resolvedAvatar])
+            setCardImages(instData.image_urls)
+          } else if (profilePic) {
+            setCardImages([profilePic])
           } else {
             setCardImages(['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200'])
           }
@@ -526,8 +602,8 @@ export default function InstructorDashboard() {
           setCardDisplayName(fallbackName)
           setCardSkill(fallbackSkill)
           setCardPrice(fallbackPrice)
-          if (resolvedAvatar) {
-            setCardImages([resolvedAvatar])
+          if (profilePic) {
+            setCardImages([profilePic])
           } else {
             setCardImages(['https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?auto=format&fit=crop&q=80&w=1200'])
           }
@@ -801,14 +877,8 @@ export default function InstructorDashboard() {
     const file = e.target.files?.[0]
     if (!file || !user) return
 
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (JPEG, PNG, WebP).')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Image file size exceeds 5MB limit. Please choose a smaller photo.')
-      return
-    }
+    if (!file.type.startsWith('image/')) return
+    if (file.size > 5 * 1024 * 1024) return
 
     setUploadingAvatar(true)
     const supabase = createClient()
@@ -816,7 +886,6 @@ export default function InstructorDashboard() {
     try {
       const localPreview = URL.createObjectURL(file)
       setAvatarUrl(localPreview)
-      setAvatarError(false)
 
       const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
       const path = `avatars/${user.id}-${Date.now()}.${ext}`
@@ -825,74 +894,40 @@ export default function InstructorDashboard() {
       try {
         const { error: uploadErr } = await supabase.storage
           .from('instructor-images')
-          .upload(path, file, { contentType: file.type, upsert: false })
+          .upload(path, file, { contentType: file.type, upsert: true })
 
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
           publicUrl = urlData.publicUrl
-        } else {
-          console.warn('Storage upload note:', uploadErr.message)
         }
       } catch (err) {
         console.warn('Storage upload error:', err)
       }
 
-      // If upload failed, fallback to base64
-      if (!publicUrl) {
-        const reader = new FileReader()
-        reader.onload = (evt) => {
-          const base64 = evt.target?.result as string
-          if (base64) {
-            setAvatarUrl(base64)
-            setAvatarError(false)
-            setCardImages((prev) => [base64, ...prev.filter((u) => u !== base64)])
-          }
+      if (publicUrl) {
+        setAvatarUrl(publicUrl)
+
+        await supabase.auth.updateUser({
+          data: { avatar_url: publicUrl }
+        })
+
+        try {
+          const updatedImages = cardImages.length > 0
+            ? [publicUrl, ...cardImages.filter((u) => u !== publicUrl)]
+            : [publicUrl]
+          setCardImages(updatedImages)
+          await supabase
+            .from('instructors')
+            .update({ image_urls: updatedImages })
+            .or(`id.eq.${user.id},user_id.eq.${user.id}`)
+        } catch {
+          // Non-critical
         }
-        reader.readAsDataURL(file)
-        return
       }
-
-      setAvatarUrl(publicUrl)
-      setAvatarError(false)
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`mastrive_avatar_${user.id}`, publicUrl)
-      }
-
-      await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl }
-      })
-
-      const updatedImages = cardImages.length > 0
-        ? [publicUrl, ...cardImages.filter((u) => u !== publicUrl)]
-        : [publicUrl]
-      setCardImages(updatedImages)
-
-      // Persist to database via API route
-      await fetch('/api/instructor/card', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          displayName: cardDisplayName.trim() || profileName,
-          skill: cardSkill.trim() || profileSkill,
-          category: cardCategory,
-          pricePerHour: cardPrice,
-          locality: cardLocality,
-          city: cardCity,
-          teachingModes: cardTeachingModes,
-          bio: cardBio,
-          experienceYears: cardExperience,
-          imageUrls: updatedImages,
-          isPublished: cardIsPublished,
-          slug: cardSlug,
-        }),
-      }).catch((err) => console.warn('Card persist note:', err))
     } catch (err) {
       console.warn('Avatar upload notice:', err)
     } finally {
       setUploadingAvatar(false)
-      if (dashAvatarInputRef.current) {
-        dashAvatarInputRef.current.value = ''
-      }
     }
   }
 
@@ -1035,15 +1070,44 @@ export default function InstructorDashboard() {
     setNewImageUrlInput('')
   }
 
+  // Exit Demo Mode
+  const handleExitDemo = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mastrive_demo_instructor')
+      localStorage.removeItem('mastrive_demo_card')
+    }
+    setIsDemoMode(false)
+    router.push('/login')
+  }
+
   // Upload image file to Supabase storage bucket instructor-images
   const handleUploadCardImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !user) return
+    if (!file) return
 
     if (file.size > 5 * 1024 * 1024) {
       alert('Image file size exceeds 5MB limit. Please choose a smaller photo.')
       return
     }
+
+    if (isDemoMode) {
+      setUploadingCardImage(true)
+      const reader = new FileReader()
+      reader.onload = (evt) => {
+        const base64 = evt.target?.result as string
+        if (base64) {
+          setCardImages((prev) => [...prev, base64])
+        }
+        setUploadingCardImage(false)
+      }
+      reader.readAsDataURL(file)
+      if (cardImageFileInputRef.current) {
+        cardImageFileInputRef.current.value = ''
+      }
+      return
+    }
+
+    if (!user) return
 
     setUploadingCardImage(true)
     try {
@@ -1053,7 +1117,7 @@ export default function InstructorDashboard() {
 
       const { error: uploadErr } = await supabase.storage
         .from('instructor-images')
-        .upload(path, file, { contentType: file.type, upsert: false })
+        .upload(path, file, { contentType: file.type, upsert: true })
 
       if (uploadErr) {
         console.warn('Storage upload note:', uploadErr.message)
@@ -1061,9 +1125,7 @@ export default function InstructorDashboard() {
         reader.onload = (evt) => {
           const base64 = evt.target?.result as string
           if (base64) {
-            setCardImages((prev) => [base64, ...prev.filter((u) => u !== base64)])
-            setAvatarUrl(base64)
-            setAvatarError(false)
+            setCardImages((prev) => [...prev, base64])
           }
         }
         reader.readAsDataURL(file)
@@ -1072,14 +1134,7 @@ export default function InstructorDashboard() {
 
       const { data: urlData } = supabase.storage.from('instructor-images').getPublicUrl(path)
       if (urlData?.publicUrl) {
-        const newUrl = urlData.publicUrl
-        setCardImages((prev) => [newUrl, ...prev.filter((u) => u !== newUrl)])
-        setAvatarUrl(newUrl)
-        setAvatarError(false)
-        if (typeof window !== 'undefined' && user?.id) {
-          localStorage.setItem(`mastrive_avatar_${user.id}`, newUrl)
-        }
-        supabase.auth.updateUser({ data: { avatar_url: newUrl } }).catch(() => {})
+        setCardImages((prev) => [...prev, urlData.publicUrl])
       }
     } catch (err) {
       console.error('Failed to upload image:', err)
@@ -1105,12 +1160,48 @@ export default function InstructorDashboard() {
 
   // Save Card Changes to API & Supabase
   const handleSaveCard = async () => {
-    if (!user) return
     if (!cardDisplayName.trim()) {
       setCardSaveStatus('error')
       setCardSaveMessage('Display name cannot be empty.')
       return
     }
+
+    if (isDemoMode) {
+      setSavingCard(true)
+      setTimeout(() => {
+        const demoPayload = {
+          displayName: cardDisplayName.trim(),
+          skill: cardSkill.trim(),
+          category: cardCategory,
+          pricePerHour: cardPrice,
+          locality: cardLocality.trim(),
+          city: cardCity.trim(),
+          teachingModes: cardTeachingModes,
+          bio: cardBio.trim(),
+          experienceYears: cardExperience.trim(),
+          imageUrls: cardImages,
+          isPublished: false, // strictly enforce false for demo
+          slug: 'coach-alex-morgan-demo',
+        }
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('mastrive_demo_card', JSON.stringify(demoPayload))
+        }
+        setProfileName(cardDisplayName.trim())
+        setProfileSkill(cardSkill.trim())
+        if (cardImages[0]) {
+          setAvatarUrl(cardImages[0])
+        }
+        setSavingCard(false)
+        setCardSaveStatus('success')
+        setCardSaveMessage('Demo card updated and saved locally! (Note: is_published remains false so this card is not visible on public cards).')
+        setTimeout(() => {
+          setCardSaveStatus('idle')
+        }, 5000)
+      }, 500)
+      return
+    }
+
+    if (!user) return
 
     setSavingCard(true)
     setCardSaveStatus('idle')
@@ -1148,12 +1239,6 @@ export default function InstructorDashboard() {
       setProfileSkill(cardSkill.trim())
       if (cardImages[0]) {
         setAvatarUrl(cardImages[0])
-        setAvatarError(false)
-        if (typeof window !== 'undefined' && user?.id) {
-          localStorage.setItem(`mastrive_avatar_${user.id}`, cardImages[0])
-        }
-        const supabase = createClient()
-        supabase.auth.updateUser({ data: { avatar_url: cardImages[0] } }).catch(() => {})
       }
 
       setCardSaveStatus('success')
@@ -1397,6 +1482,21 @@ export default function InstructorDashboard() {
               <span className="absolute -right-0.5 -top-0.5 flex size-2.5 rounded-full bg-[#e01e37] ring-2 ring-[#0b0e14]" />
             </button>
 
+            {/* Demo Mode Badge if active */}
+            {isDemoMode && (
+              <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+                <Sparkles className="size-3.5 text-amber-400 shrink-0" />
+                <span className="hidden md:inline font-semibold">Demo Account</span>
+                <button
+                  type="button"
+                  onClick={handleExitDemo}
+                  className="rounded-lg bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-white/20 transition ml-1"
+                >
+                  Exit
+                </button>
+              </div>
+            )}
+
             {/* Profile Pill */}
             <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#12161f]/80 px-3 py-1.5 transition hover:border-white/15">
               <div 
@@ -1404,25 +1504,10 @@ export default function InstructorDashboard() {
                 className="group relative flex size-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#e01e37] to-[#900d1f] text-xs font-bold text-white cursor-pointer"
                 title="Click to change profile picture"
               >
-                {avatarUrl && !avatarError ? (
-                  <Image
-                    src={avatarUrl}
-                    alt="Profile"
-                    fill
-                    sizes="32px"
-                    className="size-full object-cover"
-                    onError={() => {
-                      setAvatarError(true)
-                      if (user?.id && typeof window !== 'undefined') {
-                        localStorage.removeItem(`mastrive_avatar_${user.id}`)
-                      }
-                    }}
-                    unoptimized
-                  />
+                {avatarUrl ? (
+                  <Image src={avatarUrl} alt={profileName} fill sizes="32px" className="size-full object-cover" />
                 ) : (
-                  <span className="text-[11px] font-black leading-none text-white tracking-tight">
-                    {userInitials}
-                  </span>
+                  profileName.substring(0, 2).toUpperCase()
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                   {uploadingAvatar ? (
@@ -1449,6 +1534,39 @@ export default function InstructorDashboard() {
 
         {/* ===== PAGE CONTENT ===== */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+
+          {/* Demo Mode Notice Banner */}
+          {isDemoMode && (
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-[#12161f] to-[#12161f] p-4 text-xs text-amber-200 shadow-md">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400">
+                  <Sparkles className="size-4" />
+                </div>
+                <div>
+                  <p className="font-bold text-white">
+                    Viewing Demo Instructor Account: <span className="text-amber-400">Coach Alex Morgan</span>
+                  </p>
+                  <p className="text-[11px] text-amber-200/80 mt-0.5">
+                    This demo account is set to <strong className="text-white">Unpublished (is_published: false)</strong> and is not displayed as an instructor card in the public directory. You can test all dashboard features and Card &amp; Media customizations.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setActiveTab('card')}
+                  className="rounded-xl bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 text-xs font-bold text-amber-300 hover:bg-amber-500/30 transition"
+                >
+                  Test Card &amp; Media →
+                </button>
+                <button
+                  onClick={handleExitDemo}
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10 transition"
+                >
+                  Exit Demo
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* OVERVIEW TAB */}
           {activeTab === 'dash' && (
